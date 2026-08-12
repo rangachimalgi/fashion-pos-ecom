@@ -1,12 +1,14 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
 import { ShoppingBag, Search, Heart, User, Sparkles, Check } from 'lucide-react';
 
 export default function CustomerStorefront() {
+  const router = useRouter();
   const [products, setProducts] = useState<CompleteProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -189,7 +191,15 @@ export default function CustomerStorefront() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
             {filteredProducts.map((product) => (
               <div key={product.id} className="group relative space-y-3">
-                <div className="bg-slate-50 rounded-xl aspect-[3/4] overflow-hidden border border-slate-100 relative shadow-sm transition duration-300 group-hover:shadow-md">
+                <div
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => router.push(`/product/${product.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') router.push(`/product/${product.id}`);
+                  }}
+                  className="bg-slate-50 rounded-xl aspect-[3/4] overflow-hidden border border-slate-100 relative shadow-sm transition duration-300 group-hover:shadow-md cursor-pointer"
+                >
                   {product.image_url ? (
                     <img
                       src={product.image_url}
@@ -207,7 +217,10 @@ export default function CustomerStorefront() {
                 </div>
 
                 <div className="space-y-1 px-1">
-                  <h3 className="font-extrabold text-sm text-slate-900 tracking-tight truncate group-hover:text-rose-500 transition">
+                  <h3
+                    onClick={() => router.push(`/product/${product.id}`)}
+                    className="font-extrabold text-sm text-slate-900 tracking-tight truncate group-hover:text-rose-500 transition cursor-pointer"
+                  >
                     {product.name}
                   </h3>
                   <div className="flex items-center gap-2">
