@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { CompleteProduct,ProductVariant } from '../types/product';
+import { persist } from 'zustand/middleware';
+import { CompleteProduct, ProductVariant } from '../types/product';
 
 export interface CartItem {
     product: Omit<CompleteProduct, 'variants'>;
@@ -9,46 +10,104 @@ export interface CartItem {
 
 interface CartState {
     cart: CartItem[];
+    isBagOpen: boolean;
+    openBag: () => void;
+    closeBag: () => void;
+    toggleBag: () => void;
     addItemToCart: (product: CompleteProduct, variant: ProductVariant) => void;
+    incrementItem: (variantId: string) => void;
+    decrementItem: (variantId: string) => void;
     removeItemFromCart: (variantId: string) => void;
     clearCart: () => void;
     getGrandTotal: () => number;
+    getItemCount: () => number;
 }
 
-export const useCartStore = create<CartState>((set, get) => ({
-    cart: [],
+export const useCartStore = create<CartState>()(
+    persist(
+        (set, get) => ({
+            cart: [],
+            isBagOpen: false,
 
-    addItemToCart: (product, variant) => {
-        set((state) => {
-            const existingItemIndex = state.cart.findIndex(
-                (item) => item.variant.id === variant.id
-            );
+            openBag: () => set({ isBagOpen: true }),
+            closeBag: () => set({ isBagOpen: false }),
+            toggleBag: () => set((state) => ({ isBagOpen: !state.isBagOpen })),
 
-            if (existingItemIndex > -1) {
-                const updatedCart = [...state.cart];
-                updatedCart[existingItemIndex].quantity += 1;
-                return { cart: updatedCart };
-            }
+            addItemToCart: (product, variant) => {
+                set((state) => {
+                    const existingItemIndex = state.cart.findIndex(
+                        (item) => item.variant.id === variant.id
+                    );
 
-            const { variants, ...parentProductDetails } = product;
-            return {
-                cart: [...state.cart, { product: parentProductDetails, variant, quantity: 1 }],
-            };
-        });
-    },
+                    if (existingItemIndex > -1) {
+                        const existing = state.cart[existingItemIndex];
+                        if (existing.quantity >= variant.stock_quantity) {
+                            return { cart: state.cart, isBagOpen: true };
+                        }
 
-    removeItemFromCart: (variantId) => {
-        set((state) => ({
-            cart: state.cart.filter((item) => item.variant.id !== variantId),
-        }));
-    },
+                        const updatedCart = [...state.cart];
+                        updatedCart[existingItemIndex] = {
+                            ...existing,
+                            quantity: existing.quantity + 1,
+                        };
+                        return { cart: updatedCart, isBagOpen: true };
+                    }
 
-    clearCart: () => set({ cart: [] }),
+                    const { variants, ...parentProductDetails } = product;
+                    return {
+                        isBagOpen: true,
+                        cart: [
+                            ...state.cart,
+                            { product: parentProductDetails, variant, quantity: 1 },
+                        ],
+                    };
+                });
+            },
 
-    getGrandTotal: () => {
-        return get().cart.reduce(
-            (sum, item) => sum + item.product.base_price * item.quantity,
-            0
-        );
-    },
-}));
+            incrementItem: (variantId) => {
+                set((state) => ({
+                    cart: state.cart.map((item) => {
+                        if (item.variant.id !== variantId) return item;
+                        if (item.quantity >= item.variant.stock_quantity) return item;
+                        return { ...item, quantity: item.quantity + 1 };
+                    }),
+                }));
+            },
+
+            decrementItem: (variantId) => {
+                set((state) => ({
+                    cart: state.cart
+                        .map((item) =>
+                            item.variant.id === variantId
+                                ? { ...item, quantity: item.quantity - 1 }
+                                : item
+                        )
+                        .filter((item) => item.quantity > 0),
+                }));
+            },
+
+            removeItemFromCart: (variantId) => {
+                set((state) => ({
+                    cart: state.cart.filter((item) => item.variant.id !== variantId),
+                }));
+            },
+
+            clearCart: () => set({ cart: [] }),
+
+            getGrandTotal: () => {
+                return get().cart.reduce(
+                    (sum, item) => sum + item.product.base_price * item.quantity,
+                    0
+                );
+            },
+
+            getItemCount: () => {
+                return get().cart.reduce((sum, item) => sum + item.quantity, 0);
+            },
+        }),
+        {
+            name: 'vibewear-cart',
+            partialize: (state) => ({ cart: state.cart }),
+        }
+    )
+);

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
 import { ShoppingBag, ChevronLeft, Star, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
+import { BagButton } from '@/components/cart/CartDrawer';
 
 export default function ProductDetailsView() {
   const params = useParams();
@@ -71,7 +72,6 @@ export default function ProductDetailsView() {
   const handleAddToBag = () => {
     if (!selectedVariant) return;
     addItemToCart(product, selectedVariant);
-    alert(`🎉 Added ${product.name} (Size: ${selectedVariant.size}) to your bag!`);
   };
 
   return (
@@ -82,9 +82,10 @@ export default function ProductDetailsView() {
         <button onClick={() => router.push('/')} className="p-1 hover:bg-slate-50 rounded-full transition text-slate-600">
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex-1">
           {product.brand} / {product.name}
         </span>
+        <BagButton />
       </div>
 
       {/* CORE DISPLAY WINDOW SECTION */}

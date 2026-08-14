@@ -2,10 +2,45 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '@/store/useCartStore';
+import type { PaymentMethod } from '@/types/order';
 
 export default function BillingTerminal() {
   const { cart, removeItemFromCart, getGrandTotal, clearCart } = useCartStore();
-  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI'>('CASH');
+  const [paymentMode, setPaymentMode] = useState<PaymentMethod>('CASH');
+  const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const handleCloseInvoice = async () => {
+    if (cart.length === 0 || submitting) return;
+
+    setSubmitting(true);
+    setStatus(null);
+
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_method: paymentMode,
+          source: 'POS',
+          items: cart.map((item) => ({
+            variant_id: item.variant.id,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Checkout failed');
+
+      clearCart();
+      setStatus(`Invoice ${payload.order_id} posted via ${paymentMode}`);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Checkout failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-slate-900 text-white font-mono p-6 gap-6">
@@ -118,15 +153,15 @@ export default function BillingTerminal() {
           </div>
           
           <div className="space-y-2">
+            {status && (
+              <p className="text-xs text-center text-emerald-300 font-sans">{status}</p>
+            )}
             <button 
-              disabled={cart.length === 0}
-              onClick={() => {
-                alert(`Invoice Processed successfully via ${paymentMode}!`);
-                clearCart();
-              }}
+              disabled={cart.length === 0 || submitting}
+              onClick={handleCloseInvoice}
               className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-black py-4 rounded-lg text-lg tracking-wider transition transform active:scale-95 shadow-md"
             >
-              CLOSE & PRINT INVOICE
+              {submitting ? 'POSTING INVOICE...' : 'CLOSE & PRINT INVOICE'}
             </button>
           </div>
         </div>

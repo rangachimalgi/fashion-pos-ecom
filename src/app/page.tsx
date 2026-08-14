@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
-import { ShoppingBag, Search, Heart, User, Sparkles, Check } from 'lucide-react';
+import { Search, Heart, User, Sparkles, Check } from 'lucide-react';
+import { BagButton } from '@/components/cart/CartDrawer';
 
 export default function CustomerStorefront() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export default function CustomerStorefront() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
-  const { cart, addItemToCart } = useCartStore();
+  const { addItemToCart } = useCartStore();
 
   useEffect(() => {
     async function fetchFashionCatalog() {
@@ -51,8 +52,6 @@ export default function CustomerStorefront() {
         product.variants.some((v) => v.color.toLowerCase().includes(query))
     );
   }, [products, searchQuery]);
-
-  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleAddToCart = (product: CompleteProduct, variant: ProductVariant) => {
     if (variant.stock_quantity <= 0) return;
@@ -99,15 +98,7 @@ export default function CustomerStorefront() {
             <Heart className="w-5 h-5 stroke-[1.5]" />
             <span className="text-[10px] font-bold mt-1 uppercase tracking-tight">Wishlist</span>
           </div>
-          <Link href="/billing" className="flex flex-col items-center cursor-pointer hover:text-rose-500 transition relative">
-            <ShoppingBag className="w-5 h-5 stroke-[1.5]" />
-            <span className="text-[10px] font-bold mt-1 uppercase tracking-tight">Bag</span>
-            {totalCartCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center scale-95 px-1">
-                {totalCartCount}
-              </span>
-            )}
-          </Link>
+          <BagButton />
         </div>
       </header>
 
