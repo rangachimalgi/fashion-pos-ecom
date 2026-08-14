@@ -1,17 +1,17 @@
 "use client";
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useCartStore } from '@/store/useCartStore';
+import { usePosTicketStore } from '@/store/usePosTicketStore';
 import type { PaymentMethod } from '@/types/order';
 
 export default function BillingTerminal() {
-  const { cart, removeItemFromCart, getGrandTotal, clearCart } = useCartStore();
+  const { ticket, removeItemFromTicket, getGrandTotal, clearTicket } = usePosTicketStore();
   const [paymentMode, setPaymentMode] = useState<PaymentMethod>('CASH');
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   const handleCloseInvoice = async () => {
-    if (cart.length === 0 || submitting) return;
+    if (ticket.length === 0 || submitting) return;
 
     setSubmitting(true);
     setStatus(null);
@@ -23,7 +23,7 @@ export default function BillingTerminal() {
         body: JSON.stringify({
           payment_method: paymentMode,
           source: 'POS',
-          items: cart.map((item) => ({
+          items: ticket.map((item) => ({
             variant_id: item.variant.id,
             quantity: item.quantity,
           })),
@@ -33,7 +33,7 @@ export default function BillingTerminal() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Checkout failed');
 
-      clearCart();
+      clearTicket();
       setStatus(`Invoice ${payload.order_id} posted via ${paymentMode}`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Checkout failed');
@@ -77,7 +77,7 @@ export default function BillingTerminal() {
               </tr>
             </thead>
             <tbody>
-              {cart.map((item) => (
+              {ticket.map((item) => (
                 <tr key={item.variant.id} className="border-b border-slate-700/40 hover:bg-slate-700/20">
                   <td className="py-4 font-semibold text-slate-200">{item.product.name}</td>
                   <td><span className="bg-slate-700 px-2 py-1 rounded text-xs font-bold">{item.variant.size}</span></td>
@@ -87,7 +87,7 @@ export default function BillingTerminal() {
                   <td className="text-right font-extrabold text-emerald-300">₹{item.product.base_price * item.quantity}</td>
                   <td className="text-center">
                     <button 
-                      onClick={() => removeItemFromCart(item.variant.id)}
+                      onClick={() => removeItemFromTicket(item.variant.id)}
                       className="text-rose-400 hover:text-rose-600 transition font-sans text-lg font-bold"
                     >
                       ✕
@@ -98,7 +98,7 @@ export default function BillingTerminal() {
             </tbody>
           </table>
 
-          {cart.length === 0 && (
+          {ticket.length === 0 && (
             <div className="text-center text-slate-500 mt-32 space-y-2">
               <div className="text-lg font-bold animate-pulse">[ SCANNER READY ]</div>
               <div className="text-xs font-sans text-slate-600 max-w-sm mx-auto">
@@ -157,7 +157,7 @@ export default function BillingTerminal() {
               <p className="text-xs text-center text-emerald-300 font-sans">{status}</p>
             )}
             <button 
-              disabled={cart.length === 0 || submitting}
+              disabled={ticket.length === 0 || submitting}
               onClick={handleCloseInvoice}
               className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-black py-4 rounded-lg text-lg tracking-wider transition transform active:scale-95 shadow-md"
             >

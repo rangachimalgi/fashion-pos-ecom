@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import {
   Dialog,
@@ -14,6 +15,7 @@ import { useCartStore } from "@/store/useCartStore";
 import type { PaymentMethod } from "@/types/order";
 
 export function CartDrawer() {
+  const pathname = usePathname();
   const {
     cart,
     isBagOpen,
@@ -31,6 +33,10 @@ export function CartDrawer() {
   const [receipt, setReceipt] = useState<{ orderId: string; total: number } | null>(null);
 
   const total = getGrandTotal();
+
+  if (pathname.startsWith("/billing")) {
+    return null;
+  }
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
