@@ -92,7 +92,7 @@ export default function ProductDetailsView() {
       <main className="max-w-6xl mx-auto px-6 mt-8 grid grid-cols-1 md:grid-cols-12 gap-10">
         
         {/* LEFT COLUMN: HERO IMAGE BOX */}
-        <div className="md:col-span-6 bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 aspect-[3/4] relative">
+        <div className="md:col-span-6 bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 aspect-3/4 relative">
           {product.image_url ? (
             <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
           ) : (
@@ -141,7 +141,7 @@ export default function ProductDetailsView() {
                     key={v.id}
                     disabled={!hasStock}
                     onClick={() => setSelectedVariant(v)}
-                    className={`h-12 px-5 text-xs font-black tracking-wider rounded-xl border transition flex items-center justify-center min-w-[54px] ${
+                    className={`h-12 px-5 text-xs font-black tracking-wider rounded-xl border transition flex items-center justify-center min-w-13.5 ${
                       isSelected
                         ? 'border-slate-900 bg-slate-900 text-white shadow-md shadow-slate-900/20'
                         : hasStock
