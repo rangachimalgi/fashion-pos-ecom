@@ -1,15 +1,15 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
-import { Sparkles, Check } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { StoreHeader } from '@/components/store/StoreHeader';
+import { NewArrivalsSlider } from '@/components/store/NewArrivalsSlider';
+import { Button } from '@/components/ui/button';
 
 export default function CustomerStorefront() {
-  const router = useRouter();
   const [products, setProducts] = useState<CompleteProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,7 +66,7 @@ export default function CustomerStorefront() {
       
       <StoreHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
-      {/* 2. TRENDING CAMPAIGN HERO BANNER */}
+      {/* Campaign hero */}
       <section className="px-6 py-6">
         <div className="bg-linear-to-r from-amber-50 via-rose-50 to-purple-50 rounded-2xl p-8 md:p-12 relative overflow-hidden flex flex-col justify-center min-h-65 border border-rose-100/30">
           <div className="max-w-md space-y-3 z-10">
@@ -80,12 +80,12 @@ export default function CustomerStorefront() {
               Discover clean fits, high-quality heavy drops, and premium apparel designed to make a statement every single day.
             </p>
             <div className="pt-2">
-              <button
+              <Button
                 onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}
-                className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs tracking-wider uppercase px-6 py-3 rounded-lg shadow-sm transition active:scale-95"
+                className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs tracking-wider uppercase px-6 py-3 h-auto rounded-lg shadow-sm"
               >
                 Explore Collection
-              </button>
+              </Button>
             </div>
           </div>
           <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-rose-300/10 rounded-full blur-2xl pointer-events-none"></div>
@@ -93,139 +93,23 @@ export default function CustomerStorefront() {
         </div>
       </section>
 
-      {/* 3. PREMIUM PRODUCT MATRIX SECTION */}
-      <main id="catalog" className="px-6 py-8 space-y-6">
-        <div className="flex justify-between items-baseline border-b border-slate-100 pb-4">
-          <h2 className="text-lg font-black uppercase tracking-wider text-slate-900">
-            Trending Additions{' '}
-            <span className="text-slate-400 font-normal text-sm font-mono">
-              ({filteredProducts.length}{searchQuery ? ` of ${products.length}` : ''})
-            </span>
-          </h2>
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="text-xs font-bold text-slate-500 hover:text-rose-500 transition"
-            >
-              Clear search
-            </button>
-          )}
-        </div>
+      <NewArrivalsSlider
+        products={filteredProducts}
+        loading={loading}
+        searchQuery={searchQuery}
+        totalCount={products.length}
+        addedVariantId={addedVariantId}
+        onClearSearch={() => setSearchQuery('')}
+        onAddToCart={handleAddToCart}
+      />
 
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="space-y-3 animate-pulse">
-                <div className="bg-slate-100 rounded-xl aspect-3/4 w-full"></div>
-                <div className="h-3 bg-slate-100 rounded w-1/3"></div>
-                <div className="h-4 bg-slate-100 rounded w-3/4"></div>
-                <div className="h-3 bg-slate-100 rounded w-1/4"></div>
-              </div>
-            ))}
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-20 bg-slate-50 rounded-2xl border border-dashed border-slate-200 max-w-md mx-auto space-y-3">
-            <p className="font-bold text-slate-500 text-sm">
-              {searchQuery ? '[ NO MATCHES FOR YOUR SEARCH ]' : '[ STOCK INVENTORY POOL EMPTY ]'}
-            </p>
-            <p className="text-xs text-slate-400 max-w-xs mx-auto">
-              {searchQuery
-                ? 'Try a different brand, style, or color keyword.'
-                : 'Products will appear here once the catalog is synced from Supabase.'}
-            </p>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-xs font-bold text-rose-500 hover:underline"
-              >
-                Reset filters
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <div key={product.id} className="group relative space-y-3">
-                <div
-                  role="link"
-                  tabIndex={0}
-                  onClick={() => router.push(`/product/${product.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') router.push(`/product/${product.id}`);
-                  }}
-                  className="bg-slate-50 rounded-xl aspect-3/4 overflow-hidden border border-slate-100 relative shadow-sm transition duration-300 group-hover:shadow-md cursor-pointer"
-                >
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs font-bold bg-slate-100 p-6 text-center">
-                      No Imagery Available
-                    </div>
-                  )}
-                  <span className="absolute top-3 left-3 bg-white text-slate-900 text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-sm tracking-wider">
-                    {product.brand}
-                  </span>
-                </div>
-
-                <div className="space-y-1 px-1">
-                  <h3
-                    onClick={() => router.push(`/product/${product.id}`)}
-                    className="font-extrabold text-sm text-slate-900 tracking-tight truncate group-hover:text-rose-500 transition cursor-pointer"
-                  >
-                    {product.name}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className="font-black text-sm text-slate-900">₹{product.base_price}</span>
-                    <span className="text-[10px] text-slate-400 line-through">₹{Math.round(product.base_price * 1.4)}</span>
-                    <span className="text-[10px] text-rose-500 font-extrabold">(40% OFF)</span>
-                  </div>
-
-                  <p className="text-[10px] text-slate-400 font-medium pt-0.5">Tap a size to add to bag</p>
-                  <div className="pt-1 flex flex-wrap gap-1">
-                    {product.variants.map((variant) => {
-                      const inStock = variant.stock_quantity > 0;
-                      const justAdded = addedVariantId === variant.id;
-
-                      return (
-                        <button
-                          key={variant.id}
-                          type="button"
-                          disabled={!inStock}
-                          onClick={() => handleAddToCart(product, variant)}
-                          title={inStock ? `${variant.size} · ${variant.color}` : 'Out of stock'}
-                          className={`text-[9px] font-black px-1.5 py-0.5 rounded border transition flex items-center gap-0.5 ${
-                            justAdded
-                              ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                              : inStock
-                                ? 'border-slate-200 bg-white text-slate-700 hover:border-rose-500 hover:text-rose-500 cursor-pointer'
-                                : 'border-slate-100 bg-slate-50 text-slate-300 line-through cursor-not-allowed'
-                          }`}
-                        >
-                          {justAdded ? <Check className="w-2.5 h-2.5" /> : null}
-                          {variant.size}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
-
-      {/* 4. FOOTER */}
       <footer className="border-t border-slate-100 px-6 py-8 mt-4">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-400">
           <span className="font-black tracking-widest text-slate-700">
-            VIBE<span className="text-rose-500">WEAR</span>
+            VIBE<span className="text-brand">WEAR</span>
           </span>
           <p className="font-medium">Premium streetwear catalog · Synced live from Supabase</p>
-          <Link href="/billing" className="font-bold text-rose-500 hover:underline uppercase tracking-wider">
+          <Link href="/billing" className="font-bold text-brand hover:underline uppercase tracking-wider">
             Go to POS Billing →
           </Link>
         </div>
