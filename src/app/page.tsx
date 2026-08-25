@@ -7,6 +7,7 @@ import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
 import { Search, Heart, User, Sparkles, Check } from 'lucide-react';
 import { BagButton } from '@/components/cart/CartDrawer';
+import { BrandLogo } from '@/components/BrandLogo';
 
 export default function CustomerStorefront() {
   const router = useRouter();
@@ -67,9 +68,7 @@ export default function CustomerStorefront() {
       {/* 1. PREMIUM STICKY NAVIGATION HEADER */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-12">
-          <span className="text-xl font-black tracking-widest text-slate-900 cursor-pointer flex items-center gap-1.5">
-            VIBE<span className="text-rose-500 font-medium">WEAR</span>
-          </span>
+          <BrandLogo />
           <nav className="hidden md:flex items-center gap-8 text-xs font-bold tracking-wider uppercase text-slate-600">
             <span className="hover:text-rose-500 cursor-pointer transition">Men</span>
             <span className="hover:text-rose-500 cursor-pointer transition">Women</span>
