@@ -235,7 +235,7 @@ export function BagButton() {
     <button
       type="button"
       onClick={openBag}
-      className="flex flex-col items-center cursor-pointer hover:text-rose-500 transition relative"
+      className="flex flex-col items-center cursor-pointer hover:text-brand transition relative"
     >
       <ShoppingBag className="w-5 h-5 stroke-[1.5]" />
       <span className="text-[10px] font-bold mt-1 uppercase tracking-tight">Bag</span>

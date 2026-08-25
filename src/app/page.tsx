@@ -5,9 +5,8 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
-import { Search, Heart, User, Sparkles, Check } from 'lucide-react';
-import { BagButton } from '@/components/cart/CartDrawer';
-import { BrandLogo } from '@/components/BrandLogo';
+import { Sparkles, Check } from 'lucide-react';
+import { StoreHeader } from '@/components/store/StoreHeader';
 
 export default function CustomerStorefront() {
   const router = useRouter();
@@ -65,41 +64,7 @@ export default function CustomerStorefront() {
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans">
       
-      {/* 1. PREMIUM STICKY NAVIGATION HEADER */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-12">
-          <BrandLogo />
-          <nav className="hidden md:flex items-center gap-8 text-xs font-bold tracking-wider uppercase text-slate-600">
-            <span className="hover:text-rose-500 cursor-pointer transition">Men</span>
-            <span className="hover:text-rose-500 cursor-pointer transition">Women</span>
-            <span className="hover:text-rose-500 cursor-pointer transition">Kids</span>
-            <span className="hover:text-rose-500 cursor-pointer transition">New Launches</span>
-          </nav>
-        </div>
-
-        <div className="hidden sm:flex items-center bg-slate-50 border border-slate-200/60 rounded-full px-4 py-2 w-80 gap-3 focus-within:border-slate-400 transition">
-          <Search className="w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search for apparel, brands or styles..."
-            className="bg-transparent border-none outline-none text-xs w-full text-slate-700 placeholder:text-slate-400"
-          />
-        </div>
-
-        <div className="flex items-center gap-6 text-slate-700">
-          <div className="flex flex-col items-center cursor-pointer hover:text-rose-500 transition">
-            <User className="w-5 h-5 stroke-[1.5]" />
-            <span className="text-[10px] font-bold mt-1 uppercase tracking-tight">Profile</span>
-          </div>
-          <div className="flex flex-col items-center cursor-pointer hover:text-rose-500 transition">
-            <Heart className="w-5 h-5 stroke-[1.5]" />
-            <span className="text-[10px] font-bold mt-1 uppercase tracking-tight">Wishlist</span>
-          </div>
-          <BagButton />
-        </div>
-      </header>
+      <StoreHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
       {/* 2. TRENDING CAMPAIGN HERO BANNER */}
       <section className="px-6 py-6">

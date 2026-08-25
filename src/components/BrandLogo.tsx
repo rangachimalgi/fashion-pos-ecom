@@ -17,7 +17,8 @@ export function BrandLogo({ className = '', height = 56 }: BrandLogoProps) {
         alt="Brand logo"
         width={width}
         height={height}
-        className="h-14 w-auto object-contain"
+        style={{ height, width: "auto" }}
+        className="w-auto object-contain"
         priority
       />
     </Link>
