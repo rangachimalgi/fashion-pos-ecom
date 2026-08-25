@@ -103,7 +103,7 @@ export default function CustomerStorefront() {
 
       {/* 2. TRENDING CAMPAIGN HERO BANNER */}
       <section className="px-6 py-6">
-        <div className="bg-gradient-to-r from-amber-50 via-rose-50 to-purple-50 rounded-2xl p-8 md:p-12 relative overflow-hidden flex flex-col justify-center min-h-[260px] border border-rose-100/30">
+        <div className="bg-linear-to-r from-amber-50 via-rose-50 to-purple-50 rounded-2xl p-8 md:p-12 relative overflow-hidden flex flex-col justify-center min-h-65 border border-rose-100/30">
           <div className="max-w-md space-y-3 z-10">
             <span className="text-[10px] font-black tracking-widest text-rose-600 bg-rose-500/10 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 uppercase">
               <Sparkles className="w-3 h-3 fill-rose-600" /> Season Launch
@@ -151,7 +151,7 @@ export default function CustomerStorefront() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((n) => (
               <div key={n} className="space-y-3 animate-pulse">
-                <div className="bg-slate-100 rounded-xl aspect-[3/4] w-full"></div>
+                <div className="bg-slate-100 rounded-xl aspect-3/4 w-full"></div>
                 <div className="h-3 bg-slate-100 rounded w-1/3"></div>
                 <div className="h-4 bg-slate-100 rounded w-3/4"></div>
                 <div className="h-3 bg-slate-100 rounded w-1/4"></div>
@@ -188,7 +188,7 @@ export default function CustomerStorefront() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') router.push(`/product/${product.id}`);
                   }}
-                  className="bg-slate-50 rounded-xl aspect-[3/4] overflow-hidden border border-slate-100 relative shadow-sm transition duration-300 group-hover:shadow-md cursor-pointer"
+                  className="bg-slate-50 rounded-xl aspect-3/4 overflow-hidden border border-slate-100 relative shadow-sm transition duration-300 group-hover:shadow-md cursor-pointer"
                 >
                   {product.image_url ? (
                     <img
