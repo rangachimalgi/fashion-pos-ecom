@@ -54,7 +54,7 @@ export function StoreHeader({ searchQuery, onSearchChange }: StoreHeaderProps) {
                 <p className="text-sm font-black uppercase tracking-wider text-slate-900">
                   Coming soon
                 </p>
-                <p className="mt-2 max-w-[14rem] text-xs leading-relaxed text-slate-400">
+                <p className="mt-2 max-w-56 text-xs leading-relaxed text-slate-400">
                   More collections, offers, and shop links will show up here.
                 </p>
               </div>
