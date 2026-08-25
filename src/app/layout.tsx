@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fashion Store",
+  title: "Eshwari Vastra",
   description: "Shop apparel online and in-store",
   icons: {
     icon: "/brand/logo.png",
