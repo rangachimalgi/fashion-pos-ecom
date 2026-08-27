@@ -16,6 +16,7 @@ type NewArrivalsSliderProps = {
   loading: boolean;
   searchQuery: string;
   totalCount: number;
+  category: string;
   addedVariantId: string | null;
   onClearSearch: () => void;
   onAddToCart: (product: CompleteProduct, variant: ProductVariant) => void;
@@ -60,11 +61,13 @@ export function NewArrivalsSlider({
   loading,
   searchQuery,
   totalCount,
+  category,
   addedVariantId,
   onClearSearch,
   onAddToCart,
 }: NewArrivalsSliderProps) {
   const router = useRouter();
+  const sectionTitle = `${category} · New Arrivals`;
 
   return (
     <section id="catalog" className="px-4 py-8 sm:px-6">
@@ -72,7 +75,7 @@ export function NewArrivalsSlider({
         <div className="space-y-6">
           <div className="flex items-end justify-between border-b border-slate-100 pb-4">
             <h2 className="text-lg font-black uppercase tracking-wider text-slate-900">
-              New Arrivals
+              {sectionTitle}
             </h2>
           </div>
           <div className="flex gap-4 overflow-hidden">
@@ -89,12 +92,14 @@ export function NewArrivalsSlider({
       ) : products.length === 0 ? (
         <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-20 text-center">
           <p className="text-sm font-bold text-slate-500">
-            {searchQuery ? "[ NO MATCHES FOR YOUR SEARCH ]" : "[ STOCK INVENTORY POOL EMPTY ]"}
+            {searchQuery
+              ? "[ NO MATCHES FOR YOUR SEARCH ]"
+              : `[ NO ${category.toUpperCase()} PRODUCTS YET ]`}
           </p>
           <p className="mx-auto max-w-xs text-xs text-slate-400">
             {searchQuery
               ? "Try a different brand, style, or color keyword."
-              : "Products will appear here once the catalog is synced from Supabase."}
+              : `Nothing tagged for ${category} yet. Switch category or add products from POS.`}
           </p>
           {searchQuery ? (
             <Button variant="link" className="text-brand" onClick={onClearSearch}>
@@ -112,7 +117,7 @@ export function NewArrivalsSlider({
         >
           <div className="mb-6 border-b border-slate-100 pb-4">
             <h2 className="text-lg font-black uppercase tracking-wider text-slate-900">
-              New Arrivals{" "}
+              {sectionTitle}{" "}
               <span className="font-mono text-sm font-normal text-slate-400">
                 ({products.length}
                 {searchQuery ? ` of ${totalCount}` : ""})

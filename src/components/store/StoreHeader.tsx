@@ -12,8 +12,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-
-const QUICK_CATEGORIES = ["Men", "Women", "Kids"];
+import { STORE_DEPARTMENTS, type StoreDepartment } from "@/lib/categories";
+import { cn } from "@/lib/utils";
 
 const searchInputClass =
   "h-9 rounded-full border-2 border-slate-400 bg-white pr-3 text-xs shadow-sm transition-colors placeholder:text-slate-400 focus-visible:border-slate-700 focus-visible:ring-2 focus-visible:ring-slate-200 md:h-10 md:text-sm";
@@ -21,13 +21,19 @@ const searchInputClass =
 type StoreHeaderProps = {
   searchQuery: string;
   onSearchChange: (value: string) => void;
+  selectedDepartment: StoreDepartment;
+  onDepartmentChange: (department: StoreDepartment) => void;
 };
 
-export function StoreHeader({ searchQuery, onSearchChange }: StoreHeaderProps) {
+export function StoreHeader({
+  searchQuery,
+  onSearchChange,
+  selectedDepartment,
+  onDepartmentChange,
+}: StoreHeaderProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-md">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-4 md:gap-4 md:px-6 md:py-5">
-        {/* Left: menu + quick categories */}
         <div className="flex min-w-0 items-center justify-start gap-2 sm:gap-3 md:gap-5">
           <Sheet>
             <SheetTrigger
@@ -62,24 +68,32 @@ export function StoreHeader({ searchQuery, onSearchChange }: StoreHeaderProps) {
           </Sheet>
 
           <nav className="flex min-w-0 items-center gap-2 overflow-x-auto sm:gap-3 md:gap-5">
-            {QUICK_CATEGORIES.map((category) => (
-              <button
-                key={category}
-                type="button"
-                className="shrink-0 text-[9px] font-bold tracking-wider uppercase text-slate-600 transition hover:text-brand sm:text-[10px] md:text-xs"
-              >
-                {category}
-              </button>
-            ))}
+            {STORE_DEPARTMENTS.map((department) => {
+              const isActive = selectedDepartment === department;
+
+              return (
+                <button
+                  key={department}
+                  type="button"
+                  onClick={() => onDepartmentChange(department)}
+                  className={cn(
+                    "shrink-0 border-b-2 pb-0.5 text-[9px] font-bold tracking-wider uppercase transition sm:text-[10px] md:text-xs",
+                    isActive
+                      ? "border-brand text-brand"
+                      : "border-transparent text-slate-600 hover:text-brand"
+                  )}
+                >
+                  {department}
+                </button>
+              );
+            })}
           </nav>
         </div>
 
-        {/* Center: logo */}
         <div className="flex justify-center">
           <BrandLogo height={72} />
         </div>
 
-        {/* Right: search + account actions */}
         <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:gap-3">
           <div className="relative hidden min-w-0 flex-1 sm:block sm:max-w-52 md:max-w-64 lg:max-w-72">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" />
@@ -130,7 +144,6 @@ export function StoreHeader({ searchQuery, onSearchChange }: StoreHeaderProps) {
         </div>
       </div>
 
-      {/* Mobile search row */}
       <div className="border-t border-slate-100 px-4 pb-3 sm:hidden">
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-slate-500" />

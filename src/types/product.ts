@@ -5,6 +5,10 @@ export interface Product {
     brand: string;
     base_price: number;
     image_url: string | null;
+    /** Product type: Tshirts, Shirts, Jeans, Hoodies */
+    category?: string | null;
+    /** Department: Men, Women, Kids */
+    department?: string | null;
     created_at: string;
   }
   

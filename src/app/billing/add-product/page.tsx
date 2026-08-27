@@ -22,6 +22,8 @@ export default function ManualAddProduct() {
     brand: '',
     price: '',
     description: '',
+    department: 'Men' as 'Men' | 'Women' | 'Kids',
+    category: 'Tshirts' as 'Tshirts' | 'Shirts' | 'Jeans' | 'Hoodies',
   });
 
   const [variants, setVariants] = useState<VariantInput[]>([
@@ -88,24 +90,66 @@ export default function ManualAddProduct() {
 
       const publicImageUrl = urlData.publicUrl;
 
+      const payload = {
+        name: productData.name,
+        brand: productData.brand,
+        base_price: parseFloat(productData.price),
+        description: productData.description || null,
+        image_url: publicImageUrl,
+        department: productData.department,
+        category: productData.category,
+      };
+
       const { data: insertedProduct, error: productError } = await supabase
         .from('products')
-        .insert([
-          {
-            name: productData.name,
-            brand: productData.brand,
-            base_price: parseFloat(productData.price),
-            description: productData.description || null,
-            image_url: publicImageUrl,
-          },
-        ])
+        .insert([payload])
         .select()
         .single();
 
-      if (productError) throw productError;
+      // If new columns aren't in Supabase yet, retry with what exists
+      let product = insertedProduct;
+      if (productError) {
+        const { data: fallbackProduct, error: fallbackError } = await supabase
+          .from('products')
+          .insert([
+            {
+              name: payload.name,
+              brand: payload.brand,
+              base_price: payload.base_price,
+              description: payload.description,
+              image_url: payload.image_url,
+              category: payload.category,
+            },
+          ])
+          .select()
+          .single();
+
+        if (fallbackError) {
+          const { data: bareProduct, error: bareError } = await supabase
+            .from('products')
+            .insert([
+              {
+                name: payload.name,
+                brand: payload.brand,
+                base_price: payload.base_price,
+                description: payload.description,
+                image_url: payload.image_url,
+              },
+            ])
+            .select()
+            .single();
+
+          if (bareError) throw bareError;
+          product = bareProduct;
+        } else {
+          product = fallbackProduct;
+        }
+      }
+
+      if (!product) throw new Error('Product was not created');
 
       const variantsToInsert = variants.map((v) => ({
-        product_id: insertedProduct.id,
+        product_id: product.id,
         size: v.size,
         color: v.color,
         barcode: generateUniqueBarcode(),
@@ -187,6 +231,43 @@ export default function ManualAddProduct() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-400">DEPARTMENT</label>
+              <select
+                required
+                value={productData.department}
+                onChange={(e) =>
+                  setProductData({
+                    ...productData,
+                    department: e.target.value as 'Men' | 'Women' | 'Kids',
+                  })
+                }
+                className="bg-slate-800 border border-slate-700 rounded-lg h-10 px-3 text-sm focus:outline-none focus:border-emerald-500 text-white font-mono"
+              >
+                <option value="Men">Men</option>
+                <option value="Women">Women</option>
+                <option value="Kids">Kids</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-400">CATEGORY</label>
+              <select
+                required
+                value={productData.category}
+                onChange={(e) =>
+                  setProductData({
+                    ...productData,
+                    category: e.target.value as 'Tshirts' | 'Shirts' | 'Jeans' | 'Hoodies',
+                  })
+                }
+                className="bg-slate-800 border border-slate-700 rounded-lg h-10 px-3 text-sm focus:outline-none focus:border-emerald-500 text-white font-mono"
+              >
+                <option value="Tshirts">Tshirts</option>
+                <option value="Shirts">Shirts</option>
+                <option value="Jeans">Jeans</option>
+                <option value="Hoodies">Hoodies</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label className="text-xs font-bold text-slate-400">PRODUCT IMAGE FILE</label>
               <input
                 type="file"
