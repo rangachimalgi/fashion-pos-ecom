@@ -65,8 +65,11 @@ export function productMatchesProductCategory(
 ): boolean {
   if (!productCategory) return true;
 
-  const value = product.category?.trim();
-  if (!value || isDepartment(value)) return false;
+  const raw = product.category?.trim();
+  if (!raw || isDepartment(raw)) return false;
 
-  return value.toLowerCase() === productCategory.toLowerCase();
+  // Accept "Tshirts", "tshirts", "t-shirts", "t shirts"
+  const normalized = raw.toLowerCase().replace(/[\s_-]/g, "");
+  const target = productCategory.toLowerCase().replace(/[\s_-]/g, "");
+  return normalized === target;
 }

@@ -106,47 +106,17 @@ export default function ManualAddProduct() {
         .select()
         .single();
 
-      // If new columns aren't in Supabase yet, retry with what exists
-      let product = insertedProduct;
-      if (productError) {
-        const { data: fallbackProduct, error: fallbackError } = await supabase
-          .from('products')
-          .insert([
-            {
-              name: payload.name,
-              brand: payload.brand,
-              base_price: payload.base_price,
-              description: payload.description,
-              image_url: payload.image_url,
-              category: payload.category,
-            },
-          ])
-          .select()
-          .single();
-
-        if (fallbackError) {
-          const { data: bareProduct, error: bareError } = await supabase
-            .from('products')
-            .insert([
-              {
-                name: payload.name,
-                brand: payload.brand,
-                base_price: payload.base_price,
-                description: payload.description,
-                image_url: payload.image_url,
-              },
-            ])
-            .select()
-            .single();
-
-          if (bareError) throw bareError;
-          product = bareProduct;
-        } else {
-          product = fallbackProduct;
-        }
+      if (productError || !insertedProduct) {
+        const hint =
+          productError?.message?.toLowerCase().includes('category') ||
+          productError?.message?.toLowerCase().includes('department') ||
+          productError?.code === 'PGRST204'
+            ? '\n\nMissing DB columns. Run supabase/migrations/002_product_department_category.sql in the Supabase SQL Editor.'
+            : '';
+        throw new Error((productError?.message || 'Product was not created') + hint);
       }
 
-      if (!product) throw new Error('Product was not created');
+      const product = insertedProduct;
 
       const variantsToInsert = variants.map((v) => ({
         product_id: product.id,

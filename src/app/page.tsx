@@ -117,6 +117,7 @@ export default function CustomerStorefront() {
         searchQuery={searchQuery}
         totalCount={scopedProducts.length}
         category={sliderLabel}
+        layout={selectedProductCategory ? "grid" : "carousel"}
         addedVariantId={addedVariantId}
         onClearSearch={() => setSearchQuery('')}
         onAddToCart={handleAddToCart}
