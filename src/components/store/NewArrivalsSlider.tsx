@@ -11,6 +11,7 @@ import {
   useCarousel,
 } from "@/components/ui/carousel";
 import { STORE_DEPARTMENTS } from "@/lib/categories";
+import { getProductPrimaryImage } from "@/lib/productImages";
 
 type NewArrivalsSliderProps = {
   products: CompleteProduct[];
@@ -93,9 +94,9 @@ export function NewArrivalsSlider({
           }}
           className="relative aspect-3/4 cursor-pointer overflow-hidden rounded-xl border border-slate-100 bg-slate-50 shadow-sm transition duration-300 group-hover:shadow-md"
         >
-          {product.image_url ? (
+          {getProductPrimaryImage(product) ? (
             <img
-              src={product.image_url}
+              src={getProductPrimaryImage(product)!}
               alt={product.name}
               className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
             />

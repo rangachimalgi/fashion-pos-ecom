@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
+import { MAX_PRODUCT_IMAGES } from '@/lib/productImages';
 
 interface VariantInput {
   size: 'S' | 'M' | 'L' | 'XL' | 'XXL';
@@ -14,8 +15,8 @@ interface VariantInput {
 export default function ManualAddProduct() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const [productData, setProductData] = useState({
     name: '',
@@ -31,16 +32,35 @@ export default function ManualAddProduct() {
   ]);
 
   useEffect(() => {
-    if (!imageFile) {
-      setImagePreview(null);
+    if (!imageFiles.length) {
+      setImagePreviews([]);
       return;
     }
 
-    const previewUrl = URL.createObjectURL(imageFile);
-    setImagePreview(previewUrl);
+    const previewUrls = imageFiles.map((file) => URL.createObjectURL(file));
+    setImagePreviews(previewUrls);
 
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [imageFile]);
+    return () => {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [imageFiles]);
+
+  const handleImageSelection = (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+
+    const incomingFiles = Array.from(fileList);
+    const combinedFiles = [...imageFiles, ...incomingFiles].slice(0, MAX_PRODUCT_IMAGES);
+
+    if (imageFiles.length + incomingFiles.length > MAX_PRODUCT_IMAGES) {
+      alert(`You can upload up to ${MAX_PRODUCT_IMAGES} product images.`);
+    }
+
+    setImageFiles(combinedFiles);
+  };
+
+  const removeImageAt = (index: number) => {
+    setImageFiles((current) => current.filter((_, i) => i !== index));
+  };
 
   const addVariantRow = () => {
     setVariants([...variants, { size: 'M', color: 'Black', stock_quantity: 10 }]);
@@ -69,28 +89,34 @@ export default function ManualAddProduct() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!imageFile) return alert('Please upload a product apparel image.');
+    if (!imageFiles.length) return alert('Please upload at least one product image.');
 
     setLoading(true);
 
     try {
-      const fileExtension = imageFile.name.split('.').pop();
-      const fileName = `${Date.now()}_product.${fileExtension}`;
-      const filePath = `catalog/${fileName}`;
+      const uploadedImageUrls: string[] = [];
 
-      const { error: storageError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, imageFile);
+      for (const imageFile of imageFiles) {
+        const fileExtension = imageFile.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExtension}`;
+        const filePath = `catalog/${fileName}`;
 
-      if (storageError) throw storageError;
+        const { error: storageError } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, imageFile);
 
-      const { data: urlData } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(filePath);
+        if (storageError) throw storageError;
 
-      const publicImageUrl = urlData.publicUrl;
+        const { data: urlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(filePath);
 
-      const payload = {
+        uploadedImageUrls.push(urlData.publicUrl);
+      }
+
+      const publicImageUrl = uploadedImageUrls[0];
+
+      const basePayload = {
         name: productData.name,
         brand: productData.brand,
         base_price: parseFloat(productData.price),
@@ -100,18 +126,34 @@ export default function ManualAddProduct() {
         category: productData.category,
       };
 
-      const { data: insertedProduct, error: productError } = await supabase
+      let insertedProduct: { id: string } | null = null;
+      let productError: { message?: string; code?: string } | null = null;
+      let galleryColumnMissing = false;
+
+      ({ data: insertedProduct, error: productError } = await supabase
         .from('products')
-        .insert([payload])
+        .insert([{ ...basePayload, image_urls: uploadedImageUrls }])
         .select()
-        .single();
+        .single());
+
+      if (
+        productError?.message?.toLowerCase().includes('image_urls') ||
+        productError?.code === 'PGRST204'
+      ) {
+        galleryColumnMissing = true;
+        ({ data: insertedProduct, error: productError } = await supabase
+          .from('products')
+          .insert([basePayload])
+          .select()
+          .single());
+      }
 
       if (productError || !insertedProduct) {
         const hint =
           productError?.message?.toLowerCase().includes('category') ||
           productError?.message?.toLowerCase().includes('department') ||
           productError?.code === 'PGRST204'
-            ? '\n\nMissing DB columns. Run supabase/migrations/002_product_department_category.sql in the Supabase SQL Editor.'
+            ? '\n\nMissing DB columns. Run the latest files in supabase/migrations/ in the Supabase SQL Editor.'
             : '';
         throw new Error((productError?.message || 'Product was not created') + hint);
       }
@@ -132,7 +174,13 @@ export default function ManualAddProduct() {
 
       if (variantError) throw variantError;
 
-      alert('Fashion item and auto-generated variant barcodes synced successfully.');
+      if (galleryColumnMissing && uploadedImageUrls.length > 1) {
+        alert(
+          `Product published with the cover image only. Run supabase/migrations/003_product_image_urls.sql in the Supabase SQL Editor to enable all ${uploadedImageUrls.length} gallery images.`
+        );
+      } else {
+        alert('Fashion item and auto-generated variant barcodes synced successfully.');
+      }
       router.push('/');
       router.refresh();
     } catch (err) {
@@ -238,24 +286,54 @@ export default function ManualAddProduct() {
               </select>
             </div>
             <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <label className="text-xs font-bold text-slate-400">PRODUCT IMAGE FILE</label>
+              <label className="text-xs font-bold text-slate-400">
+                PRODUCT IMAGES ({imageFiles.length}/{MAX_PRODUCT_IMAGES})
+              </label>
               <input
                 type="file"
-                required
+                required={imageFiles.length === 0}
                 accept="image/*"
-                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                className="bg-slate-800 border border-slate-700 rounded-lg file:h-full file:bg-slate-700 file:border-none file:text-emerald-400 file:font-mono file:text-xs file:px-3 text-xs flex items-center h-10 cursor-pointer text-slate-300"
+                multiple
+                disabled={imageFiles.length >= MAX_PRODUCT_IMAGES}
+                onChange={(e) => {
+                  handleImageSelection(e.target.files);
+                  e.target.value = '';
+                }}
+                className="bg-slate-800 border border-slate-700 rounded-lg file:h-full file:bg-slate-700 file:border-none file:text-emerald-400 file:font-mono file:text-xs file:px-3 text-xs flex items-center h-10 cursor-pointer text-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
               />
+              <p className="text-[10px] text-slate-500 font-sans">
+                Upload up to {MAX_PRODUCT_IMAGES} images. The first image becomes the catalog cover.
+              </p>
             </div>
           </div>
 
-          {imagePreview && (
-            <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950/40">
-              <img
-                src={imagePreview}
-                alt="Product preview"
-                className="w-full max-h-56 object-cover"
-              />
+          {imagePreviews.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {imagePreviews.map((preview, index) => (
+                <div
+                  key={preview}
+                  className="relative rounded-xl border border-slate-800 overflow-hidden bg-slate-950/40 aspect-square"
+                >
+                  <img
+                    src={preview}
+                    alt={`Product preview ${index + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImageAt(index)}
+                    aria-label={`Remove image ${index + 1}`}
+                    className="absolute top-2 right-2 rounded-full bg-slate-950/80 p-1 text-slate-300 hover:text-rose-400 transition"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                  {index === 0 && (
+                    <span className="absolute bottom-2 left-2 rounded bg-emerald-500/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-950">
+                      Cover
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 

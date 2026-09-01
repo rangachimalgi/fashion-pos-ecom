@@ -5,6 +5,8 @@ export interface Product {
     brand: string;
     base_price: number;
     image_url: string | null;
+    /** Gallery images (up to 6). Primary cover is image_url / first entry. */
+    image_urls?: string[] | null;
     /** Product type: Tshirts, Shirts, Jeans, Hoodies */
     category?: string | null;
     /** Department: Men, Women, Kids */

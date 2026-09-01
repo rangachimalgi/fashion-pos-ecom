@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/useCartStore";
+import { getProductPrimaryImage } from "@/lib/productImages";
 import type { PaymentMethod } from "@/types/order";
 
 export function CartDrawer() {
@@ -129,9 +130,9 @@ export function CartDrawer() {
                     {cart.map((item) => (
                       <li key={item.variant.id} className="flex gap-3 border-b border-slate-100 pb-4">
                         <div className="size-20 shrink-0 overflow-hidden rounded-lg bg-slate-50 border border-slate-100">
-                          {item.product.image_url ? (
+                          {getProductPrimaryImage(item.product) ? (
                             <img
-                              src={item.product.image_url}
+                              src={getProductPrimaryImage(item.product)!}
                               alt={item.product.name}
                               className="size-full object-cover"
                             />

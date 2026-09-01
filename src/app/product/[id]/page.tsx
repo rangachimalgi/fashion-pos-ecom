@@ -6,6 +6,8 @@ import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
 import { ShoppingBag, Star, ShieldCheck, Truck, RefreshCw, Heart } from 'lucide-react';
 import { AppHeader } from '@/components/store/AppHeader';
+import { ProductImageGallery } from '@/components/product/ProductImageGallery';
+import { getProductImages } from '@/lib/productImages';
 
 export default function ProductDetailsView() {
   const params = useParams();
@@ -88,13 +90,9 @@ export default function ProductDetailsView() {
       {/* CORE DISPLAY WINDOW SECTION */}
       <main className="max-w-6xl mx-auto px-6 mt-8 grid grid-cols-1 md:grid-cols-12 gap-10">
         
-        {/* LEFT COLUMN: HERO IMAGE BOX */}
-        <div className="md:col-span-6 bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 aspect-3/4 relative">
-          {product.image_url ? (
-            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-between text-slate-300 text-xs font-bold p-12 text-center">Image Asset Unavailable</div>
-          )}
+        {/* LEFT COLUMN: PRODUCT IMAGE GALLERY */}
+        <div className="md:col-span-6">
+          <ProductImageGallery images={getProductImages(product)} alt={product.name} />
         </div>
 
         {/* RIGHT COLUMN: INTERACTIVE PURCHASING DETAIL MECHANICS */}
