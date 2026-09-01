@@ -156,11 +156,6 @@ export default function ProductDetailsView() {
                 );
               })}
             </div>
-            {selectedVariant && (
-              <p className="text-[10px] font-mono text-slate-400 pt-1">
-                [ Selected SKU Color: <span className="text-slate-700 font-bold">{selectedVariant.color}</span> | Available Inventory: <span className="text-slate-700 font-bold">{selectedVariant.stock_quantity} units</span> ]
-              </p>
-            )}
           </div>
 
           {/* ACTION BUTTON PACK */}
@@ -170,7 +165,7 @@ export default function ProductDetailsView() {
               disabled={!selectedVariant}
               className="flex-1 h-14 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-100 disabled:text-slate-400 text-white font-extrabold text-sm tracking-wider uppercase rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 transition transform active:scale-[0.99]"
             >
-              <ShoppingBag className="w-4 h-4 stroke-[2.5]" /> Add to Shopping Bag
+              <ShoppingBag className="w-4 h-4 stroke-[2.5]" /> Add to Bag
             </button>
           </div>
 
