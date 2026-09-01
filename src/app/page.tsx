@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
-import { StoreHeader } from '@/components/store/StoreHeader';
+import { AppHeader } from '@/components/store/AppHeader';
 import { ExploreBannerSlider } from '@/components/store/ExploreBannerSlider';
 import { NewArrivalsSlider } from '@/components/store/NewArrivalsSlider';
 import { CategorySection } from '@/components/store/CategorySection';
@@ -91,7 +91,7 @@ export default function CustomerStorefront() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans">
-      <StoreHeader
+      <AppHeader
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         selectedDepartment={selectedDepartment}

@@ -4,9 +4,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
-import { ShoppingBag, ChevronLeft, Star, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
-import { BagButton } from '@/components/cart/CartDrawer';
-import { BrandLogo } from '@/components/BrandLogo';
+import { ShoppingBag, Star, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
+import { AppHeader } from '@/components/store/AppHeader';
 
 export default function ProductDetailsView() {
   const params = useParams();
@@ -55,17 +54,23 @@ export default function ProductDetailsView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-between text-center bg-white text-slate-500 font-mono text-sm w-full p-20 animate-pulse">
-        [ RETRIEVING GARMENT PROPERTIES & SPECIFICATIONS... ]
+      <div className="min-h-screen bg-white text-slate-900 font-sans">
+        <AppHeader />
+        <div className="flex items-center justify-center text-center text-slate-500 font-mono text-sm w-full p-20 animate-pulse">
+          [ RETRIEVING GARMENT PROPERTIES & SPECIFICATIONS... ]
+        </div>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white text-slate-800 p-6 space-y-4">
-        <p className="font-bold text-sm text-rose-500">[ ERROR 404: APPAREL ID NOT LOCATED ]</p>
-        <button onClick={() => router.push('/')} className="text-xs font-bold text-slate-500 underline">Return to Main Marketplace</button>
+      <div className="min-h-screen bg-white text-slate-900 font-sans">
+        <AppHeader />
+        <div className="flex flex-col items-center justify-center text-slate-800 p-6 space-y-4 min-h-[50vh]">
+          <p className="font-bold text-sm text-rose-500">[ ERROR 404: APPAREL ID NOT LOCATED ]</p>
+          <button onClick={() => router.push('/')} className="text-xs font-bold text-slate-500 underline">Return to Main Marketplace</button>
+        </div>
       </div>
     );
   }
@@ -77,18 +82,7 @@ export default function ProductDetailsView() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans pb-20">
-      
-      {/* HEADER BREADCRUMB STRIP */}
-      <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-4 bg-white/50 sticky top-0 z-40 backdrop-blur-md">
-        <button onClick={() => router.push('/')} className="p-1 hover:bg-slate-50 rounded-full transition text-slate-600">
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <BrandLogo height={48} />
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex-1 truncate">
-          {product.brand} / {product.name}
-        </span>
-        <BagButton />
-      </div>
+      <AppHeader />
 
       {/* CORE DISPLAY WINDOW SECTION */}
       <main className="max-w-6xl mx-auto px-6 mt-8 grid grid-cols-1 md:grid-cols-12 gap-10">
