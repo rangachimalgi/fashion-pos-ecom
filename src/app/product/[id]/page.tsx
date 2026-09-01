@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
-import { ShoppingBag, Star, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
+import { ShoppingBag, Star, ShieldCheck, Truck, RefreshCw, Heart } from 'lucide-react';
 import { AppHeader } from '@/components/store/AppHeader';
 
 export default function ProductDetailsView() {
@@ -15,6 +15,7 @@ export default function ProductDetailsView() {
   const [product, setProduct] = useState<CompleteProduct | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isWishlisted, setIsWishlisted] = useState(false);
 
   const productId = params?.id as string;
 
@@ -153,13 +154,27 @@ export default function ProductDetailsView() {
           </div>
 
           {/* ACTION BUTTON PACK */}
-          <div className="pt-2 flex gap-4">
+          <div className="pt-2 flex gap-3">
             <button
               onClick={handleAddToBag}
               disabled={!selectedVariant}
               className="flex-1 h-14 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-100 disabled:text-slate-400 text-white font-extrabold text-sm tracking-wider uppercase rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 transition transform active:scale-[0.99]"
             >
               <ShoppingBag className="w-4 h-4 stroke-[2.5]" /> Add to Bag
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsWishlisted((current) => !current)}
+              aria-pressed={isWishlisted}
+              aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              className={`flex-1 h-14 font-extrabold text-sm tracking-wider uppercase rounded-xl flex items-center justify-center gap-2 border-2 transition transform active:scale-[0.99] ${
+                isWishlisted
+                  ? 'border-rose-500 bg-rose-50 text-rose-500 hover:bg-rose-100'
+                  : 'border-slate-900 bg-white text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <Heart className={`w-4 h-4 stroke-[2.5] ${isWishlisted ? 'fill-rose-500 stroke-rose-500' : ''}`} />
+              Wishlist
             </button>
           </div>
 
