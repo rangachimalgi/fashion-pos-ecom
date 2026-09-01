@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
-import { useCartStore } from '@/store/useCartStore';
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { ExploreBannerSlider } from '@/components/store/ExploreBannerSlider';
 import { NewArrivalsSlider } from '@/components/store/NewArrivalsSlider';
@@ -21,8 +20,6 @@ export default function CustomerStorefront() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<StoreDepartment>('Men');
   const [selectedProductCategory, setSelectedProductCategory] = useState<ProductCategory | null>(null);
-  const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
-  const { addItemToCart } = useCartStore();
 
   useEffect(() => {
     async function fetchFashionCatalog() {
@@ -69,14 +66,6 @@ export default function CustomerStorefront() {
     );
   }, [scopedProducts, searchQuery]);
 
-  const handleAddToCart = (product: CompleteProduct, variant: ProductVariant) => {
-    if (variant.stock_quantity <= 0) return;
-
-    addItemToCart(product, variant);
-    setAddedVariantId(variant.id);
-    window.setTimeout(() => setAddedVariantId(null), 1200);
-  };
-
   const handleDepartmentChange = (department: StoreDepartment) => {
     setSelectedDepartment(department);
     setSelectedProductCategory(null);
@@ -118,9 +107,7 @@ export default function CustomerStorefront() {
         totalCount={scopedProducts.length}
         category={sliderLabel}
         layout={selectedProductCategory ? "grid" : "carousel"}
-        addedVariantId={addedVariantId}
         onClearSearch={() => setSearchQuery('')}
-        onAddToCart={handleAddToCart}
       />
 
       <CategorySection

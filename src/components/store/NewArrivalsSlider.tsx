@@ -1,8 +1,8 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { CompleteProduct, ProductVariant } from "@/types/product";
+import type { CompleteProduct } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import {
   Carousel,
@@ -10,6 +10,7 @@ import {
   CarouselItem,
   useCarousel,
 } from "@/components/ui/carousel";
+import { STORE_DEPARTMENTS } from "@/lib/categories";
 
 type NewArrivalsSliderProps = {
   products: CompleteProduct[];
@@ -19,10 +20,15 @@ type NewArrivalsSliderProps = {
   category: string;
   /** When true (category browse), show a full product grid instead of the carousel */
   layout?: "carousel" | "grid";
-  addedVariantId: string | null;
   onClearSearch: () => void;
-  onAddToCart: (product: CompleteProduct, variant: ProductVariant) => void;
 };
+
+function productTypeLabel(product: CompleteProduct): string | null {
+  const value = product.category?.trim();
+  if (!value) return null;
+  if ((STORE_DEPARTMENTS as readonly string[]).includes(value)) return null;
+  return value;
+}
 
 function SliderArrows() {
   const { scrollPrev, scrollNext, canScrollPrev, canScrollNext } = useCarousel();
@@ -65,90 +71,58 @@ export function NewArrivalsSlider({
   totalCount,
   category,
   layout = "carousel",
-  addedVariantId,
   onClearSearch,
-  onAddToCart,
 }: NewArrivalsSliderProps) {
   const router = useRouter();
   const sectionTitle = category;
   const showGrid = layout === "grid";
 
-  const renderProductCard = (product: CompleteProduct) => (
-    <div key={product.id} className="group relative space-y-3">
-      <div
-        role="link"
-        tabIndex={0}
-        onClick={() => router.push(`/product/${product.id}`)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            router.push(`/product/${product.id}`);
-          }
-        }}
-        className="relative aspect-3/4 cursor-pointer overflow-hidden rounded-xl border border-slate-100 bg-slate-50 shadow-sm transition duration-300 group-hover:shadow-md"
-      >
-        {product.image_url ? (
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-slate-100 p-6 text-center text-xs font-bold text-slate-300">
-            No Imagery Available
-          </div>
-        )}
-        <span className="absolute top-3 left-3 rounded bg-white px-2 py-0.5 text-[9px] font-black tracking-wider text-slate-900 uppercase shadow-sm">
-          {product.brand}
-        </span>
-      </div>
+  const renderProductCard = (product: CompleteProduct) => {
+    const typeLabel = productTypeLabel(product);
 
-      <div className="space-y-1 px-1">
-        <h3
+    return (
+      <div key={product.id} className="group relative space-y-2">
+        <div
+          role="link"
+          tabIndex={0}
           onClick={() => router.push(`/product/${product.id}`)}
-          className="cursor-pointer truncate text-sm font-extrabold tracking-tight text-slate-900 transition group-hover:text-brand"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              router.push(`/product/${product.id}`);
+            }
+          }}
+          className="relative aspect-3/4 cursor-pointer overflow-hidden rounded-xl border border-slate-100 bg-slate-50 shadow-sm transition duration-300 group-hover:shadow-md"
         >
-          {product.name}
-        </h3>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-black text-slate-900">₹{product.base_price}</span>
-          <span className="text-[10px] text-slate-400 line-through">
-            ₹{Math.round(product.base_price * 1.4)}
-          </span>
-          <span className="text-[10px] font-extrabold text-brand">(40% OFF)</span>
+          {product.image_url ? (
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-slate-100 p-6 text-center text-xs font-bold text-slate-300">
+              No Imagery Available
+            </div>
+          )}
         </div>
 
-        <p className="pt-0.5 text-[10px] font-medium text-slate-400">Tap a size to add to bag</p>
-        <div className="flex flex-wrap gap-1 pt-1">
-          {product.variants.map((variant) => {
-            const inStock = variant.stock_quantity > 0;
-            const justAdded = addedVariantId === variant.id;
-
-            return (
-              <Button
-                key={variant.id}
-                type="button"
-                variant="outline"
-                size="xs"
-                disabled={!inStock}
-                onClick={() => onAddToCart(product, variant)}
-                title={inStock ? `${variant.size} · ${variant.color}` : "Out of stock"}
-                className={`h-auto min-w-0 rounded border px-1.5 py-0.5 text-[9px] font-black ${
-                  justAdded
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-                    : inStock
-                      ? "border-slate-200 bg-white text-slate-700 hover:border-brand hover:text-brand"
-                      : "border-slate-100 bg-slate-50 text-slate-300 line-through"
-                }`}
-              >
-                {justAdded ? <Check className="size-2.5" /> : null}
-                {variant.size}
-              </Button>
-            );
-          })}
+        <div
+          className="space-y-0.5 px-0.5 cursor-pointer"
+          onClick={() => router.push(`/product/${product.id}`)}
+        >
+          <p className="truncate text-sm font-extrabold tracking-tight text-slate-900 transition group-hover:text-brand">
+            {product.brand}
+          </p>
+          {typeLabel ? (
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              {typeLabel}
+            </p>
+          ) : null}
+          <p className="pt-0.5 text-sm font-black text-slate-900">₹{product.base_price}</p>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <section id="catalog" className="px-4 py-8 sm:px-6">
