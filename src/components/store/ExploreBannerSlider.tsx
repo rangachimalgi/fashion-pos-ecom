@@ -1,8 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { PRODUCT_CATEGORIES, type ProductCategory } from "@/lib/categories";
+import {
+  PRODUCT_CATEGORIES,
+  shopCategoryPath,
+  type StoreDepartment,
+} from "@/lib/categories";
 import {
   Carousel,
   CarouselContent,
@@ -11,7 +16,7 @@ import {
 } from "@/components/ui/carousel";
 
 type ExploreBannerSliderProps = {
-  onExplore: (category: ProductCategory) => void;
+  department: StoreDepartment;
 };
 
 function BannerArrows() {
@@ -47,7 +52,9 @@ function BannerArrows() {
   );
 }
 
-export function ExploreBannerSlider({ onExplore }: ExploreBannerSliderProps) {
+export function ExploreBannerSlider({ department }: ExploreBannerSliderProps) {
+  const router = useRouter();
+
   return (
     <section className="px-4 pt-5 sm:px-6 sm:pt-6">
       <Carousel
@@ -63,7 +70,7 @@ export function ExploreBannerSlider({ onExplore }: ExploreBannerSliderProps) {
               <CarouselItem key={category.id} className="basis-full pl-0">
                 <button
                   type="button"
-                  onClick={() => onExplore(category.id)}
+                  onClick={() => router.push(shopCategoryPath(department, category.id))}
                   className="relative grid min-h-72 w-full overflow-hidden text-left md:min-h-96 md:grid-cols-2"
                   style={{ backgroundColor: category.accentSoft }}
                 >

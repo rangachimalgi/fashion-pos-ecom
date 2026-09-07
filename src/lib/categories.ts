@@ -42,6 +42,35 @@ function isDepartment(value: string): value is StoreDepartment {
   return (STORE_DEPARTMENTS as readonly string[]).includes(value);
 }
 
+export function departmentToSlug(department: StoreDepartment): string {
+  return department.toLowerCase();
+}
+
+export function categoryToSlug(category: ProductCategory): string {
+  return category.toLowerCase();
+}
+
+export function parseDepartmentSlug(slug: string): StoreDepartment | null {
+  const match = STORE_DEPARTMENTS.find((d) => d.toLowerCase() === slug.toLowerCase());
+  return match ?? null;
+}
+
+export function parseCategorySlug(slug: string): ProductCategory | null {
+  const match = PRODUCT_CATEGORIES.find((c) => c.id.toLowerCase() === slug.toLowerCase());
+  return match?.id ?? null;
+}
+
+export function getCategoryMeta(category: ProductCategory) {
+  return PRODUCT_CATEGORIES.find((c) => c.id === category)!;
+}
+
+export function shopCategoryPath(
+  department: StoreDepartment,
+  category: ProductCategory
+): string {
+  return `/shop/${departmentToSlug(department)}/${categoryToSlug(category)}`;
+}
+
 /** Header Men/Women/Kids */
 export function productMatchesDepartment(
   product: { department?: string | null; category?: string | null },

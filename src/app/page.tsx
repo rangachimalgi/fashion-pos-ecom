@@ -9,8 +9,6 @@ import { NewArrivalsSlider } from '@/components/store/NewArrivalsSlider';
 import { CategorySection } from '@/components/store/CategorySection';
 import {
   productMatchesDepartment,
-  productMatchesProductCategory,
-  type ProductCategory,
   type StoreDepartment,
 } from '@/lib/categories';
 
@@ -19,7 +17,6 @@ export default function CustomerStorefront() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<StoreDepartment>('Men');
-  const [selectedProductCategory, setSelectedProductCategory] = useState<ProductCategory | null>(null);
 
   useEffect(() => {
     async function fetchFashionCatalog() {
@@ -47,12 +44,10 @@ export default function CustomerStorefront() {
   }, []);
 
   const scopedProducts = useMemo(() => {
-    return products.filter(
-      (product) =>
-        productMatchesDepartment(product, selectedDepartment) &&
-        productMatchesProductCategory(product, selectedProductCategory)
+    return products.filter((product) =>
+      productMatchesDepartment(product, selectedDepartment)
     );
-  }, [products, selectedDepartment, selectedProductCategory]);
+  }, [products, selectedDepartment]);
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -68,26 +63,9 @@ export default function CustomerStorefront() {
 
   const handleDepartmentChange = (department: StoreDepartment) => {
     setSelectedDepartment(department);
-    setSelectedProductCategory(null);
     setSearchQuery('');
     document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-
-  const handleProductCategoryChange = (category: ProductCategory) => {
-    setSelectedProductCategory((current) => (current === category ? null : category));
-    setSearchQuery('');
-    document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const handleExploreCategory = (category: ProductCategory) => {
-    setSelectedProductCategory(category);
-    setSearchQuery('');
-    document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const sliderLabel = selectedProductCategory
-    ? `${selectedDepartment} · ${selectedProductCategory}`
-    : `${selectedDepartment} · New Arrivals`;
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans">
@@ -98,22 +76,19 @@ export default function CustomerStorefront() {
         onDepartmentChange={handleDepartmentChange}
       />
 
-      <ExploreBannerSlider onExplore={handleExploreCategory} />
+      <ExploreBannerSlider department={selectedDepartment} />
 
       <NewArrivalsSlider
         products={filteredProducts}
         loading={loading}
         searchQuery={searchQuery}
         totalCount={scopedProducts.length}
-        category={sliderLabel}
-        layout={selectedProductCategory ? "grid" : "carousel"}
+        category={`${selectedDepartment} · New Arrivals`}
+        layout="carousel"
         onClearSearch={() => setSearchQuery('')}
       />
 
-      <CategorySection
-        selected={selectedProductCategory}
-        onSelect={handleProductCategoryChange}
-      />
+      <CategorySection department={selectedDepartment} />
 
       <footer className="border-t border-slate-100 px-6 py-6">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-slate-400">

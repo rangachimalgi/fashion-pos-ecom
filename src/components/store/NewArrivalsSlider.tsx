@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRouter } from "next/navigation";
 import type { CompleteProduct } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,8 +9,7 @@ import {
   CarouselItem,
   useCarousel,
 } from "@/components/ui/carousel";
-import { STORE_DEPARTMENTS } from "@/lib/categories";
-import { getProductPrimaryImage } from "@/lib/productImages";
+import { ProductCard } from "@/components/store/ProductCard";
 
 type NewArrivalsSliderProps = {
   products: CompleteProduct[];
@@ -19,24 +17,15 @@ type NewArrivalsSliderProps = {
   searchQuery: string;
   totalCount: number;
   category: string;
-  /** When true (category browse), show a full product grid instead of the carousel */
   layout?: "carousel" | "grid";
   onClearSearch: () => void;
 };
-
-function productTypeLabel(product: CompleteProduct): string | null {
-  const value = product.category?.trim();
-  if (!value) return null;
-  if ((STORE_DEPARTMENTS as readonly string[]).includes(value)) return null;
-  return value;
-}
 
 function SliderArrows() {
   const { scrollPrev, scrollNext, canScrollPrev, canScrollNext } = useCarousel();
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-20">
-      {/* Matches one product image height so arrows sit mid-card */}
       <div
         aria-hidden
         className="aspect-3/4 w-[calc(78%-0.5rem)] sm:w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.5rem)] lg:w-[calc(25%-0.5rem)]"
@@ -74,56 +63,8 @@ export function NewArrivalsSlider({
   layout = "carousel",
   onClearSearch,
 }: NewArrivalsSliderProps) {
-  const router = useRouter();
   const sectionTitle = category;
   const showGrid = layout === "grid";
-
-  const renderProductCard = (product: CompleteProduct) => {
-    const typeLabel = productTypeLabel(product);
-
-    return (
-      <div key={product.id} className="group relative space-y-2">
-        <div
-          role="link"
-          tabIndex={0}
-          onClick={() => router.push(`/product/${product.id}`)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              router.push(`/product/${product.id}`);
-            }
-          }}
-          className="relative aspect-3/4 cursor-pointer overflow-hidden rounded-xl border border-slate-100 bg-slate-50 shadow-sm transition duration-300 group-hover:shadow-md"
-        >
-          {getProductPrimaryImage(product) ? (
-            <img
-              src={getProductPrimaryImage(product)!}
-              alt={product.name}
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-slate-100 p-6 text-center text-xs font-bold text-slate-300">
-              No Imagery Available
-            </div>
-          )}
-        </div>
-
-        <div
-          className="space-y-0.5 px-0.5 cursor-pointer"
-          onClick={() => router.push(`/product/${product.id}`)}
-        >
-          <p className="truncate text-sm font-extrabold tracking-tight text-slate-900 transition group-hover:text-brand">
-            {product.brand}
-          </p>
-          {typeLabel ? (
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              {typeLabel}
-            </p>
-          ) : null}
-          <p className="pt-0.5 text-sm font-black text-slate-900">₹{product.base_price}</p>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <section id="catalog" className="px-4 py-8 sm:px-6">
@@ -184,7 +125,9 @@ export function NewArrivalsSlider({
             ) : null}
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 md:gap-6">
-            {products.map((product) => renderProductCard(product))}
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
         </div>
       ) : (
@@ -221,7 +164,7 @@ export function NewArrivalsSlider({
                   key={product.id}
                   className="basis-[78%] pl-2 sm:basis-1/2 md:basis-1/3 lg:basis-1/4"
                 >
-                  {renderProductCard(product)}
+                  <ProductCard product={product} />
                 </CarouselItem>
               ))}
             </CarouselContent>
