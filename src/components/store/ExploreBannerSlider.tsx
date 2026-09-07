@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  PRODUCT_CATEGORIES,
+  getCategoriesForDepartment,
   shopCategoryPath,
   type StoreDepartment,
 } from "@/lib/categories";
@@ -54,10 +54,12 @@ function BannerArrows() {
 
 export function ExploreBannerSlider({ department }: ExploreBannerSliderProps) {
   const router = useRouter();
+  const categories = getCategoriesForDepartment(department);
 
   return (
     <section className="px-4 pt-5 sm:px-6 sm:pt-6">
       <Carousel
+        key={department}
         opts={{
           align: "start",
           loop: true,
@@ -66,8 +68,8 @@ export function ExploreBannerSlider({ department }: ExploreBannerSliderProps) {
       >
         <div className="relative overflow-hidden rounded-2xl">
           <CarouselContent className="ml-0">
-            {PRODUCT_CATEGORIES.map((category) => (
-              <CarouselItem key={category.id} className="basis-full pl-0">
+            {categories.map((category, index) => (
+              <CarouselItem key={`${department}-${category.id}`} className="basis-full pl-0">
                 <button
                   type="button"
                   onClick={() => router.push(shopCategoryPath(department, category.id))}
@@ -93,7 +95,7 @@ export function ExploreBannerSlider({ department }: ExploreBannerSliderProps) {
                         backgroundColor: `${category.accent}18`,
                       }}
                     >
-                      New drop
+                      {department} · New drop
                     </span>
                     <h2 className="max-w-md text-3xl font-black tracking-tight text-slate-900 uppercase sm:text-4xl md:text-5xl">
                       Explore {category.label}
@@ -106,9 +108,9 @@ export function ExploreBannerSlider({ department }: ExploreBannerSliderProps) {
                   <div className="relative min-h-56 md:min-h-full">
                     <Image
                       src={category.image}
-                      alt={category.label}
+                      alt={`${department} ${category.label}`}
                       fill
-                      priority={category.id === "Tshirts"}
+                      priority={index === 0}
                       sizes="(max-width: 768px) 100vw, 50vw"
                       className="object-cover"
                     />

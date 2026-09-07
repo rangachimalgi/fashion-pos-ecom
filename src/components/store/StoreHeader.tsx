@@ -16,9 +16,9 @@ import {
 } from "@/components/ui/sheet";
 import {
   STORE_DEPARTMENTS,
-  parseCategorySlug,
   shopCategoryPath,
   departmentToSlug,
+  getDefaultCategory,
   type StoreDepartment,
 } from "@/lib/categories";
 import { cn } from "@/lib/utils";
@@ -39,14 +39,10 @@ function departmentHref(
   const shopMatch = pathname.match(/^\/shop\/([^/]+)\/([^/]+)/);
   if (shopMatch) {
     const currentDeptSlug = shopMatch[1];
-    const category = parseCategorySlug(shopMatch[2]);
 
-    // Switch department while keeping the category (e.g. Men Tshirts → Women Tshirts)
-    if (
-      category &&
-      currentDeptSlug.toLowerCase() !== departmentToSlug(department)
-    ) {
-      return shopCategoryPath(department, category);
+    // On a shop page, switch to this department's first category
+    if (currentDeptSlug.toLowerCase() !== departmentToSlug(department)) {
+      return shopCategoryPath(department, getDefaultCategory(department));
     }
   }
 

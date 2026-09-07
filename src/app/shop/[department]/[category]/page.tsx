@@ -39,7 +39,9 @@ export default function ShopCategoryPage() {
   const categorySlug = String(params?.category ?? "");
 
   const department = parseDepartmentSlug(departmentSlug);
-  const category = parseCategorySlug(categorySlug);
+  const category = department
+    ? parseCategorySlug(categorySlug, department)
+    : null;
 
   const [products, setProducts] = useState<CompleteProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,11 +193,12 @@ export default function ShopCategoryPage() {
     );
   }
 
-  const categoryMeta = getCategoryMeta(category);
+  const categoryMeta = getCategoryMeta(category, department);
   const activeFilters = filters ?? emptyCatalogFilters(priceBounds);
 
   const filtersPanel = (
     <CatalogFilters
+      department={department}
       availableBrands={availableBrands}
       availableSizes={availableSizes}
       priceBounds={priceBounds}

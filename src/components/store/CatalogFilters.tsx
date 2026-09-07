@@ -1,7 +1,11 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { PRODUCT_CATEGORIES, type ProductCategory } from "@/lib/categories";
+import {
+  getCategoriesForDepartment,
+  type ProductCategory,
+  type StoreDepartment,
+} from "@/lib/categories";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
@@ -14,6 +18,7 @@ export type CatalogFilterState = {
 };
 
 type CatalogFiltersProps = {
+  department: StoreDepartment;
   availableBrands: { name: string; count: number }[];
   availableSizes: { size: string; count: number }[];
   priceBounds: { min: number; max: number };
@@ -38,6 +43,7 @@ export function emptyCatalogFilters(
 }
 
 export function CatalogFilters({
+  department,
   availableBrands,
   availableSizes,
   priceBounds,
@@ -46,6 +52,7 @@ export function CatalogFilters({
   activeCategory,
   onCategoryChange,
 }: CatalogFiltersProps) {
+  const categories = getCategoriesForDepartment(department);
   const filteredBrands = availableBrands.filter((b) =>
     b.name.toLowerCase().includes(filters.brandSearch.trim().toLowerCase())
   );
@@ -103,7 +110,7 @@ export function CatalogFilters({
             Categories
           </h3>
           <ul className="space-y-2">
-            {PRODUCT_CATEGORIES.map((category) => {
+            {categories.map((category) => {
               const isActive = activeCategory === category.id;
               return (
                 <li key={category.id}>

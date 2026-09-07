@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  PRODUCT_CATEGORIES,
+  getCategoriesForDepartment,
   shopCategoryPath,
   type StoreDepartment,
 } from "@/lib/categories";
@@ -13,6 +13,8 @@ type CategorySectionProps = {
 };
 
 export function CategorySection({ department }: CategorySectionProps) {
+  const categories = getCategoriesForDepartment(department);
+
   return (
     <section className="border-t border-slate-100 px-4 py-10 sm:px-6">
       <div className="mb-6">
@@ -20,12 +22,12 @@ export function CategorySection({ department }: CategorySectionProps) {
           Shop by category
         </h2>
         <p className="mt-1 text-xs font-medium text-slate-400">
-          Tshirts, shirts, and the rest — tap what you came for.
+          {department} picks — tap what you came for.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {PRODUCT_CATEGORIES.map((category) => (
+        {categories.map((category) => (
           <Link
             key={category.id}
             href={shopCategoryPath(department, category.id)}

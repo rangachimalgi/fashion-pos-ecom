@@ -5,6 +5,13 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, X } from 'lucide-react';
 import { MAX_PRODUCT_IMAGES } from '@/lib/productImages';
+import {
+  STORE_DEPARTMENTS,
+  getCategoriesForDepartment,
+  getDefaultCategory,
+  type ProductCategory,
+  type StoreDepartment,
+} from '@/lib/categories';
 
 interface VariantInput {
   size: 'S' | 'M' | 'L' | 'XL' | 'XXL';
@@ -23,9 +30,11 @@ export default function ManualAddProduct() {
     brand: '',
     price: '',
     description: '',
-    department: 'Men' as 'Men' | 'Women' | 'Kids',
-    category: 'Tshirts' as 'Tshirts' | 'Shirts' | 'Jeans' | 'Hoodies',
+    department: 'Men' as StoreDepartment,
+    category: getDefaultCategory('Men') as ProductCategory,
   });
+
+  const departmentCategories = getCategoriesForDepartment(productData.department);
 
   const [variants, setVariants] = useState<VariantInput[]>([
     { size: 'M', color: 'Black', stock_quantity: 10 },
@@ -253,36 +262,43 @@ export default function ManualAddProduct() {
               <select
                 required
                 value={productData.department}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const department = e.target.value as StoreDepartment;
                   setProductData({
                     ...productData,
-                    department: e.target.value as 'Men' | 'Women' | 'Kids',
-                  })
-                }
+                    department,
+                    category: getDefaultCategory(department),
+                  });
+                }}
                 className="bg-slate-800 border border-slate-700 rounded-lg h-10 px-3 text-sm focus:outline-none focus:border-emerald-500 text-white font-mono"
               >
-                <option value="Men">Men</option>
-                <option value="Women">Women</option>
-                <option value="Kids">Kids</option>
+                {STORE_DEPARTMENTS.map((department) => (
+                  <option key={department} value={department}>
+                    {department}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-400">CATEGORY</label>
+              <label className="text-xs font-bold text-slate-400">
+                CATEGORY ({productData.department})
+              </label>
               <select
                 required
                 value={productData.category}
                 onChange={(e) =>
                   setProductData({
                     ...productData,
-                    category: e.target.value as 'Tshirts' | 'Shirts' | 'Jeans' | 'Hoodies',
+                    category: e.target.value,
                   })
                 }
                 className="bg-slate-800 border border-slate-700 rounded-lg h-10 px-3 text-sm focus:outline-none focus:border-emerald-500 text-white font-mono"
               >
-                <option value="Tshirts">Tshirts</option>
-                <option value="Shirts">Shirts</option>
-                <option value="Jeans">Jeans</option>
-                <option value="Hoodies">Hoodies</option>
+                {departmentCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex flex-col gap-1.5 sm:col-span-2">
