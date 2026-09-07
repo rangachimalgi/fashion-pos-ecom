@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Menu, Search, Heart, User } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BagButton } from "@/components/cart/CartDrawer";
@@ -12,7 +14,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { STORE_DEPARTMENTS, type StoreDepartment } from "@/lib/categories";
+import {
+  STORE_DEPARTMENTS,
+  parseCategorySlug,
+  shopCategoryPath,
+  departmentToSlug,
+  type StoreDepartment,
+} from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
 const searchInputClass =
@@ -22,15 +30,37 @@ type StoreHeaderProps = {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   selectedDepartment: StoreDepartment;
-  onDepartmentChange: (department: StoreDepartment) => void;
 };
+
+function departmentHref(
+  department: StoreDepartment,
+  pathname: string
+): string {
+  const shopMatch = pathname.match(/^\/shop\/([^/]+)\/([^/]+)/);
+  if (shopMatch) {
+    const currentDeptSlug = shopMatch[1];
+    const category = parseCategorySlug(shopMatch[2]);
+
+    // Switch department while keeping the category (e.g. Men Tshirts → Women Tshirts)
+    if (
+      category &&
+      currentDeptSlug.toLowerCase() !== departmentToSlug(department)
+    ) {
+      return shopCategoryPath(department, category);
+    }
+  }
+
+  // Home (or same-department click on shop) → department landing
+  return `/?department=${departmentToSlug(department)}`;
+}
 
 export function StoreHeader({
   searchQuery,
   onSearchChange,
   selectedDepartment,
-  onDepartmentChange,
 }: StoreHeaderProps) {
+  const pathname = usePathname() || "/";
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-md">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-4 md:gap-4 md:px-6 md:py-5">
@@ -70,12 +100,12 @@ export function StoreHeader({
           <nav className="flex min-w-0 items-center gap-2 overflow-x-auto sm:gap-3 md:gap-5">
             {STORE_DEPARTMENTS.map((department) => {
               const isActive = selectedDepartment === department;
+              const href = departmentHref(department, pathname);
 
               return (
-                <button
+                <Link
                   key={department}
-                  type="button"
-                  onClick={() => onDepartmentChange(department)}
+                  href={href}
                   className={cn(
                     "shrink-0 border-b-2 pb-0.5 text-[9px] font-bold tracking-wider uppercase transition sm:text-[10px] md:text-xs",
                     isActive
@@ -84,7 +114,7 @@ export function StoreHeader({
                   )}
                 >
                   {department}
-                </button>
+                </Link>
               );
             })}
           </nav>
@@ -159,4 +189,32 @@ export function StoreHeader({
       </div>
     </header>
   );
+}
+
+/** Resolves active department from the URL when pages don't pass one. */
+export function useHeaderDepartment(
+  controlled?: StoreDepartment
+): StoreDepartment {
+  const pathname = usePathname() || "/";
+  const searchParams = useSearchParams();
+
+  if (controlled) return controlled;
+
+  const shopMatch = pathname.match(/^\/shop\/([^/]+)/);
+  if (shopMatch) {
+    const fromPath = STORE_DEPARTMENTS.find(
+      (d) => d.toLowerCase() === shopMatch[1].toLowerCase()
+    );
+    if (fromPath) return fromPath;
+  }
+
+  const fromQuery = searchParams.get("department");
+  if (fromQuery) {
+    const match = STORE_DEPARTMENTS.find(
+      (d) => d.toLowerCase() === fromQuery.toLowerCase()
+    );
+    if (match) return match;
+  }
+
+  return "Men";
 }

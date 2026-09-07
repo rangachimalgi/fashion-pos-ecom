@@ -21,7 +21,6 @@ import {
   productMatchesProductCategory,
   shopCategoryPath,
   type ProductCategory,
-  type StoreDepartment,
 } from "@/lib/categories";
 import { Button } from "@/components/ui/button";
 import {
@@ -172,11 +171,6 @@ export default function ShopCategoryPage() {
     return list;
   }, [categoryProducts, filters, searchQuery, sortBy]);
 
-  const handleDepartmentChange = (next: StoreDepartment) => {
-    if (!category) return;
-    router.push(shopCategoryPath(next, category));
-  };
-
   const handleCategoryChange = (next: ProductCategory) => {
     if (!department) return;
     setMobileFiltersOpen(false);
@@ -218,7 +212,6 @@ export default function ShopCategoryPage() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         selectedDepartment={department}
-        onDepartmentChange={handleDepartmentChange}
       />
 
       <div className="border-b border-slate-100 px-4 py-3 sm:px-6">

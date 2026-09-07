@@ -1,31 +1,44 @@
 "use client";
 
-import { useState } from "react";
-import { StoreHeader } from "@/components/store/StoreHeader";
+import { Suspense, useState } from "react";
+import { StoreHeader, useHeaderDepartment } from "@/components/store/StoreHeader";
 import type { StoreDepartment } from "@/lib/categories";
 
 type AppHeaderProps = {
   searchQuery?: string;
   onSearchChange?: (value: string) => void;
   selectedDepartment?: StoreDepartment;
-  onDepartmentChange?: (department: StoreDepartment) => void;
 };
 
-export function AppHeader({
+function AppHeaderInner({
   searchQuery: controlledSearchQuery,
   onSearchChange: controlledOnSearchChange,
   selectedDepartment: controlledDepartment,
-  onDepartmentChange: controlledOnDepartmentChange,
-}: AppHeaderProps = {}) {
+}: AppHeaderProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDepartment, setSelectedDepartment] = useState<StoreDepartment>("Men");
+  const selectedDepartment = useHeaderDepartment(controlledDepartment);
 
   return (
     <StoreHeader
       searchQuery={controlledSearchQuery ?? searchQuery}
       onSearchChange={controlledOnSearchChange ?? setSearchQuery}
-      selectedDepartment={controlledDepartment ?? selectedDepartment}
-      onDepartmentChange={controlledOnDepartmentChange ?? setSelectedDepartment}
+      selectedDepartment={selectedDepartment}
     />
+  );
+}
+
+export function AppHeader(props: AppHeaderProps = {}) {
+  return (
+    <Suspense
+      fallback={
+        <StoreHeader
+          searchQuery={props.searchQuery ?? ""}
+          onSearchChange={props.onSearchChange ?? (() => {})}
+          selectedDepartment={props.selectedDepartment ?? "Men"}
+        />
+      }
+    >
+      <AppHeaderInner {...props} />
+    </Suspense>
   );
 }

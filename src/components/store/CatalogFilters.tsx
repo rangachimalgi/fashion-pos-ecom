@@ -82,7 +82,7 @@ export function CatalogFilters({
 
   return (
     <aside className="w-full shrink-0 border-slate-100 bg-white md:w-56 md:border-r lg:w-64">
-      <div className="md:sticky md:top-[4.5rem] md:max-h-[calc(100vh-4.5rem)] md:overflow-y-auto">
+      <div className="md:sticky md:top-18 md:max-h-[calc(100vh-4.5rem)] md:overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
           <h2 className="text-xs font-black tracking-[0.15em] text-slate-900 uppercase">
             Filters

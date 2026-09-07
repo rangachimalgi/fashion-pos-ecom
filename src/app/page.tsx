@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
 import { AppHeader } from '@/components/store/AppHeader';
@@ -8,15 +9,27 @@ import { ExploreBannerSlider } from '@/components/store/ExploreBannerSlider';
 import { NewArrivalsSlider } from '@/components/store/NewArrivalsSlider';
 import { CategorySection } from '@/components/store/CategorySection';
 import {
+  parseDepartmentSlug,
   productMatchesDepartment,
   type StoreDepartment,
 } from '@/lib/categories';
 
-export default function CustomerStorefront() {
+function CustomerStorefrontInner() {
+  const searchParams = useSearchParams();
+  const departmentFromUrl = parseDepartmentSlug(searchParams.get('department') ?? '');
+
   const [products, setProducts] = useState<CompleteProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState<StoreDepartment>('Men');
+  const [selectedDepartment, setSelectedDepartment] = useState<StoreDepartment>(
+    departmentFromUrl ?? 'Men'
+  );
+
+  useEffect(() => {
+    if (departmentFromUrl) {
+      setSelectedDepartment(departmentFromUrl);
+    }
+  }, [departmentFromUrl]);
 
   useEffect(() => {
     async function fetchFashionCatalog() {
@@ -61,19 +74,12 @@ export default function CustomerStorefront() {
     );
   }, [scopedProducts, searchQuery]);
 
-  const handleDepartmentChange = (department: StoreDepartment) => {
-    setSelectedDepartment(department);
-    setSearchQuery('');
-    document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans">
       <AppHeader
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         selectedDepartment={selectedDepartment}
-        onDepartmentChange={handleDepartmentChange}
       />
 
       <ExploreBannerSlider department={selectedDepartment} />
@@ -101,5 +107,13 @@ export default function CustomerStorefront() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function CustomerStorefront() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <CustomerStorefrontInner />
+    </React.Suspense>
   );
 }
