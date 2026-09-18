@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, PackagePlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export default function AdminPanelPage() {
   return (
@@ -22,10 +23,13 @@ export default function AdminPanelPage() {
             </p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">Admin Panel</h1>
           </div>
-          <Button variant="outline" size="sm" render={<Link href="/billing" />}>
+          <Link
+            href="/billing"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+          >
             <ArrowLeft className="size-3.5" />
             Back to POS
-          </Button>
+          </Link>
         </div>
       </header>
 
