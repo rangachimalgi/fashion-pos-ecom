@@ -190,7 +190,7 @@ export default function ManualAddProduct() {
       } else {
         alert('Fashion item and auto-generated variant barcodes synced successfully.');
       }
-      router.push('/');
+      router.push('/admin');
       router.refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
