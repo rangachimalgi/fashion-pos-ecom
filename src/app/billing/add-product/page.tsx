@@ -212,11 +212,11 @@ export default function ManualAddProduct() {
             </p>
           </div>
           <Link
-            href="/billing"
+            href="/admin"
             className="text-xs font-bold text-slate-400 hover:text-emerald-400 transition flex items-center gap-1.5 shrink-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Back to POS
+            Back to Admin
           </Link>
         </div>
 
@@ -447,7 +447,7 @@ export default function ManualAddProduct() {
             </button>
             <button
               type="button"
-              onClick={() => router.push('/billing')}
+              onClick={() => router.push('/admin')}
               disabled={loading}
               className="sm:w-40 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-slate-700 text-slate-300 font-bold py-3.5 rounded-lg text-sm transition"
             >

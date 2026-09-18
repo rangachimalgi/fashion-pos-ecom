@@ -51,10 +51,10 @@ export default function BillingTerminal() {
           <h2 className="text-xl font-extrabold text-emerald-400 tracking-wider">🛒 COUNTER POS DESK</h2>
           <div className="flex items-center gap-3">
             <Link
-              href="/billing/add-product"
+              href="/admin"
               className="bg-slate-700 hover:bg-slate-600 text-emerald-300 border border-slate-600 px-3 py-1 rounded text-xs font-bold transition"
             >
-              + Add New Product
+              Admin Panel
             </Link>
             <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded text-xs animate-pulse">
               ● SYSTEM ONLINE & CONNECTED

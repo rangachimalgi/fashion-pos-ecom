@@ -35,7 +35,7 @@ export function CartDrawer() {
 
   const total = getGrandTotal();
 
-  if (pathname.startsWith("/billing")) {
+  if (pathname.startsWith("/billing") || pathname.startsWith("/admin")) {
     return null;
   }
 
