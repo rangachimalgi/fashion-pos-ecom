@@ -28,13 +28,20 @@ export function CartDrawer() {
     getGrandTotal,
   } = useCartStore();
 
+  const [mounted, setMounted] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("UPI");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<{ orderId: string; total: number } | null>(null);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const total = getGrandTotal();
 
+  // Avoid SSR/client tree mismatches from pathname + persisted cart.
+  if (!mounted) return null;
   if (pathname.startsWith("/billing") || pathname.startsWith("/admin")) {
     return null;
   }

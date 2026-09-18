@@ -2,11 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ListFilter,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
+import { STORE_DEPARTMENTS, type StoreDepartment } from "@/lib/categories";
 import { getProductPrimaryImage } from "@/lib/productImages";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,10 +40,40 @@ function totalStock(product: CompleteProduct): number {
   return product.variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0);
 }
 
+function departmentBadgeClass(department?: string | null) {
+  switch (department) {
+    case "Women":
+      return "border-transparent bg-fuchsia-100 text-fuchsia-800";
+    case "Kids":
+      return "border-transparent bg-emerald-100 text-emerald-800";
+    case "Men":
+    default:
+      return "border-transparent bg-sky-100 text-sky-800";
+  }
+}
+
+function categoryBadgeClass(category?: string | null) {
+  const key = category?.toLowerCase() || "";
+  if (key.includes("jean")) return "border-transparent bg-indigo-100 text-indigo-800";
+  if (key.includes("dress") || key.includes("kurti")) {
+    return "border-transparent bg-violet-100 text-violet-800";
+  }
+  if (key.includes("hoodie") || key.includes("set")) {
+    return "border-transparent bg-amber-100 text-amber-900";
+  }
+  if (key.includes("shirt") || key.includes("top") || key.includes("short")) {
+    return "border-transparent bg-orange-100 text-orange-800";
+  }
+  return "border-transparent bg-slate-100 text-slate-700";
+}
+
 export default function AdminPanelPage() {
   const [products, setProducts] = useState<CompleteProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [departmentFilter, setDepartmentFilter] = useState<StoreDepartment | "all">("all");
+  const [filterOpen, setFilterOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<CompleteProduct | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,16 +110,24 @@ export default function AdminPanelPage() {
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return products;
 
-    return products.filter(
-      (product) =>
+    return products.filter((product) => {
+      if (departmentFilter !== "all" && product.department !== departmentFilter) {
+        return false;
+      }
+
+      if (!query) return true;
+
+      return (
         product.name.toLowerCase().includes(query) ||
         product.brand.toLowerCase().includes(query) ||
         product.category?.toLowerCase().includes(query) ||
         product.department?.toLowerCase().includes(query)
-    );
-  }, [products, searchQuery]);
+      );
+    });
+  }, [products, searchQuery, departmentFilter]);
+
+  const activeFilterCount = departmentFilter === "all" ? 0 : 1;
 
   const handleDelete = async () => {
     if (!productToDelete) return;
@@ -120,54 +168,149 @@ export default function AdminPanelPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border/80">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-5">
+    <div className="min-h-screen bg-[#fafafa] text-foreground">
+      <header className="border-b border-border/70 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <div>
-            <p className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
-              Back office
+            <p className="text-[11px] text-muted-foreground">
+              Admin <span className="text-border">/</span> Products
             </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">Admin Panel</h1>
+            <h1 className="mt-0.5 text-xl font-semibold tracking-tight">Products</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <Link
+            href="/billing"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+          >
+            <ArrowLeft className="size-3.5" />
+            POS
+          </Link>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl space-y-4 px-6 py-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-medium text-foreground">
+              Catalog{" "}
+              <span className="font-normal text-muted-foreground">
+                ({loading ? "…" : filteredProducts.length})
+              </span>
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {showSearch ? (
+              <div className="relative w-full sm:w-56">
+                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  autoFocus
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search products…"
+                  className="h-8 bg-white pl-8 pr-8"
+                />
+                <button
+                  type="button"
+                  aria-label="Close search"
+                  className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    setShowSearch(false);
+                    setSearchQuery("");
+                  }}
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="bg-white"
+                onClick={() => setShowSearch(true)}
+                aria-label="Search"
+              >
+                <Search className="size-3.5" />
+              </Button>
+            )}
+
+            <div className="relative">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 bg-white"
+                aria-expanded={filterOpen}
+                onClick={() => setFilterOpen((open) => !open)}
+              >
+                <ListFilter className="size-3.5" />
+                Filter
+                {activeFilterCount > 0 ? (
+                  <Badge variant="secondary" className="ml-0.5 h-4 min-w-4 px-1 text-[10px]">
+                    {activeFilterCount}
+                  </Badge>
+                ) : null}
+              </Button>
+
+              {filterOpen ? (
+                <div className="absolute top-[calc(100%+0.5rem)] right-0 z-20 w-56 rounded-xl border border-border bg-white p-3 shadow-md">
+                  <p className="mb-2 text-sm font-medium">Filter products</p>
+                  <p className="mb-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                    Department
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setDepartmentFilter("all")}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs font-medium transition",
+                        departmentFilter === "all"
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-white text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      All
+                    </button>
+                    {STORE_DEPARTMENTS.map((department) => (
+                      <button
+                        key={department}
+                        type="button"
+                        onClick={() => setDepartmentFilter(department)}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs font-medium transition",
+                          departmentFilter === department
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border bg-white text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {department}
+                      </button>
+                    ))}
+                  </div>
+                  {activeFilterCount > 0 ? (
+                    <button
+                      type="button"
+                      className="mt-3 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setDepartmentFilter("all");
+                        setFilterOpen(false);
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
             <Link
               href="/billing/add-product"
               className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
             >
               <Plus className="size-3.5" />
-              Add product
+              New
             </Link>
-            <Link
-              href="/billing"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-            >
-              <ArrowLeft className="size-3.5" />
-              POS
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl space-y-6 px-6 py-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight">Products</h2>
-            <p className="text-sm text-muted-foreground">
-              {loading
-                ? "Loading catalog…"
-                : `${filteredProducts.length} product${filteredProducts.length === 1 ? "" : "s"}`}
-            </p>
-          </div>
-
-          <div className="relative w-full sm:max-w-xs">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search name, brand, category…"
-              className="h-9 pl-9"
-            />
           </div>
         </div>
 
@@ -177,16 +320,20 @@ export default function AdminPanelPage() {
           </div>
         ) : null}
 
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="overflow-hidden rounded-xl border border-border/80 bg-white shadow-sm">
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[52%] pl-4">Product</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead className="pr-4 text-right">Actions</TableHead>
+              <TableRow className="border-border/70 hover:bg-transparent">
+                <TableHead className="h-11 pl-4 text-xs text-muted-foreground">
+                  Product ({loading ? "…" : filteredProducts.length})
+                </TableHead>
+                <TableHead className="h-11 text-xs text-muted-foreground">Brand</TableHead>
+                <TableHead className="h-11 text-xs text-muted-foreground">Price</TableHead>
+                <TableHead className="h-11 text-xs text-muted-foreground">Stock</TableHead>
+                <TableHead className="h-11 text-xs text-muted-foreground">Tags</TableHead>
+                <TableHead className="h-11 pr-4 text-right text-xs text-muted-foreground">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -194,37 +341,22 @@ export default function AdminPanelPage() {
                 Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={index} className="hover:bg-transparent">
                     <TableCell className="pl-4" colSpan={6}>
-                      <div className="flex items-center gap-3 py-1">
-                        <div className="size-11 animate-pulse rounded-lg bg-muted" />
-                        <div className="space-y-2">
-                          <div className="h-3 w-40 animate-pulse rounded bg-muted" />
-                          <div className="h-3 w-24 animate-pulse rounded bg-muted" />
-                        </div>
+                      <div className="flex items-center gap-3 py-2">
+                        <div className="size-9 animate-pulse rounded-lg bg-muted" />
+                        <div className="h-3 w-40 animate-pulse rounded bg-muted" />
                       </div>
                     </TableCell>
                   </TableRow>
                 ))
               ) : filteredProducts.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="py-16 text-center">
-                    <p className="text-sm font-medium text-foreground">No products found</p>
+                  <TableCell colSpan={6} className="py-20 text-center">
+                    <p className="text-sm font-medium">No products found</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {searchQuery
-                        ? "Try a different search."
+                      {searchQuery || activeFilterCount
+                        ? "Try clearing search or filters."
                         : "Add your first product to get started."}
                     </p>
-                    {!searchQuery ? (
-                      <Link
-                        href="/billing/add-product"
-                        className={cn(
-                          buttonVariants({ size: "sm" }),
-                          "mt-4 inline-flex gap-1.5"
-                        )}
-                      >
-                        <Plus className="size-3.5" />
-                        Add product
-                      </Link>
-                    ) : null}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -233,10 +365,10 @@ export default function AdminPanelPage() {
                   const stock = totalStock(product);
 
                   return (
-                    <TableRow key={product.id}>
-                      <TableCell className="pl-4">
+                    <TableRow key={product.id} className="border-border/60">
+                      <TableCell className="py-3 pl-4">
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+                          <div className="size-9 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-muted">
                             {image ? (
                               <img
                                 src={image}
@@ -245,34 +377,38 @@ export default function AdminPanelPage() {
                               />
                             ) : null}
                           </div>
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-foreground">{product.name}</p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {product.brand}
-                            </p>
-                          </div>
+                          <p className="truncate text-sm font-medium">{product.name}</p>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <span className="text-muted-foreground">
-                          {product.department || "—"}
-                        </span>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {product.brand}
                       </TableCell>
-                      <TableCell>
-                        <span className="text-muted-foreground">
-                          {product.category || "—"}
-                        </span>
+                      <TableCell className="text-sm font-medium">
+                        ₹{product.base_price}
                       </TableCell>
-                      <TableCell className="font-medium">₹{product.base_price}</TableCell>
                       <TableCell>
                         <span
                           className={cn(
-                            "font-medium",
+                            "text-sm font-medium",
                             stock === 0 ? "text-destructive" : "text-foreground"
                           )}
                         >
                           {stock}
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1.5">
+                          {product.department ? (
+                            <Badge className={departmentBadgeClass(product.department)}>
+                              {product.department}
+                            </Badge>
+                          ) : null}
+                          {product.category ? (
+                            <Badge className={categoryBadgeClass(product.category)}>
+                              {product.category}
+                            </Badge>
+                          ) : null}
+                        </div>
                       </TableCell>
                       <TableCell className="pr-4">
                         <div className="flex items-center justify-end gap-1">
