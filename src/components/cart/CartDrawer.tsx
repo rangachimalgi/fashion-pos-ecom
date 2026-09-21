@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/useCartStore";
 import { getProductPrimaryImage } from "@/lib/productImages";
+import { supabase } from "@/lib/supabaseClient";
+import { placeOrder } from "@/lib/placeOrder";
 import type { PaymentMethod } from "@/types/order";
 
 export function CartDrawer() {
@@ -61,24 +63,14 @@ export function CartDrawer() {
     setError(null);
 
     try {
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          payment_method: paymentMethod,
-          source: "ONLINE",
-          items: cart.map((item) => ({
-            variant_id: item.variant.id,
-            quantity: item.quantity,
-          })),
-        }),
+      const payload = await placeOrder(supabase, {
+        payment_method: paymentMethod,
+        source: "ONLINE",
+        items: cart.map((item) => ({
+          variant_id: item.variant.id,
+          quantity: item.quantity,
+        })),
       });
-
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Checkout failed");
-      }
 
       clearCart();
       setReceipt({ orderId: payload.order_id, total: payload.total_amount });

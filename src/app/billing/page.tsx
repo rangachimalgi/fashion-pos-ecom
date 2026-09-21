@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePosTicketStore } from '@/store/usePosTicketStore';
+import { supabase } from '@/lib/supabaseClient';
+import { placeOrder } from '@/lib/placeOrder';
 import type { PaymentMethod } from '@/types/order';
 
 export default function BillingTerminal() {
@@ -17,21 +19,14 @@ export default function BillingTerminal() {
     setStatus(null);
 
     try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          payment_method: paymentMode,
-          source: 'POS',
-          items: ticket.map((item) => ({
-            variant_id: item.variant.id,
-            quantity: item.quantity,
-          })),
-        }),
+      const payload = await placeOrder(supabase, {
+        payment_method: paymentMode,
+        source: 'POS',
+        items: ticket.map((item) => ({
+          variant_id: item.variant.id,
+          quantity: item.quantity,
+        })),
       });
-
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || 'Checkout failed');
 
       clearTicket();
       setStatus(`Invoice ${payload.order_id} posted via ${paymentMode}`);

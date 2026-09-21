@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Menu, MonitorSmartphone } from "lucide-react";
+import { LayoutGrid, Menu, MonitorSmartphone, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -18,6 +18,10 @@ import { cn } from "@/lib/utils";
 function pageTitle(pathname: string) {
   if (pathname.startsWith("/admin/products/new")) return "New product";
   if (pathname.includes("/edit")) return "Edit product";
+  if (pathname.startsWith("/admin/orders/") && pathname !== "/admin/orders") {
+    return "Order";
+  }
+  if (pathname.startsWith("/admin/orders")) return "Orders";
   return "Catalog";
 }
 
@@ -30,6 +34,7 @@ function NavLinks({
 }) {
   const catalogActive =
     pathname === "/admin" || pathname.startsWith("/admin/products");
+  const ordersActive = pathname.startsWith("/admin/orders");
 
   return (
     <nav className="flex flex-col gap-1">
@@ -46,10 +51,19 @@ function NavLinks({
         <LayoutGrid className="size-4" />
         Catalog
       </Link>
-      <p className="flex cursor-not-allowed items-center justify-between rounded-lg px-2.5 py-2 text-sm text-muted-foreground/60">
-        <span>Orders</span>
-        <span className="text-[10px] uppercase tracking-wider">Soon</span>
-      </p>
+      <Link
+        href="/admin/orders"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+          ordersActive
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <Receipt className="size-4" />
+        Orders
+      </Link>
     </nav>
   );
 }
