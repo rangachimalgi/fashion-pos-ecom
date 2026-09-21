@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, Menu, MonitorSmartphone, Receipt } from "lucide-react";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -93,13 +94,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex flex-1 flex-col justify-between p-3">
           <NavLinks pathname={pathname} />
-          <Link
-            href="/billing"
-            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <MonitorSmartphone className="size-4" />
-            Open POS
-          </Link>
+          <div className="space-y-1">
+            <Link
+              href="/billing"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <MonitorSmartphone className="size-4" />
+              Open POS
+            </Link>
+            <SignOutButton className="w-full text-muted-foreground" />
+          </div>
         </div>
       </aside>
 
@@ -131,14 +135,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     pathname={pathname}
                     onNavigate={() => setMenuOpen(false)}
                   />
-                  <Link
-                    href="/billing"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <MonitorSmartphone className="size-4" />
-                    Open POS
-                  </Link>
+                  <div className="space-y-1">
+                    <Link
+                      href="/billing"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <MonitorSmartphone className="size-4" />
+                      Open POS
+                    </Link>
+                    <SignOutButton className="w-full text-muted-foreground" />
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>

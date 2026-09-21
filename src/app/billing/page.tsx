@@ -1,16 +1,26 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePosTicketStore } from '@/store/usePosTicketStore';
 import { supabase } from '@/lib/supabaseClient';
 import { placeOrder } from '@/lib/placeOrder';
+import { getStaffProfile, signOutStaff } from '@/lib/staffAuth';
 import type { PaymentMethod } from '@/types/order';
+import { useRouter } from 'next/navigation';
 
 export default function BillingTerminal() {
+  const router = useRouter();
   const { ticket, removeItemFromTicket, getGrandTotal, clearTicket } = usePosTicketStore();
   const [paymentMode, setPaymentMode] = useState<PaymentMethod>('CASH');
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    getStaffProfile()
+      .then((profile) => setIsAdmin(profile?.role === 'admin'))
+      .catch(() => setIsAdmin(false));
+  }, []);
 
   const handleCloseInvoice = async () => {
     if (ticket.length === 0 || submitting) return;
@@ -45,12 +55,25 @@ export default function BillingTerminal() {
         <div className="flex justify-between items-center border-b border-slate-700 pb-4 mb-4">
           <h2 className="text-xl font-extrabold text-emerald-400 tracking-wider">🛒 COUNTER POS DESK</h2>
           <div className="flex items-center gap-3">
-            <Link
-              href="/admin"
-              className="bg-slate-700 hover:bg-slate-600 text-emerald-300 border border-slate-600 px-3 py-1 rounded text-xs font-bold transition"
+            {isAdmin ? (
+              <Link
+                href="/admin"
+                className="bg-slate-700 hover:bg-slate-600 text-emerald-300 border border-slate-600 px-3 py-1 rounded text-xs font-bold transition"
+              >
+                Admin Panel
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              onClick={async () => {
+                await signOutStaff();
+                router.replace('/login');
+                router.refresh();
+              }}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-300 border border-slate-600 px-3 py-1 rounded text-xs font-bold transition"
             >
-              Admin Panel
-            </Link>
+              Sign out
+            </button>
             <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded text-xs animate-pulse">
               ● SYSTEM ONLINE & CONNECTED
             </span>

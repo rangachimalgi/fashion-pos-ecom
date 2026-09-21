@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
@@ -97,13 +96,10 @@ function CustomerStorefrontInner() {
       <CategorySection department={selectedDepartment} />
 
       <footer className="border-t border-slate-100 px-6 py-6">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-slate-400">
+        <div className="flex justify-center text-xs text-slate-400">
           <span className="font-black tracking-widest text-slate-700">
             VIBE<span className="text-brand">WEAR</span>
           </span>
-          <Link href="/billing" className="font-bold text-brand hover:underline uppercase tracking-wider">
-            Go to POS Billing →
-          </Link>
         </div>
       </footer>
     </div>
