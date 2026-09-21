@@ -2,19 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  ListFilter,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ListFilter, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
-import { STORE_DEPARTMENTS, type StoreDepartment } from "@/lib/categories";
+import {
+  STORE_DEPARTMENTS,
+  getCategoriesForDepartment,
+  type StoreDepartment,
+} from "@/lib/categories";
 import { getProductPrimaryImage } from "@/lib/productImages";
+import {
+  mutationHint,
+  stockStatus,
+  totalStock,
+  variantSummary,
+} from "@/lib/productAdmin";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -36,35 +38,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-function totalStock(product: CompleteProduct): number {
-  return product.variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0);
-}
-
-function departmentBadgeClass(department?: string | null) {
-  switch (department) {
-    case "Women":
-      return "border-transparent bg-fuchsia-100 text-fuchsia-800";
-    case "Kids":
-      return "border-transparent bg-emerald-100 text-emerald-800";
-    case "Men":
-    default:
-      return "border-transparent bg-sky-100 text-sky-800";
-  }
-}
-
-function categoryBadgeClass(category?: string | null) {
-  const key = category?.toLowerCase() || "";
-  if (key.includes("jean")) return "border-transparent bg-indigo-100 text-indigo-800";
-  if (key.includes("dress") || key.includes("kurti")) {
-    return "border-transparent bg-violet-100 text-violet-800";
-  }
-  if (key.includes("hoodie") || key.includes("set")) {
-    return "border-transparent bg-amber-100 text-amber-900";
-  }
-  if (key.includes("shirt") || key.includes("top") || key.includes("short")) {
-    return "border-transparent bg-orange-100 text-orange-800";
-  }
-  return "border-transparent bg-slate-100 text-slate-700";
+function stockLabel(status: ReturnType<typeof stockStatus>) {
+  if (status === "out") return "Out of stock";
+  if (status === "low") return "Low stock";
+  return "In stock";
 }
 
 export default function AdminPanelPage() {
@@ -73,10 +50,25 @@ export default function AdminPanelPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState<StoreDepartment | "all">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string | "all">("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<CompleteProduct | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const categoryOptions =
+    departmentFilter === "all"
+      ? STORE_DEPARTMENTS.flatMap((department) => getCategoriesForDepartment(department))
+      : getCategoriesForDepartment(departmentFilter);
+
+  const uniqueCategories = useMemo(() => {
+    const seen = new Set<string>();
+    return categoryOptions.filter((category) => {
+      if (seen.has(category.id)) return false;
+      seen.add(category.id);
+      return true;
+    });
+  }, [categoryOptions]);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -116,6 +108,10 @@ export default function AdminPanelPage() {
         return false;
       }
 
+      if (categoryFilter !== "all" && product.category !== categoryFilter) {
+        return false;
+      }
+
       if (!query) return true;
 
       return (
@@ -125,9 +121,10 @@ export default function AdminPanelPage() {
         product.department?.toLowerCase().includes(query)
       );
     });
-  }, [products, searchQuery, departmentFilter]);
+  }, [products, searchQuery, departmentFilter, categoryFilter]);
 
-  const activeFilterCount = departmentFilter === "all" ? 0 : 1;
+  const activeFilterCount =
+    (departmentFilter === "all" ? 0 : 1) + (categoryFilter === "all" ? 0 : 1);
 
   const handleDelete = async () => {
     if (!productToDelete) return;
@@ -149,12 +146,7 @@ export default function AdminPanelPage() {
         .eq("id", productToDelete.id);
 
       if (productError) {
-        const hint =
-          productError.message.toLowerCase().includes("policy") ||
-          productError.code === "42501"
-            ? "\n\nRun supabase/migrations/004_admin_product_mutations.sql in the Supabase SQL Editor."
-            : "";
-        throw new Error(productError.message + hint);
+        throw new Error(productError.message + mutationHint(productError.message, productError.code));
       }
 
       setProducts((current) => current.filter((p) => p.id !== productToDelete.id));
@@ -168,35 +160,12 @@ export default function AdminPanelPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-foreground">
-      <header className="border-b border-border/70 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <div>
-            <p className="text-[11px] text-muted-foreground">
-              Admin <span className="text-border">/</span> Products
-            </p>
-            <h1 className="mt-0.5 text-xl font-semibold tracking-tight">Products</h1>
-          </div>
-          <Link
-            href="/billing"
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-          >
-            <ArrowLeft className="size-3.5" />
-            POS
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl space-y-4 px-6 py-6">
+    <div>
+      <main className="space-y-4 px-4 py-6 md:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-sm font-medium text-foreground">
-              Catalog{" "}
-              <span className="font-normal text-muted-foreground">
-                ({loading ? "…" : filteredProducts.length})
-              </span>
-            </h2>
-          </div>
+          <h2 className="text-sm font-medium text-foreground">
+            {loading ? "…" : filteredProducts.length} products
+          </h2>
 
           <div className="flex flex-wrap items-center gap-2">
             {showSearch ? (
@@ -254,7 +223,7 @@ export default function AdminPanelPage() {
               </Button>
 
               {filterOpen ? (
-                <div className="absolute top-[calc(100%+0.5rem)] right-0 z-20 w-56 rounded-xl border border-border bg-white p-3 shadow-md">
+                <div className="absolute top-[calc(100%+0.5rem)] right-0 z-20 w-64 rounded-xl border border-border bg-white p-3 shadow-md">
                   <p className="mb-2 text-sm font-medium">Filter products</p>
                   <p className="mb-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
                     Department
@@ -262,7 +231,10 @@ export default function AdminPanelPage() {
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setDepartmentFilter("all")}
+                      onClick={() => {
+                        setDepartmentFilter("all");
+                        setCategoryFilter("all");
+                      }}
                       className={cn(
                         "rounded-full border px-2.5 py-1 text-xs font-medium transition",
                         departmentFilter === "all"
@@ -276,7 +248,10 @@ export default function AdminPanelPage() {
                       <button
                         key={department}
                         type="button"
-                        onClick={() => setDepartmentFilter(department)}
+                        onClick={() => {
+                          setDepartmentFilter(department);
+                          setCategoryFilter("all");
+                        }}
                         className={cn(
                           "rounded-full border px-2.5 py-1 text-xs font-medium transition",
                           departmentFilter === department
@@ -288,12 +263,47 @@ export default function AdminPanelPage() {
                       </button>
                     ))}
                   </div>
+
+                  <p className="mt-3 mb-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                    Category
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setCategoryFilter("all")}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs font-medium transition",
+                        categoryFilter === "all"
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-white text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      All
+                    </button>
+                    {uniqueCategories.map((category) => (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => setCategoryFilter(category.id)}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs font-medium transition",
+                          categoryFilter === category.id
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border bg-white text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {category.label}
+                      </button>
+                    ))}
+                  </div>
+
                   {activeFilterCount > 0 ? (
                     <button
                       type="button"
                       className="mt-3 text-xs text-muted-foreground hover:text-foreground"
                       onClick={() => {
                         setDepartmentFilter("all");
+                        setCategoryFilter("all");
                         setFilterOpen(false);
                       }}
                     >
@@ -305,11 +315,11 @@ export default function AdminPanelPage() {
             </div>
 
             <Link
-              href="/billing/add-product"
+              href="/admin/products/new"
               className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
             >
               <Plus className="size-3.5" />
-              New
+              New product
             </Link>
           </div>
         </div>
@@ -324,13 +334,12 @@ export default function AdminPanelPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border/70 hover:bg-transparent">
-                <TableHead className="h-11 pl-4 text-xs text-muted-foreground">
-                  Product ({loading ? "…" : filteredProducts.length})
-                </TableHead>
+                <TableHead className="h-11 pl-4 text-xs text-muted-foreground">Product</TableHead>
                 <TableHead className="h-11 text-xs text-muted-foreground">Brand</TableHead>
                 <TableHead className="h-11 text-xs text-muted-foreground">Price</TableHead>
                 <TableHead className="h-11 text-xs text-muted-foreground">Stock</TableHead>
-                <TableHead className="h-11 text-xs text-muted-foreground">Tags</TableHead>
+                <TableHead className="h-11 text-xs text-muted-foreground">Department</TableHead>
+                <TableHead className="h-11 text-xs text-muted-foreground">Category</TableHead>
                 <TableHead className="h-11 pr-4 text-right text-xs text-muted-foreground">
                   Actions
                 </TableHead>
@@ -340,7 +349,7 @@ export default function AdminPanelPage() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={index} className="hover:bg-transparent">
-                    <TableCell className="pl-4" colSpan={6}>
+                    <TableCell className="pl-4" colSpan={7}>
                       <div className="flex items-center gap-3 py-2">
                         <div className="size-9 animate-pulse rounded-lg bg-muted" />
                         <div className="h-3 w-40 animate-pulse rounded bg-muted" />
@@ -350,7 +359,7 @@ export default function AdminPanelPage() {
                 ))
               ) : filteredProducts.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="py-20 text-center">
+                  <TableCell colSpan={7} className="py-20 text-center">
                     <p className="text-sm font-medium">No products found</p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {searchQuery || activeFilterCount
@@ -363,6 +372,7 @@ export default function AdminPanelPage() {
                 filteredProducts.map((product) => {
                   const image = getProductPrimaryImage(product);
                   const stock = totalStock(product);
+                  const status = stockStatus(stock);
 
                   return (
                     <TableRow key={product.id} className="border-border/60">
@@ -377,7 +387,12 @@ export default function AdminPanelPage() {
                               />
                             ) : null}
                           </div>
-                          <p className="truncate text-sm font-medium">{product.name}</p>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">{product.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {variantSummary(product.variants)}
+                            </p>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -387,28 +402,38 @@ export default function AdminPanelPage() {
                         ₹{product.base_price}
                       </TableCell>
                       <TableCell>
-                        <span
-                          className={cn(
-                            "text-sm font-medium",
-                            stock === 0 ? "text-destructive" : "text-foreground"
-                          )}
-                        >
-                          {stock}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1.5">
-                          {product.department ? (
-                            <Badge className={departmentBadgeClass(product.department)}>
-                              {product.department}
-                            </Badge>
-                          ) : null}
-                          {product.category ? (
-                            <Badge className={categoryBadgeClass(product.category)}>
-                              {product.category}
-                            </Badge>
-                          ) : null}
+                        <div className="flex flex-col">
+                          <span
+                            className={cn(
+                              "text-sm font-medium",
+                              status === "out"
+                                ? "text-destructive"
+                                : status === "low"
+                                  ? "text-amber-700"
+                                  : "text-foreground"
+                            )}
+                          >
+                            {stock}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-[11px]",
+                              status === "out"
+                                ? "text-destructive"
+                                : status === "low"
+                                  ? "text-amber-700"
+                                  : "text-muted-foreground"
+                            )}
+                          >
+                            {stockLabel(status)}
+                          </span>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {product.department || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {product.category || "—"}
                       </TableCell>
                       <TableCell className="pr-4">
                         <div className="flex items-center justify-end gap-1">
@@ -454,10 +479,8 @@ export default function AdminPanelPage() {
             <DialogTitle>Delete product?</DialogTitle>
             <DialogDescription>
               This will permanently remove{" "}
-              <span className="font-medium text-foreground">
-                {productToDelete?.name}
-              </span>{" "}
-              and all of its size variants from the catalog.
+              <span className="font-medium text-foreground">{productToDelete?.name}</span> and
+              all of its size variants from the catalog.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
