@@ -20,8 +20,6 @@ export function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
   const typeLabel = productTypeLabel(product);
   const image = getProductPrimaryImage(product);
-  const mrp = Math.round(product.base_price * 1.4);
-  const discount = Math.round(((mrp - product.base_price) / mrp) * 100);
 
   const goToProduct = () => router.push(`/product/${product.id}`);
 
@@ -59,11 +57,7 @@ export function ProductCard({ product }: ProductCardProps) {
             {typeLabel}
           </p>
         ) : null}
-        <div className="flex flex-wrap items-baseline gap-1.5 pt-0.5">
-          <p className="text-sm font-black text-slate-900">₹{product.base_price}</p>
-          <p className="text-xs text-slate-400 line-through">₹{mrp}</p>
-          <p className="text-xs font-bold text-rose-500">({discount}% OFF)</p>
-        </div>
+        <p className="pt-0.5 text-sm font-black text-slate-900">₹{product.base_price}</p>
       </div>
     </div>
   );

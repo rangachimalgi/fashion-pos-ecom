@@ -122,7 +122,7 @@ export function CartDrawer() {
                   <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-slate-400">
                     <ShoppingBag className="size-8 stroke-[1.25]" />
                     <p className="text-sm font-bold">Your bag is empty</p>
-                    <p className="text-xs">Add a size from the catalog to start a bag.</p>
+                    <p className="text-xs">Add a color and size from a product to start a bag.</p>
                   </div>
                 ) : (
                   <ul className="space-y-4">

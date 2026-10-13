@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
-import { ShoppingBag, Star, ShieldCheck, Truck, RefreshCw, Heart } from 'lucide-react';
+import { ShoppingBag, ShieldCheck, Truck, RefreshCw, Heart } from 'lucide-react';
 import { AppHeader } from '@/components/store/AppHeader';
 import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { getProductImages } from '@/lib/productImages';
@@ -15,6 +15,7 @@ export default function ProductDetailsView() {
   const { addItemToCart } = useCartStore();
 
   const [product, setProduct] = useState<CompleteProduct | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [loading, setLoading] = useState(true);
   const [isWishlisted, setIsWishlisted] = useState(false);
@@ -40,10 +41,13 @@ export default function ProductDetailsView() {
             variants: data.product_variants || []
           };
           setProduct(formatted);
-          
-          // Auto-select the first variation that actually has stock left
-          const activeStockVariant = formatted.variants.find(v => v.stock_quantity > 0);
-          if (activeStockVariant) setSelectedVariant(activeStockVariant);
+
+          const firstInStock = formatted.variants.find((v) => v.stock_quantity > 0);
+          const initial = firstInStock ?? formatted.variants[0] ?? null;
+          if (initial) {
+            setSelectedColor(initial.color);
+            setSelectedVariant(firstInStock ?? null);
+          }
         }
       } catch (err) {
         console.error("Error retrieving dynamic product fields:", err);
@@ -83,6 +87,22 @@ export default function ProductDetailsView() {
     addItemToCart(product, selectedVariant);
   };
 
+  const colors = [...new Set(product.variants.map((v) => v.color.trim()).filter(Boolean))];
+  const sizesForColor = product.variants.filter(
+    (v) => selectedColor && v.color.trim().toLowerCase() === selectedColor.trim().toLowerCase()
+  );
+
+  const selectColor = (color: string) => {
+    setSelectedColor(color);
+    const inColor = product.variants.filter(
+      (v) => v.color.trim().toLowerCase() === color.trim().toLowerCase()
+    );
+    const next = inColor.find((v) => v.stock_quantity > 0) ?? null;
+    setSelectedVariant(next);
+  };
+
+  const description = product.description?.trim() || "";
+
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans pb-20">
       <AppHeader />
@@ -104,44 +124,72 @@ export default function ProductDetailsView() {
             <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight">
               {product.name}
             </h1>
-            <div className="flex items-center gap-1.5 text-amber-500 text-xs font-bold pt-1">
-              <Star className="w-4 h-4 fill-amber-500 stroke-none" /> 4.4 <span className="text-slate-400 font-normal ml-1">| 2.3k Ratings</span>
-            </div>
           </div>
 
-          {/* FINANCIAL COUNTER MATRICES */}
           <div className="border-t border-slate-100 pt-4 space-y-1">
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-black text-slate-900">₹{product.base_price}</span>
-              <span className="text-slate-400 text-sm line-through">₹{Math.round(product.base_price * 1.4)}</span>
-              <span className="text-sm font-extrabold text-rose-500">(40% OFF)</span>
-            </div>
-            <p className="text-[10px] text-emerald-600 font-bold">Inclusive of all transactional taxes</p>
+            <span className="text-3xl font-black text-slate-900">₹{product.base_price}</span>
+            <p className="text-[10px] text-emerald-600 font-bold">Inclusive of all taxes</p>
           </div>
 
-          {/* SIZES VARIATION CHIPS GRID */}
-          <div className="border-t border-slate-100 pt-4 space-y-3">
-            <div className="flex justify-between text-xs font-bold tracking-wider uppercase text-slate-500">
-              <span>Select Garment Size</span>
-              <span className="text-rose-500 underline normal-case cursor-pointer">Size Chart Guide</span>
+          {colors.length > 0 ? (
+            <div className="border-t border-slate-100 pt-4 space-y-3">
+              <div className="flex justify-between text-xs font-bold tracking-wider uppercase text-slate-500">
+                <span>Color</span>
+                {selectedColor ? (
+                  <span className="font-medium normal-case tracking-normal text-slate-700">{selectedColor}</span>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                {colors.map((color) => {
+                  const hasStock = product.variants.some(
+                    (v) =>
+                      v.color.trim().toLowerCase() === color.trim().toLowerCase() &&
+                      v.stock_quantity > 0
+                  );
+                  const isSelected =
+                    selectedColor?.trim().toLowerCase() === color.trim().toLowerCase();
+
+                  return (
+                    <button
+                      key={color}
+                      type="button"
+                      disabled={!hasStock}
+                      onClick={() => selectColor(color)}
+                      className={`h-12 px-5 text-xs font-black tracking-wider rounded-xl border transition flex items-center justify-center ${
+                        isSelected
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-md shadow-slate-900/20'
+                          : hasStock
+                            ? 'border-slate-200 bg-white text-slate-700 hover:border-slate-800'
+                            : 'border-slate-100 bg-slate-50 text-slate-300 line-through cursor-not-allowed'
+                      }`}
+                    >
+                      {color}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            
+          ) : null}
+
+          <div className="border-t border-slate-100 pt-4 space-y-3">
+            <span className="text-xs font-bold tracking-wider uppercase text-slate-500">Size</span>
             <div className="flex flex-wrap gap-2.5">
-              {product.variants.map((v) => {
+              {(selectedColor ? sizesForColor : product.variants).map((v) => {
                 const isSelected = selectedVariant?.id === v.id;
                 const hasStock = v.stock_quantity > 0;
-                
+
                 return (
                   <button
                     key={v.id}
+                    type="button"
                     disabled={!hasStock}
                     onClick={() => setSelectedVariant(v)}
                     className={`h-12 px-5 text-xs font-black tracking-wider rounded-xl border transition flex items-center justify-center min-w-13.5 ${
                       isSelected
                         ? 'border-slate-900 bg-slate-900 text-white shadow-md shadow-slate-900/20'
                         : hasStock
-                        ? 'border-slate-200 bg-white text-slate-700 hover:border-slate-800'
-                        : 'border-slate-100 bg-slate-50 text-slate-300 line-through cursor-not-allowed'
+                          ? 'border-slate-200 bg-white text-slate-700 hover:border-slate-800'
+                          : 'border-slate-100 bg-slate-50 text-slate-300 line-through cursor-not-allowed'
                     }`}
                   >
                     {v.size}
@@ -149,6 +197,9 @@ export default function ProductDetailsView() {
                 );
               })}
             </div>
+            {selectedColor && sizesForColor.length === 0 ? (
+              <p className="text-xs text-slate-400">No sizes for this color.</p>
+            ) : null}
           </div>
 
           {/* ACTION BUTTON PACK */}
@@ -176,13 +227,14 @@ export default function ProductDetailsView() {
             </button>
           </div>
 
-          {/* SPECIFICATIONS & FEATURES DESCRIPTION WINDOW */}
-          <div className="border-t border-slate-100 pt-6 space-y-3">
-            <h3 className="text-xs font-bold tracking-wider uppercase text-slate-500">Product Specifications</h3>
-            <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              {product.description || "Premium garment construct engineered with heavy-knit components, tailored drop profiles, and soft-touch fabric properties for absolute comfort."}
-            </p>
-          </div>
+          {description ? (
+            <div className="border-t border-slate-100 pt-6 space-y-3">
+              <h3 className="text-xs font-bold tracking-wider uppercase text-slate-500">Details</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium whitespace-pre-wrap">
+                {description}
+              </p>
+            </div>
+          ) : null}
 
           {/* MERCHANDISING TRUST ANCHOR MARKS */}
           <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-xl p-4 text-center border border-slate-100/50">
