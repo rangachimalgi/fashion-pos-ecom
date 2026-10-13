@@ -15,7 +15,9 @@ import { useCartStore } from "@/store/useCartStore";
 import { getProductPrimaryImage } from "@/lib/productImages";
 import { supabase } from "@/lib/supabaseClient";
 import { placeOrder } from "@/lib/placeOrder";
-import type { PaymentMethod } from "@/types/order";
+import type { PaymentMethod, ShippingDetails } from "@/types/order";
+import { emptyShipping, validateShipping } from "@/lib/shipping";
+import { Input } from "@/components/ui/input";
 
 export function CartDrawer() {
   const pathname = usePathname();
@@ -32,12 +34,19 @@ export function CartDrawer() {
 
   const [mounted, setMounted] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("UPI");
+  const [shipping, setShipping] = useState<ShippingDetails>(emptyShipping);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<{ orderId: string; total: number } | null>(null);
 
   useEffect(() => {
     setMounted(true);
+    try {
+      const saved = localStorage.getItem("vibewear-shipping");
+      if (saved) setShipping({ ...emptyShipping(), ...JSON.parse(saved) });
+    } catch {
+      // Ignore bad local shipping cache.
+    }
   }, []);
 
   const total = getGrandTotal();
@@ -56,8 +65,22 @@ export function CartDrawer() {
     }
   };
 
+  const updateShipping = <K extends keyof ShippingDetails>(key: K, value: ShippingDetails[K]) => {
+    setShipping((current) => {
+      const next = { ...current, [key]: value };
+      localStorage.setItem("vibewear-shipping", JSON.stringify(next));
+      return next;
+    });
+  };
+
   const handleCheckout = async () => {
     if (cart.length === 0 || submitting) return;
+
+    const shippingError = validateShipping(shipping);
+    if (shippingError) {
+      setError(shippingError);
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -70,6 +93,7 @@ export function CartDrawer() {
           variant_id: item.variant.id,
           quantity: item.quantity,
         })),
+        shipping,
       });
 
       clearCart();
@@ -109,6 +133,7 @@ export function CartDrawer() {
             <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
               <ShoppingBag className="size-8 text-rose-500" />
               <p className="text-sm font-black uppercase tracking-wider">Order confirmed</p>
+              <p className="text-xs text-slate-500">We’ll deliver to the address you entered.</p>
               <p className="text-xs text-slate-500 font-mono break-all">#{receipt.orderId}</p>
               <p className="text-2xl font-black">₹{receipt.total}</p>
               <Button className="mt-2 bg-rose-500 text-white hover:bg-rose-600" onClick={() => handleOpenChange(false)}>
@@ -125,6 +150,7 @@ export function CartDrawer() {
                     <p className="text-xs">Add a color and size from a product to start a bag.</p>
                   </div>
                 ) : (
+                  <div className="space-y-6">
                   <ul className="space-y-4">
                     {cart.map((item) => (
                       <li key={item.variant.id} className="flex gap-3 border-b border-slate-100 pb-4">
@@ -175,6 +201,68 @@ export function CartDrawer() {
                       </li>
                     ))}
                   </ul>
+
+                  <div className="space-y-3 border-t border-slate-100 pt-4">
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+                      Delivery
+                    </p>
+                    <Input
+                      required
+                      placeholder="Full name"
+                      value={shipping.customer_name}
+                      onChange={(event) => updateShipping("customer_name", event.target.value)}
+                    />
+                    <Input
+                      required
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="10-digit mobile"
+                      value={shipping.customer_phone}
+                      onChange={(event) =>
+                        updateShipping("customer_phone", event.target.value.replace(/\D/g, "").slice(0, 10))
+                      }
+                    />
+                    <Input
+                      required
+                      placeholder="House no., street, area"
+                      value={shipping.address_line1}
+                      onChange={(event) => updateShipping("address_line1", event.target.value)}
+                    />
+                    <Input
+                      placeholder="Apartment, landmark (optional)"
+                      value={shipping.address_line2}
+                      onChange={(event) => updateShipping("address_line2", event.target.value)}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        required
+                        placeholder="City"
+                        value={shipping.city}
+                        onChange={(event) => updateShipping("city", event.target.value)}
+                      />
+                      <Input
+                        required
+                        placeholder="State"
+                        value={shipping.state}
+                        onChange={(event) => updateShipping("state", event.target.value)}
+                      />
+                    </div>
+                    <Input
+                      required
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="Pincode"
+                      value={shipping.pincode}
+                      onChange={(event) =>
+                        updateShipping("pincode", event.target.value.replace(/\D/g, "").slice(0, 6))
+                      }
+                    />
+                    <p className="text-[11px] leading-relaxed text-slate-400">
+                      We’ll use this number to confirm the order. No login or OTP.
+                    </p>
+                  </div>
+                  </div>
                 )}
               </div>
 
@@ -184,18 +272,21 @@ export function CartDrawer() {
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-2">
-                  {(["UPI", "CASH"] as PaymentMethod[]).map((method) => (
+                  {([
+                    { id: "UPI" as const, label: "UPI" },
+                    { id: "CASH" as const, label: "Cash on delivery" },
+                  ] satisfies { id: PaymentMethod; label: string }[]).map((method) => (
                     <button
-                      key={method}
+                      key={method.id}
                       type="button"
-                      onClick={() => setPaymentMethod(method)}
-                      className={`rounded-lg border py-2 text-xs font-black tracking-wider ${
-                        paymentMethod === method
+                      onClick={() => setPaymentMethod(method.id)}
+                      className={`rounded-lg border px-2 py-2 text-xs font-black tracking-wider ${
+                        paymentMethod === method.id
                           ? "border-slate-900 bg-slate-900 text-white"
                           : "border-slate-200 bg-white text-slate-500"
                       }`}
                     >
-                      {method}
+                      {method.label}
                     </button>
                   ))}
                 </div>

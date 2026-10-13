@@ -1,13 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AdminOrder, OrderLineItem } from "@/types/order";
+import type { AdminOrder, OrderLineItem, ShippingDetails } from "@/types/order";
 
 type VariantProduct = {
   name?: string | null;
+  brand?: string | null;
 };
 
 type VariantJoin = {
   size?: string | null;
   color?: string | null;
+  barcode?: string | null;
   products?: VariantProduct | VariantProduct[] | null;
 };
 
@@ -24,6 +26,13 @@ type OrderRow = {
   payment_method?: string;
   source?: string;
   created_at?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
   order_items?: LineRow[] | null;
 };
 
@@ -50,8 +59,10 @@ function normalizeLine(row: LineRow): OrderLineItem | null {
     quantity,
     price_at_purchase: Number(row.price_at_purchase ?? 0),
     product_name: product?.name ?? null,
+    brand: product?.brand ?? null,
     size: variant?.size ?? null,
     color: variant?.color ?? null,
+    barcode: variant?.barcode ?? null,
   };
 }
 
@@ -66,13 +77,12 @@ async function enrichBareLines(
   supabase: SupabaseClient,
   lines: OrderLineItem[]
 ): Promise<OrderLineItem[]> {
-  const missing = lines.filter((line) => !line.product_name);
-  if (!missing.length) return lines;
+  if (!lines.length) return lines;
 
-  const variantIds = [...new Set(missing.map((line) => line.variant_id))];
+  const variantIds = [...new Set(lines.map((line) => line.variant_id))];
   const { data } = await supabase
     .from("product_variants")
-    .select("id, size, color, products(name)")
+    .select("id, size, color, barcode, products(name, brand)")
     .in("id", variantIds);
 
   const map = new Map(
@@ -80,6 +90,7 @@ async function enrichBareLines(
       id: string;
       size?: string | null;
       color?: string | null;
+      barcode?: string | null;
       products?: VariantProduct | VariantProduct[] | null;
     }>).map((row) => [row.id, row])
   );
@@ -91,8 +102,10 @@ async function enrichBareLines(
     return {
       ...line,
       product_name: line.product_name ?? product?.name ?? null,
+      brand: line.brand ?? product?.brand ?? null,
       size: line.size ?? variant.size ?? null,
       color: line.color ?? variant.color ?? null,
+      barcode: line.barcode ?? variant.barcode ?? null,
     };
   });
 }
@@ -117,7 +130,7 @@ async function loadItemsForOrders(
   if (missingIds.length) {
     const { data, error } = await supabase
       .from("order_items")
-      .select("order_id, variant_id, quantity, price_at_purchase, product_variants(size, color, products(name))")
+      .select("order_id, variant_id, quantity, price_at_purchase, product_variants(size, color, barcode, products(name, brand))")
       .in("order_id", missingIds);
 
     if (!error && data) {
@@ -139,6 +152,22 @@ async function loadItemsForOrders(
   return itemsByOrder;
 }
 
+function shippingFromRow(order: OrderRow): ShippingDetails | null {
+  if (!order.customer_name && !order.customer_phone && !order.address_line1) {
+    return null;
+  }
+
+  return {
+    customer_name: order.customer_name ?? "",
+    customer_phone: order.customer_phone ?? "",
+    address_line1: order.address_line1 ?? "",
+    address_line2: order.address_line2 ?? "",
+    city: order.city ?? "",
+    state: order.state ?? "",
+    pincode: order.pincode ?? "",
+  };
+}
+
 function toAdminOrder(order: OrderRow, items: OrderLineItem[]): AdminOrder {
   return {
     id: order.id,
@@ -148,6 +177,7 @@ function toAdminOrder(order: OrderRow, items: OrderLineItem[]): AdminOrder {
     created_at: order.created_at ?? null,
     item_count: items.length,
     items,
+    shipping: shippingFromRow(order),
   };
 }
 

@@ -6,10 +6,21 @@ export interface CheckoutItemInput {
   quantity: number;
 }
 
+export interface ShippingDetails {
+  customer_name: string;
+  customer_phone: string;
+  address_line1: string;
+  address_line2: string;
+  city: string;
+  state: string;
+  pincode: string;
+}
+
 export interface CheckoutRequest {
   payment_method: PaymentMethod;
   source: OrderSource;
   items: CheckoutItemInput[];
+  shipping?: ShippingDetails;
 }
 
 export interface CheckoutResponse {
@@ -22,8 +33,10 @@ export interface OrderLineItem {
   quantity: number;
   price_at_purchase: number;
   product_name: string | null;
+  brand: string | null;
   size: string | null;
   color: string | null;
+  barcode: string | null;
 }
 
 export interface AdminOrder {
@@ -34,4 +47,5 @@ export interface AdminOrder {
   created_at: string | null;
   item_count: number;
   items: OrderLineItem[];
+  shipping: ShippingDetails | null;
 }

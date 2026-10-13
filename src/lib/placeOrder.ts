@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CheckoutRequest, CheckoutResponse, PaymentMethod, OrderSource } from "@/types/order";
+import { normalizedShipping, validateShipping } from "@/lib/shipping";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "UPI"];
 const ORDER_SOURCES: OrderSource[] = ["ONLINE", "POS"];
@@ -18,6 +19,14 @@ type VariantRow = {
 
 function schemaHint(message: string) {
   const lower = message.toLowerCase();
+  if (
+    lower.includes("customer_name") ||
+    lower.includes("customer_phone") ||
+    lower.includes("address_line") ||
+    lower.includes("pincode")
+  ) {
+    return "\n\nRun supabase/migrations/008_order_delivery.sql in the Supabase SQL Editor.";
+  }
   if (lower.includes("does not exist") || lower.includes("schema cache") || lower.includes("order_items")) {
     return "\n\nRun supabase/migrations/006_orders.sql in the Supabase SQL Editor.";
   }
@@ -31,7 +40,7 @@ export async function placeOrder(
   supabase: SupabaseClient,
   body: CheckoutRequest
 ): Promise<CheckoutResponse> {
-  const { payment_method, source, items } = body;
+  const { payment_method, source, items, shipping } = body;
 
   if (!PAYMENT_METHODS.includes(payment_method)) {
     throw new Error("payment_method must be CASH or UPI");
@@ -104,12 +113,30 @@ export async function placeOrder(
     0
   );
 
+  let delivery: Record<string, string> | undefined;
+  if (source === "ONLINE") {
+    if (!shipping) throw new Error("Add a delivery name, phone, and address.");
+    const shippingError = validateShipping(shipping);
+    if (shippingError) throw new Error(shippingError);
+    const next = normalizedShipping(shipping);
+    delivery = {
+      customer_name: next.customer_name,
+      customer_phone: next.customer_phone,
+      address_line1: next.address_line1,
+      address_line2: next.address_line2,
+      city: next.city,
+      state: next.state,
+      pincode: next.pincode,
+    };
+  }
+
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
       total_amount: totalAmount,
       payment_method,
       source,
+      ...delivery,
     })
     .select("id, total_amount")
     .single();

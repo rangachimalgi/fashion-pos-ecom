@@ -27,7 +27,11 @@ export function sourceLabel(source: AdminOrder["source"]) {
   return String(source);
 }
 
-export function paymentLabel(method: AdminOrder["payment_method"]) {
+export function paymentLabel(
+  method: AdminOrder["payment_method"],
+  source?: AdminOrder["source"]
+) {
+  if (method === "CASH" && source === "ONLINE") return "Cash on delivery";
   if (method === "CASH") return "Cash";
   if (method === "UPI") return "UPI";
   return String(method);

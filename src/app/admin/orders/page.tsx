@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ListFilter } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { listAdminOrders } from "@/lib/adminOrders";
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/table";
 
 export default function AdminOrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -188,14 +190,32 @@ export default function AdminOrdersPage() {
               </TableRow>
             ) : (
               filtered.map((order) => (
-                <TableRow key={order.id} className="border-border/60">
+                <TableRow
+                  key={order.id}
+                  role="link"
+                  tabIndex={0}
+                  className="cursor-pointer border-border/60"
+                  onClick={() => router.push(`/admin/orders/${order.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      router.push(`/admin/orders/${order.id}`);
+                    }
+                  }}
+                >
                   <TableCell className="py-3 pl-4">
                     <Link
                       href={`/admin/orders/${order.id}`}
                       className="text-sm font-medium hover:underline"
+                      onClick={(event) => event.stopPropagation()}
                     >
                       #{shortOrderId(order.id)}
                     </Link>
+                    {order.shipping?.customer_name ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {order.shipping.customer_name}
+                      </p>
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatOrderTime(order.created_at)}
@@ -204,7 +224,7 @@ export default function AdminOrdersPage() {
                     <Badge variant="secondary">{sourceLabel(order.source)}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {paymentLabel(order.payment_method)}
+                    {paymentLabel(order.payment_method, order.source)}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {order.item_count}
