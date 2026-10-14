@@ -217,48 +217,48 @@ export default function ShopCategoryPage() {
         selectedDepartment={department}
       />
 
-      <div className="border-b border-slate-100 px-4 py-3 sm:px-6">
-        <nav className="text-[11px] font-medium tracking-wide text-slate-400">
-          <Link href="/" className="hover:text-brand">
-            Home
-          </Link>
-          <span className="mx-1.5">/</span>
-          <span className="capitalize">{department}</span>
-          <span className="mx-1.5">/</span>
-          <span className="text-slate-700">{categoryMeta.label}</span>
-        </nav>
-        <h1 className="mt-1 text-lg font-black tracking-tight text-slate-900 sm:text-xl">
-          {department} {categoryMeta.label}{" "}
-          <span className="font-mono text-sm font-normal text-slate-400">
-            – {filteredProducts.length} item{filteredProducts.length === 1 ? "" : "s"}
-          </span>
-        </h1>
-      </div>
-
-      <div className="flex min-h-[70vh]">
+      <div className="flex">
         <div className="hidden md:block">{filtersPanel}</div>
 
-        <div className="min-w-0 flex-1 px-4 py-4 sm:px-6">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-              <SheetTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 border-slate-200 text-xs font-bold uppercase tracking-wider md:hidden"
-                  />
-                }
-              >
-                <Filter className="size-3.5" />
-                Filters
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[min(100%,20rem)] gap-0 overflow-y-auto border-slate-100 p-0">
-                {filtersPanel}
-              </SheetContent>
-            </Sheet>
+        <div className="min-w-0 flex-1 px-3 py-2 sm:px-4">
+          <div className="mb-2 flex flex-wrap items-end justify-between gap-2 border-b border-slate-100 pb-2">
+            <div className="min-w-0">
+              <nav className="text-[11px] font-medium tracking-wide text-slate-400">
+                <Link href="/" className="hover:text-brand">
+                  Home
+                </Link>
+                <span className="mx-1.5">/</span>
+                <span className="capitalize">{department}</span>
+                <span className="mx-1.5">/</span>
+                <span className="text-slate-700">{categoryMeta.label}</span>
+              </nav>
+              <h1 className="mt-0.5 text-base font-black tracking-tight text-slate-900">
+                {department} {categoryMeta.label}{" "}
+                <span className="font-mono text-xs font-normal text-slate-400">
+                  – {filteredProducts.length} item{filteredProducts.length === 1 ? "" : "s"}
+                </span>
+              </h1>
+            </div>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+                <SheetTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 border-slate-200 text-xs font-bold uppercase tracking-wider md:hidden"
+                    />
+                  }
+                >
+                  <Filter className="size-3.5" />
+                  Filters
+                </SheetTrigger>
+                <SheetContent side="left" className="w-[min(100%,20rem)] gap-0 overflow-y-auto border-slate-100 p-0">
+                  {filtersPanel}
+                </SheetContent>
+              </Sheet>
+
               <SlidersHorizontal className="hidden size-3.5 text-slate-400 sm:block" />
               <label className="flex items-center gap-2 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                 <span className="hidden sm:inline">Sort by</span>
@@ -277,8 +277,8 @@ export default function ShopCategoryPage() {
           </div>
 
           {loading || !filters ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-6">
-              {[1, 2, 3, 4, 5, 6].map((n) => (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 lg:gap-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                 <div key={n} className="animate-pulse space-y-3">
                   <div className="aspect-3/4 w-full rounded-xl bg-slate-100" />
                   <div className="h-3 w-1/3 rounded bg-slate-100" />
@@ -301,7 +301,7 @@ export default function ShopCategoryPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 lg:gap-4">
               {filteredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

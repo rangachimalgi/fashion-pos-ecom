@@ -25,31 +25,62 @@ function SliderArrows() {
   const { scrollPrev, scrollNext, canScrollPrev, canScrollNext } = useCarousel();
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-20">
-      <div
-        aria-hidden
-        className="aspect-3/4 w-[calc(78%-0.5rem)] sm:w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.5rem)] lg:w-[calc(25%-0.5rem)]"
-      />
-      <div className="absolute inset-0 flex items-center justify-between px-1 sm:px-2">
-        <button
-          type="button"
-          aria-label="Previous slide"
-          disabled={!canScrollPrev}
-          onClick={scrollPrev}
-          className="pointer-events-auto text-black drop-shadow-[0_1px_2px_rgba(255,255,255,0.9)] transition hover:opacity-70 disabled:opacity-30"
+    <>
+      <button
+        type="button"
+        aria-label="Previous"
+        disabled={!canScrollPrev}
+        onClick={scrollPrev}
+        className="absolute top-[32%] left-1 z-20 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-md transition hover:bg-white disabled:pointer-events-none disabled:opacity-0 sm:left-2 sm:size-10"
+      >
+        <ChevronLeft className="size-5 stroke-2" />
+      </button>
+      <button
+        type="button"
+        aria-label="Next"
+        disabled={!canScrollNext}
+        onClick={scrollNext}
+        className="absolute top-[32%] right-1 z-20 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-md transition hover:bg-white disabled:pointer-events-none disabled:opacity-0 sm:right-2 sm:size-10"
+      >
+        <ChevronRight className="size-5 stroke-2" />
+      </button>
+    </>
+  );
+}
+
+function SectionHeading({
+  title,
+  count,
+  searchQuery,
+  totalCount,
+  onClearSearch,
+}: {
+  title: string;
+  count?: number;
+  searchQuery: string;
+  totalCount: number;
+  onClearSearch: () => void;
+}) {
+  return (
+    <div className="mb-6">
+      <h2 className="text-lg font-black tracking-wider text-slate-900 uppercase">
+        {title}
+        {count != null ? (
+          <span className="ml-2 font-mono text-sm font-normal text-slate-400">
+            ({count}
+            {searchQuery ? ` of ${totalCount}` : ""})
+          </span>
+        ) : null}
+      </h2>
+      {searchQuery ? (
+        <Button
+          variant="link"
+          className="h-auto px-0 text-xs font-bold text-slate-500 hover:text-brand"
+          onClick={onClearSearch}
         >
-          <ChevronLeft className="size-12 stroke-[2.75] sm:size-16" />
-        </button>
-        <button
-          type="button"
-          aria-label="Next slide"
-          disabled={!canScrollNext}
-          onClick={scrollNext}
-          className="pointer-events-auto text-black drop-shadow-[0_1px_2px_rgba(255,255,255,0.9)] transition hover:opacity-70 disabled:opacity-30"
-        >
-          <ChevronRight className="size-12 stroke-[2.75] sm:size-16" />
-        </button>
-      </div>
+          Clear search
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -67,21 +98,22 @@ export function NewArrivalsSlider({
   const showGrid = layout === "grid";
 
   return (
-    <section id="catalog" className="px-4 py-8 sm:px-6">
+    <section id="catalog" className="px-6 py-8 sm:px-8">
       {loading ? (
-        <div className="space-y-6">
-          <div className="flex items-end justify-between border-b border-slate-100 pb-4">
-            <h2 className="text-lg font-black uppercase tracking-wider text-slate-900">
-              {sectionTitle}
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+        <div>
+          <SectionHeading
+            title={sectionTitle}
+            searchQuery={searchQuery}
+            totalCount={totalCount}
+            onClearSearch={onClearSearch}
+          />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-4">
             {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="space-y-3 animate-pulse">
-                <div className="aspect-3/4 w-full rounded-xl bg-slate-100" />
+              <div key={n} className="animate-pulse space-y-2">
+                <div className="aspect-3/4 w-full bg-slate-100" />
+                <div className="h-3 w-3/4 rounded bg-slate-100" />
                 <div className="h-3 w-1/3 rounded bg-slate-100" />
-                <div className="h-4 w-3/4 rounded bg-slate-100" />
-                <div className="h-3 w-1/4 rounded bg-slate-100" />
+                <div className="h-4 w-1/4 rounded bg-slate-100" />
               </div>
             ))}
           </div>
@@ -105,26 +137,15 @@ export function NewArrivalsSlider({
           ) : null}
         </div>
       ) : showGrid ? (
-        <div className="space-y-6">
-          <div className="border-b border-slate-100 pb-4">
-            <h2 className="text-lg font-black uppercase tracking-wider text-slate-900">
-              {sectionTitle}{" "}
-              <span className="font-mono text-sm font-normal text-slate-400">
-                ({products.length}
-                {searchQuery ? ` of ${totalCount}` : ""})
-              </span>
-            </h2>
-            {searchQuery ? (
-              <Button
-                variant="link"
-                className="h-auto px-0 text-xs font-bold text-slate-500 hover:text-brand"
-                onClick={onClearSearch}
-              >
-                Clear search
-              </Button>
-            ) : null}
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 md:gap-6">
+        <div>
+          <SectionHeading
+            title={sectionTitle}
+            count={products.length}
+            searchQuery={searchQuery}
+            totalCount={totalCount}
+            onClearSearch={onClearSearch}
+          />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-4">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
@@ -134,35 +155,25 @@ export function NewArrivalsSlider({
         <Carousel
           opts={{
             align: "start",
-            loop: true,
+            loop: products.length > 5,
+            dragFree: false,
           }}
           className="w-full"
         >
-          <div className="mb-6 border-b border-slate-100 pb-4">
-            <h2 className="text-lg font-black uppercase tracking-wider text-slate-900">
-              {sectionTitle}{" "}
-              <span className="font-mono text-sm font-normal text-slate-400">
-                ({products.length}
-                {searchQuery ? ` of ${totalCount}` : ""})
-              </span>
-            </h2>
-            {searchQuery ? (
-              <Button
-                variant="link"
-                className="h-auto px-0 text-xs font-bold text-slate-500 hover:text-brand"
-                onClick={onClearSearch}
-              >
-                Clear search
-              </Button>
-            ) : null}
-          </div>
+          <SectionHeading
+            title={sectionTitle}
+            count={products.length}
+            searchQuery={searchQuery}
+            totalCount={totalCount}
+            onClearSearch={onClearSearch}
+          />
 
           <div className="relative">
-            <CarouselContent className="-ml-2">
+            <CarouselContent className="-ml-3">
               {products.map((product) => (
                 <CarouselItem
                   key={product.id}
-                  className="basis-[78%] pl-2 sm:basis-1/2 md:basis-1/3 lg:basis-1/4"
+                  className="basis-[58%] pl-3 sm:basis-[38%] md:basis-1/4 lg:basis-1/5"
                 >
                   <ProductCard product={product} />
                 </CarouselItem>

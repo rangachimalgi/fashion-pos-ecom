@@ -8,6 +8,7 @@ import {
 } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 
 export type CatalogFilterState = {
   brands: string[];
@@ -197,46 +198,24 @@ export function CatalogFilters({
               <span className="font-normal text-slate-400">—</span>
               <span>₹{filters.priceMax}</span>
             </div>
-            <div className="space-y-2">
-              <label className="block text-[10px] font-medium tracking-wide text-slate-400 uppercase">
-                Min
-              </label>
-              <input
-                type="range"
-                min={priceBounds.min}
-                max={priceBounds.max}
-                step={50}
-                value={filters.priceMin}
-                onChange={(e) => {
-                  const next = Number(e.target.value);
-                  onChange({
-                    ...filters,
-                    priceMin: Math.min(next, filters.priceMax),
-                  });
-                }}
-                className="w-full accent-brand"
-              />
-              <label className="block text-[10px] font-medium tracking-wide text-slate-400 uppercase">
-                Max
-              </label>
-              <input
-                type="range"
-                min={priceBounds.min}
-                max={priceBounds.max}
-                step={50}
-                value={filters.priceMax}
-                onChange={(e) => {
-                  const next = Number(e.target.value);
-                  onChange({
-                    ...filters,
-                    priceMax: Math.max(next, filters.priceMin),
-                  });
-                }}
-                className="w-full accent-brand"
-              />
-            </div>
+            <Slider
+              min={priceBounds.min}
+              max={Math.max(priceBounds.max, priceBounds.min + 1)}
+              step={50}
+              minStepsBetweenValues={0}
+              thumbCollisionBehavior="none"
+              value={[filters.priceMin, filters.priceMax]}
+              onValueChange={(value) => {
+                const [min, max] = value as number[];
+                onChange({
+                  ...filters,
+                  priceMin: min,
+                  priceMax: max,
+                });
+              }}
+            />
             <p className="text-[10px] text-slate-400">
-              Range ₹{priceBounds.min} – ₹{priceBounds.max}
+              Range ₹{filters.priceMin} – ₹{filters.priceMax}
             </p>
           </div>
         </section>

@@ -17,7 +17,7 @@ export function CategorySection({ department }: CategorySectionProps) {
 
   return (
     <section className="border-t border-slate-100 px-4 py-10 sm:px-6">
-      <div className="mb-6">
+      <div className="mb-8 text-center">
         <h2 className="text-lg font-black uppercase tracking-wider text-slate-900">
           Shop by category
         </h2>
@@ -26,26 +26,25 @@ export function CategorySection({ department }: CategorySectionProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mx-auto grid max-w-4xl grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10">
         {categories.map((category) => (
           <Link
             key={category.id}
             href={shopCategoryPath(department, category.id)}
-            className="group relative aspect-4/5 overflow-hidden rounded-2xl border border-slate-200 text-left transition hover:border-brand/40"
+            className="group text-center"
           >
-            <Image
-              src={category.image}
-              alt={category.label}
-              fill
-              sizes="(max-width: 768px) 50vw, 25vw"
-              className="object-cover transition duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 p-4">
-              <p className="text-lg font-black tracking-tight text-white uppercase drop-shadow-sm">
-                {category.label}
-              </p>
+            <div className="relative aspect-3/4 overflow-hidden bg-slate-100">
+              <Image
+                src={category.image}
+                alt={category.label}
+                fill
+                sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 280px"
+                className="object-cover transition duration-500 group-hover:scale-105"
+              />
             </div>
+            <p className="mt-3 text-[11px] font-bold tracking-[0.18em] text-slate-900 uppercase sm:text-xs">
+              {category.label}
+            </p>
           </Link>
         ))}
       </div>
