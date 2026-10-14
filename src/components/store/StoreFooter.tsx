@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/BrandLogo";
 import {
   STORE_DEPARTMENTS,
   getDefaultCategory,
@@ -19,9 +20,9 @@ export function StoreFooter() {
 
       <div className="bg-slate-100 px-4 py-10 sm:px-8">
         <div className="mx-auto max-w-5xl">
-          <p className="mb-10 text-center text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
-            Eshwari Vastra
-          </p>
+          <div className="mb-10 flex justify-center">
+            <BrandLogo height={72} />
+          </div>
 
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
             <div>
