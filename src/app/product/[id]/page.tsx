@@ -14,6 +14,8 @@ export default function ProductDetailsView() {
   const params = useParams();
   const router = useRouter();
   const { addItemToCart } = useCartStore();
+  const toggleWishlist = useWishlistStore((state) => state.toggle);
+  const wishlistItems = useWishlistStore((state) => state.items);
 
   const [product, setProduct] = useState<CompleteProduct | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
