@@ -42,7 +42,7 @@ export const useCartStore = create<CartState>()(
                     if (existingItemIndex > -1) {
                         const existing = state.cart[existingItemIndex];
                         if (existing.quantity >= variant.stock_quantity) {
-                            return { cart: state.cart, isBagOpen: true };
+                            return { cart: state.cart };
                         }
 
                         const updatedCart = [...state.cart];
@@ -50,12 +50,11 @@ export const useCartStore = create<CartState>()(
                             ...existing,
                             quantity: existing.quantity + 1,
                         };
-                        return { cart: updatedCart, isBagOpen: true };
+                        return { cart: updatedCart };
                     }
 
                     const { variants, ...parentProductDetails } = product;
                     return {
-                        isBagOpen: true,
                         cart: [
                             ...state.cart,
                             { product: parentProductDetails, variant, quantity: 1 },

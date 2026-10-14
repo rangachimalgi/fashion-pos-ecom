@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Menu, Search } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { BagButton } from "@/components/cart/CartDrawer";
+import { BagButton } from "@/components/cart/BagButton";
 import { WishlistButton } from "@/components/store/WishlistButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
