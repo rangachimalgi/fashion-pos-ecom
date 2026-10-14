@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Menu, Search, Heart, User } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BagButton } from "@/components/cart/CartDrawer";
+import { WishlistButton } from "@/components/store/WishlistButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -132,39 +133,7 @@ export function StoreHeader({
             />
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="hidden text-slate-700 hover:text-brand sm:inline-flex md:hidden"
-            aria-label="Profile"
-          >
-            <User className="size-4 stroke-[1.75]" />
-          </Button>
-
-          <div className="hidden flex-col items-center md:flex">
-            <Button variant="ghost" size="icon-sm" className="text-slate-700 hover:text-brand">
-              <User className="size-4 stroke-[1.75]" />
-            </Button>
-            <span className="text-[9px] font-bold uppercase tracking-tight text-slate-500">Profile</span>
-          </div>
-
-          <div className="hidden flex-col items-center md:flex">
-            <Button variant="ghost" size="icon-sm" className="text-slate-700 hover:text-brand">
-              <Heart className="size-4 stroke-[1.75]" />
-            </Button>
-            <span className="text-[9px] font-bold uppercase tracking-tight text-slate-500">
-              Wishlist
-            </span>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-slate-700 hover:text-brand md:hidden"
-            aria-label="Wishlist"
-          >
-            <Heart className="size-4 stroke-[1.75]" />
-          </Button>
+          <WishlistButton />
 
           <BagButton />
         </div>

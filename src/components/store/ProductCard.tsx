@@ -1,15 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { CompleteProduct } from "@/types/product";
+import { Heart } from "lucide-react";
+import type { Product } from "@/types/product";
 import { STORE_DEPARTMENTS } from "@/lib/categories";
 import { getProductPrimaryImage } from "@/lib/productImages";
+import { useWishlistStore } from "@/store/useWishlistStore";
 
 type ProductCardProps = {
-  product: CompleteProduct;
+  product: Product;
 };
 
-function productTypeLabel(product: CompleteProduct): string | null {
+function productTypeLabel(product: Product): string | null {
   const value = product.category?.trim();
   if (!value) return null;
   if ((STORE_DEPARTMENTS as readonly string[]).includes(value)) return null;
@@ -18,6 +21,15 @@ function productTypeLabel(product: CompleteProduct): string | null {
 
 export function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
+  const items = useWishlistStore((state) => state.items);
+  const toggle = useWishlistStore((state) => state.toggle);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(true);
+  }, []);
+
+  const saved = ready && items.some((item) => item.id === product.id);
   const typeLabel = productTypeLabel(product);
   const image = getProductPrimaryImage(product);
 
@@ -45,6 +57,18 @@ export function ProductCard({ product }: ProductCardProps) {
             No Imagery Available
           </div>
         )}
+        <button
+          type="button"
+          aria-label={saved ? "Remove from wishlist" : "Add to wishlist"}
+          aria-pressed={saved}
+          onClick={(event) => {
+            event.stopPropagation();
+            toggle(product);
+          }}
+          className="absolute top-2 right-2 z-10 flex size-8 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm backdrop-blur-sm transition hover:text-rose-500"
+        >
+          <Heart className={`size-4 stroke-[1.75] ${saved ? "fill-rose-500 stroke-rose-500" : ""}`} />
+        </button>
       </div>
 
       <div className="cursor-pointer space-y-0.5 px-0.5" onClick={goToProduct}>

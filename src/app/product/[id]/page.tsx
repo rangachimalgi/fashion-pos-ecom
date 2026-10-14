@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CompleteProduct, ProductVariant } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
+import { useWishlistStore } from '@/store/useWishlistStore';
 import { ShoppingBag, ShieldCheck, Truck, RefreshCw, Heart } from 'lucide-react';
 import { AppHeader } from '@/components/store/AppHeader';
 import { ProductImageGallery } from '@/components/product/ProductImageGallery';
@@ -18,7 +19,6 @@ export default function ProductDetailsView() {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isWishlisted, setIsWishlisted] = useState(false);
 
   const productId = params?.id as string;
 
@@ -102,6 +102,7 @@ export default function ProductDetailsView() {
   };
 
   const description = product.description?.trim() || "";
+  const isWishlisted = wishlistItems.some((item) => item.id === product.id);
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans pb-20">
@@ -213,7 +214,7 @@ export default function ProductDetailsView() {
             </button>
             <button
               type="button"
-              onClick={() => setIsWishlisted((current) => !current)}
+              onClick={() => toggleWishlist(product)}
               aria-pressed={isWishlisted}
               aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
               className={`flex-1 h-14 font-extrabold text-sm tracking-wider uppercase rounded-xl flex items-center justify-center gap-2 border-2 transition transform active:scale-[0.99] ${
