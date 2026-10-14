@@ -7,6 +7,7 @@ import { AppHeader } from '@/components/store/AppHeader';
 import { ExploreBannerSlider } from '@/components/store/ExploreBannerSlider';
 import { NewArrivalsSlider } from '@/components/store/NewArrivalsSlider';
 import { CategorySection } from '@/components/store/CategorySection';
+import { StoreFooter } from '@/components/store/StoreFooter';
 import {
   parseDepartmentSlug,
   productMatchesDepartment,
@@ -74,7 +75,7 @@ function CustomerStorefrontInner() {
   }, [scopedProducts, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans">
+    <div className="flex min-h-screen flex-col bg-white text-slate-900 font-sans">
       <AppHeader
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -95,13 +96,7 @@ function CustomerStorefrontInner() {
 
       <CategorySection department={selectedDepartment} />
 
-      <footer className="border-t border-slate-100 px-6 py-6">
-        <div className="flex justify-center text-xs text-slate-400">
-          <span className="font-black tracking-widest text-slate-700">
-            VIBE<span className="text-brand">WEAR</span>
-          </span>
-        </div>
-      </footer>
+      <StoreFooter />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Filter, SlidersHorizontal } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 import { AppHeader } from "@/components/store/AppHeader";
+import { StoreFooter } from "@/components/store/StoreFooter";
 import { ProductCard } from "@/components/store/ProductCard";
 import {
   CatalogFilters,
@@ -210,7 +211,7 @@ export default function ShopCategoryPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900">
+    <div className="flex min-h-screen flex-col bg-white font-sans text-slate-900">
       <AppHeader
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -309,6 +310,7 @@ export default function ShopCategoryPage() {
           )}
         </div>
       </div>
+      <StoreFooter />
     </div>
   );
 }

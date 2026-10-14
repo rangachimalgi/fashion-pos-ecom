@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { AppHeader } from "@/components/store/AppHeader";
+import { StoreFooter } from "@/components/store/StoreFooter";
 import { WishlistItem } from "@/components/store/WishlistItem";
 import { ProductCard } from "@/components/store/ProductCard";
 import { useWishlistStore } from "@/store/useWishlistStore";
@@ -62,7 +63,7 @@ export default function WishlistPage() {
   }, [ready, idsKey]);
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900">
+    <div className="flex min-h-screen flex-col bg-white font-sans text-slate-900">
       <AppHeader />
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -113,6 +114,7 @@ export default function WishlistPage() {
           </div>
         )}
       </div>
+      <StoreFooter />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { useCartStore } from '@/store/useCartStore';
 import { useWishlistStore } from '@/store/useWishlistStore';
 import { ShoppingBag, ShieldCheck, Truck, RefreshCw, Heart } from 'lucide-react';
 import { AppHeader } from '@/components/store/AppHeader';
+import { StoreFooter } from '@/components/store/StoreFooter';
 import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { getProductImages } from '@/lib/productImages';
 
@@ -107,7 +108,7 @@ export default function ProductDetailsView() {
   const isWishlisted = wishlistItems.some((item) => item.id === product.id);
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans pb-20">
+    <div className="flex min-h-screen flex-col bg-white text-slate-900 font-sans pb-8">
       <AppHeader />
 
       {/* CORE DISPLAY WINDOW SECTION */}
@@ -257,6 +258,7 @@ export default function ProductDetailsView() {
 
         </div>
       </main>
+      <StoreFooter />
     </div>
   );
 }

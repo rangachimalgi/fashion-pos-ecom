@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Heart, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { AppHeader } from "@/components/store/AppHeader";
+import { StoreFooter } from "@/components/store/StoreFooter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCartStore } from "@/store/useCartStore";
@@ -96,7 +97,7 @@ export default function BagPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div className="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-900">
       <AppHeader />
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
@@ -352,6 +353,7 @@ export default function BagPage() {
           </>
         )}
       </div>
+      <StoreFooter />
     </div>
   );
 }
