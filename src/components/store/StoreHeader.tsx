@@ -2,19 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Menu, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BagButton } from "@/components/cart/BagButton";
 import { WishlistButton } from "@/components/store/WishlistButton";
-import { Button } from "@/components/ui/button";
+import { ShopMenu } from "@/components/store/ShopMenu";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import {
   STORE_DEPARTMENTS,
   shopCategoryPath,
@@ -62,37 +55,7 @@ export function StoreHeader({
     <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-md">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-4 md:gap-4 md:px-6 md:py-5">
         <div className="flex min-w-0 items-center justify-start gap-2 sm:gap-3 md:gap-5">
-          <Sheet>
-            <SheetTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 text-slate-700 hover:text-brand"
-                />
-              }
-            >
-              <Menu className="size-5 stroke-[1.75]" />
-              <span className="sr-only">Open menu</span>
-            </SheetTrigger>
-
-            <SheetContent side="left" className="w-[min(100%,20rem)] gap-0 border-slate-100 p-0">
-              <SheetHeader className="border-b border-slate-100 px-5 py-4">
-                <SheetTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">
-                  Menu
-                </SheetTitle>
-              </SheetHeader>
-
-              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                <p className="text-sm font-black uppercase tracking-wider text-slate-900">
-                  Coming soon
-                </p>
-                <p className="mt-2 max-w-56 text-xs leading-relaxed text-slate-400">
-                  More collections, offers, and shop links will show up here.
-                </p>
-              </div>
-            </SheetContent>
-          </Sheet>
+          <ShopMenu selectedDepartment={selectedDepartment} />
 
           <nav className="flex min-w-0 items-center gap-2 overflow-x-auto sm:gap-3 md:gap-5">
             {STORE_DEPARTMENTS.map((department) => {
