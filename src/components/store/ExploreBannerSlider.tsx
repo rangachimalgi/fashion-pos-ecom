@@ -1,13 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  getCategoriesForDepartment,
-  shopCategoryPath,
-  type StoreDepartment,
-} from "@/lib/categories";
+import { shopCategoryPath, type StoreDepartment } from "@/lib/categories";
+import { categoriesForDepartment, useStoreCategories } from "@/lib/storeCategories";
 import {
   Carousel,
   CarouselContent,
@@ -54,7 +50,8 @@ function BannerArrows() {
 
 export function ExploreBannerSlider({ department }: ExploreBannerSliderProps) {
   const router = useRouter();
-  const categories = getCategoriesForDepartment(department);
+  const rows = useStoreCategories(department);
+  const categories = categoriesForDepartment(department, rows);
 
   return (
     <section className="px-4 pt-5 sm:px-6 sm:pt-6">
@@ -106,13 +103,10 @@ export function ExploreBannerSlider({ department }: ExploreBannerSliderProps) {
                   </div>
 
                   <div className="relative min-h-56 md:min-h-full">
-                    <Image
+                    <img
                       src={category.image}
                       alt={`${department} ${category.label}`}
-                      fill
-                      priority={index === 0}
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      className="object-cover"
+                      className="absolute inset-0 h-full w-full object-cover"
                     />
                     <div
                       className="absolute inset-0 md:hidden"

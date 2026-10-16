@@ -16,13 +16,17 @@ import {
 } from "@/components/store/CatalogFilters";
 import {
   getCategoryMeta,
-  parseCategorySlug,
   parseDepartmentSlug,
   productMatchesDepartment,
   productMatchesProductCategory,
   shopCategoryPath,
   type ProductCategory,
 } from "@/lib/categories";
+import {
+  categoriesForDepartment,
+  resolveCategoryId,
+  useStoreCategories,
+} from "@/lib/storeCategories";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -40,9 +44,13 @@ export default function ShopCategoryPage() {
   const categorySlug = String(params?.category ?? "");
 
   const department = parseDepartmentSlug(departmentSlug);
+  const categoryRows = useStoreCategories(department ?? undefined);
   const category = department
-    ? parseCategorySlug(categorySlug, department)
+    ? resolveCategoryId(categorySlug, department, categoryRows)
     : null;
+  const liveCategories = department
+    ? categoriesForDepartment(department, categoryRows)
+    : [];
 
   const [products, setProducts] = useState<CompleteProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,7 +202,9 @@ export default function ShopCategoryPage() {
     );
   }
 
-  const categoryMeta = getCategoryMeta(category, department);
+  const categoryMeta =
+    liveCategories.find((entry) => entry.id === category) ??
+    getCategoryMeta(category, department);
   const activeFilters = filters ?? emptyCatalogFilters(priceBounds);
 
   const filtersPanel = (
@@ -207,6 +217,7 @@ export default function ShopCategoryPage() {
       onChange={setFilters}
       activeCategory={category}
       onCategoryChange={handleCategoryChange}
+      categories={liveCategories}
     />
   );
 

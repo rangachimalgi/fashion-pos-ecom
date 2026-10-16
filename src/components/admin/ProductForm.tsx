@@ -7,11 +7,11 @@ import { supabase } from "@/lib/supabaseClient";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 import {
   STORE_DEPARTMENTS,
-  getCategoriesForDepartment,
   getDefaultCategory,
   type ProductCategory,
   type StoreDepartment,
 } from "@/lib/categories";
+import { categoriesForDepartment, useStoreCategories } from "@/lib/storeCategories";
 import { MAX_PRODUCT_IMAGES, getProductImages } from "@/lib/productImages";
 import {
   generateUniqueBarcode,
@@ -87,7 +87,16 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
-  const departmentCategories = getCategoriesForDepartment(form.department);
+  const categoryRows = useStoreCategories();
+  const departmentCategories = categoriesForDepartment(form.department, categoryRows);
+
+  useEffect(() => {
+    if (!categoryRows) return;
+    const list = categoriesForDepartment(form.department, categoryRows);
+    if (list.some((category) => category.id === form.category)) return;
+    const fallback = list[0]?.id;
+    if (fallback) setForm((current) => ({ ...current, category: fallback }));
+  }, [categoryRows, form.department, form.category]);
   const imageCount = existingImages.length + imageFiles.length;
 
   useEffect(() => {
@@ -383,10 +392,11 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                 value={form.department}
                 onChange={(event) => {
                   const department = event.target.value as StoreDepartment;
+                  const nextCategories = categoriesForDepartment(department, categoryRows);
                   setForm({
                     ...form,
                     department,
-                    category: getDefaultCategory(department),
+                    category: nextCategories[0]?.id ?? getDefaultCategory(department),
                   });
                 }}
                 className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -412,6 +422,17 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                   </option>
                 ))}
               </select>
+              <p className="text-[11px] text-muted-foreground">
+                Need another type? Add it in{" "}
+                <button
+                  type="button"
+                  className="font-medium underline"
+                  onClick={() => router.push("/admin/categories")}
+                >
+                  Categories
+                </button>
+                .
+              </p>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <label className="text-xs font-medium text-muted-foreground">Description</label>

@@ -7,9 +7,9 @@ import { supabase } from "@/lib/supabaseClient";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 import {
   STORE_DEPARTMENTS,
-  getCategoriesForDepartment,
   type StoreDepartment,
 } from "@/lib/categories";
+import { categoriesForDepartment, useStoreCategories } from "@/lib/storeCategories";
 import { getProductPrimaryImage } from "@/lib/productImages";
 import {
   mutationHint,
@@ -56,10 +56,13 @@ export default function AdminPanelPage() {
   const [productToDelete, setProductToDelete] = useState<CompleteProduct | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const categoryRows = useStoreCategories();
   const categoryOptions =
     departmentFilter === "all"
-      ? STORE_DEPARTMENTS.flatMap((department) => getCategoriesForDepartment(department))
-      : getCategoriesForDepartment(departmentFilter);
+      ? STORE_DEPARTMENTS.flatMap((department) =>
+          categoriesForDepartment(department, categoryRows)
+        )
+      : categoriesForDepartment(departmentFilter, categoryRows);
 
   const uniqueCategories = useMemo(() => {
     const seen = new Set<string>();

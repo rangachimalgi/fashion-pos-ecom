@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import {
   getCategoriesForDepartment,
+  type CategoryMeta,
   type ProductCategory,
   type StoreDepartment,
 } from "@/lib/categories";
@@ -27,6 +28,7 @@ type CatalogFiltersProps = {
   onChange: (next: CatalogFilterState) => void;
   activeCategory: ProductCategory;
   onCategoryChange: (category: ProductCategory) => void;
+  categories?: CategoryMeta[];
 };
 
 const SIZE_ORDER = ["S", "M", "L", "XL", "XXL"] as const;
@@ -52,8 +54,9 @@ export function CatalogFilters({
   onChange,
   activeCategory,
   onCategoryChange,
+  categories: categoriesProp,
 }: CatalogFiltersProps) {
-  const categories = getCategoriesForDepartment(department);
+  const categories = categoriesProp ?? getCategoriesForDepartment(department);
   const filteredBrands = availableBrands.filter((b) =>
     b.name.toLowerCase().includes(filters.brandSearch.trim().toLowerCase())
   );

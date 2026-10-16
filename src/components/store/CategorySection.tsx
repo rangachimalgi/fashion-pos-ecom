@@ -1,19 +1,16 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import {
-  getCategoriesForDepartment,
-  shopCategoryPath,
-  type StoreDepartment,
-} from "@/lib/categories";
+import { shopCategoryPath, type StoreDepartment } from "@/lib/categories";
+import { categoriesForDepartment, useStoreCategories } from "@/lib/storeCategories";
 
 type CategorySectionProps = {
   department: StoreDepartment;
 };
 
 export function CategorySection({ department }: CategorySectionProps) {
-  const categories = getCategoriesForDepartment(department);
+  const rows = useStoreCategories(department);
+  const categories = categoriesForDepartment(department, rows);
 
   return (
     <section className="border-t border-slate-100 px-4 py-10 sm:px-6">
@@ -34,12 +31,10 @@ export function CategorySection({ department }: CategorySectionProps) {
             className="group text-center"
           >
             <div className="relative aspect-3/4 overflow-hidden bg-slate-100">
-              <Image
+              <img
                 src={category.image}
                 alt={category.label}
-                fill
-                sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 280px"
-                className="object-cover transition duration-500 group-hover:scale-105"
+                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
               />
             </div>
             <p className="mt-3 text-[11px] font-bold tracking-[0.18em] text-slate-900 uppercase sm:text-xs">

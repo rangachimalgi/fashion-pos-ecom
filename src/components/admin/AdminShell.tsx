@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Menu, MonitorSmartphone, Receipt } from "lucide-react";
+import { LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,7 @@ function pageTitle(pathname: string) {
     return "Order";
   }
   if (pathname.startsWith("/admin/orders")) return "Orders";
+  if (pathname.startsWith("/admin/categories")) return "Categories";
   return "Catalog";
 }
 
@@ -36,6 +37,7 @@ function NavLinks({
   const catalogActive =
     pathname === "/admin" || pathname.startsWith("/admin/products");
   const ordersActive = pathname.startsWith("/admin/orders");
+  const categoriesActive = pathname.startsWith("/admin/categories");
 
   return (
     <nav className="flex flex-col gap-1">
@@ -64,6 +66,19 @@ function NavLinks({
       >
         <Receipt className="size-4" />
         Orders
+      </Link>
+      <Link
+        href="/admin/categories"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+          categoriesActive
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <Tags className="size-4" />
+        Categories
       </Link>
     </nav>
   );

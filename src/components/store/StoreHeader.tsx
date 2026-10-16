@@ -15,6 +15,7 @@ import {
   getDefaultCategory,
   type StoreDepartment,
 } from "@/lib/categories";
+import { categoriesForDepartment, useStoreCategories } from "@/lib/storeCategories";
 import { cn } from "@/lib/utils";
 
 const searchInputClass =
@@ -28,7 +29,8 @@ type StoreHeaderProps = {
 
 function departmentHref(
   department: StoreDepartment,
-  pathname: string
+  pathname: string,
+  firstCategory: string
 ): string {
   const shopMatch = pathname.match(/^\/shop\/([^/]+)\/([^/]+)/);
   if (shopMatch) {
@@ -36,7 +38,7 @@ function departmentHref(
 
     // On a shop page, switch to this department's first category
     if (currentDeptSlug.toLowerCase() !== departmentToSlug(department)) {
-      return shopCategoryPath(department, getDefaultCategory(department));
+      return shopCategoryPath(department, firstCategory);
     }
   }
 
@@ -50,6 +52,7 @@ export function StoreHeader({
   selectedDepartment,
 }: StoreHeaderProps) {
   const pathname = usePathname() || "/";
+  const categoryRows = useStoreCategories();
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-md">
@@ -60,7 +63,12 @@ export function StoreHeader({
           <nav className="flex min-w-0 items-center gap-2 overflow-x-auto sm:gap-3 md:gap-5">
             {STORE_DEPARTMENTS.map((department) => {
               const isActive = selectedDepartment === department;
-              const href = departmentHref(department, pathname);
+              const href = departmentHref(
+                department,
+                pathname,
+                categoriesForDepartment(department, categoryRows)[0]?.id ??
+                  getDefaultCategory(department)
+              );
 
               return (
                 <Link

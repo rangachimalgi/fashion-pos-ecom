@@ -1,10 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
-import {
-  STORE_DEPARTMENTS,
-  getDefaultCategory,
-  shopCategoryPath,
-} from "@/lib/categories";
+import { STORE_DEPARTMENTS, shopCategoryPath } from "@/lib/categories";
+import { categoriesForDepartment, useStoreCategories } from "@/lib/storeCategories";
 
 const helpLinks = [
   { href: "/bag", label: "My bag" },
@@ -12,6 +11,15 @@ const helpLinks = [
 ];
 
 export function StoreFooter() {
+  const rows = useStoreCategories();
+  const categoryLinks = STORE_DEPARTMENTS.flatMap((department) => {
+    const list = categoriesForDepartment(department, rows).slice(0, 2);
+    return list.map((category) => ({
+      href: shopCategoryPath(department, category.id),
+      label: `${department} ${category.label}`,
+    }));
+  });
+
   return (
     <footer className="mt-auto">
       <div className="bg-rose-600 py-3 text-center text-xs font-black tracking-[0.28em] text-white uppercase sm:text-sm">
@@ -63,13 +71,10 @@ export function StoreFooter() {
                 Categories
               </p>
               <ul className="space-y-2.5 text-sm font-bold text-slate-800">
-                {STORE_DEPARTMENTS.map((department) => (
-                  <li key={department}>
-                    <Link
-                      href={shopCategoryPath(department, getDefaultCategory(department))}
-                      className="hover:text-rose-600"
-                    >
-                      {department} {getDefaultCategory(department)}
+                {categoryLinks.map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className="hover:text-rose-600">
+                      {link.label}
                     </Link>
                   </li>
                 ))}

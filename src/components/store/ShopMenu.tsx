@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,10 +13,10 @@ import {
 } from "@/components/ui/sheet";
 import {
   STORE_DEPARTMENTS,
-  getCategoriesForDepartment,
   shopCategoryPath,
   type StoreDepartment,
 } from "@/lib/categories";
+import { categoriesForDepartment, useStoreCategories } from "@/lib/storeCategories";
 import { cn } from "@/lib/utils";
 
 type ShopMenuProps = {
@@ -32,7 +31,8 @@ export function ShopMenu({ selectedDepartment }: ShopMenuProps) {
     setMenuDept(selectedDepartment);
   }, [selectedDepartment]);
 
-  const categories = getCategoriesForDepartment(menuDept);
+  const categoryRows = useStoreCategories();
+  const categories = categoriesForDepartment(menuDept, categoryRows);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -88,12 +88,10 @@ export function ShopMenu({ selectedDepartment }: ShopMenuProps) {
                 className="group text-center"
               >
                 <div className="relative mx-auto aspect-square w-full overflow-hidden rounded-xl bg-slate-100">
-                  <Image
+                  <img
                     src={category.image}
                     alt={category.label}
-                    fill
-                    sizes="140px"
-                    className="object-cover transition duration-300 group-hover:scale-105"
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                   />
                 </div>
                 <p className="mt-2 text-xs font-bold text-slate-800">{category.label}</p>
