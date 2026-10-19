@@ -1,26 +1,84 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { usePosTicketStore } from '@/store/usePosTicketStore';
 import { supabase } from '@/lib/supabaseClient';
 import { placeOrder } from '@/lib/placeOrder';
+import { lookupPosByEan } from '@/lib/posLookup';
 import { getStaffProfile, signOutStaff } from '@/lib/staffAuth';
 import type { PaymentMethod } from '@/types/order';
 import { useRouter } from 'next/navigation';
 
 export default function BillingTerminal() {
   const router = useRouter();
-  const { ticket, removeItemFromTicket, getGrandTotal, clearTicket } = usePosTicketStore();
+  const {
+    ticket,
+    addItemToTicket,
+    incrementItem,
+    decrementItem,
+    removeItemFromTicket,
+    getGrandTotal,
+    clearTicket,
+  } = usePosTicketStore();
   const [paymentMode, setPaymentMode] = useState<PaymentMethod>('CASH');
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [eanInput, setEanInput] = useState('');
+  const [lookingUp, setLookingUp] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const eanRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getStaffProfile()
       .then((profile) => setIsAdmin(profile?.role === 'admin'))
       .catch(() => setIsAdmin(false));
   }, []);
+
+  useEffect(() => {
+    eanRef.current?.focus();
+  }, [ticket.length]);
+
+  const handleLookup = async (event?: FormEvent) => {
+    event?.preventDefault();
+    const code = eanInput.trim();
+    if (!code || lookingUp) return;
+
+    setLookingUp(true);
+    setLookupError(null);
+    setStatus(null);
+
+    try {
+      const hit = await lookupPosByEan(supabase, code);
+      if (!hit) {
+        setLookupError(`No product for EAN ${code}`);
+        return;
+      }
+      if (hit.variant.stock_quantity <= 0) {
+        setLookupError(
+          `${hit.product.name} · ${hit.variant.size} is out of stock (MRP ₹${hit.product.base_price})`
+        );
+        return;
+      }
+
+      const already = ticket.find((item) => item.variant.id === hit.variant.id);
+      if (already && already.quantity >= hit.variant.stock_quantity) {
+        setLookupError(`Only ${hit.variant.stock_quantity} in stock for that EAN`);
+        return;
+      }
+
+      addItemToTicket(hit.product, hit.variant);
+      setEanInput('');
+      setStatus(
+        `${hit.product.name} · ${hit.variant.size} · ₹${hit.product.base_price} added`
+      );
+    } catch (err) {
+      setLookupError(err instanceof Error ? err.message : 'Lookup failed');
+    } finally {
+      setLookingUp(false);
+      eanRef.current?.focus();
+    }
+  };
 
   const handleCloseInvoice = async () => {
     if (ticket.length === 0 || submitting) return;
@@ -80,6 +138,27 @@ export default function BillingTerminal() {
           </div>
         </div>
 
+        <form onSubmit={handleLookup} className="mb-4 flex gap-2">
+          <input
+            ref={eanRef}
+            value={eanInput}
+            onChange={(event) => setEanInput(event.target.value)}
+            placeholder="Type or scan EAN, then Enter"
+            autoComplete="off"
+            className="h-11 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 font-mono text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-400"
+          />
+          <button
+            type="submit"
+            disabled={lookingUp || !eanInput.trim()}
+            className="rounded-lg bg-emerald-600 px-4 text-xs font-black tracking-wider text-white hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500"
+          >
+            {lookingUp ? '…' : 'ADD'}
+          </button>
+        </form>
+        {lookupError ? (
+          <p className="mb-3 text-xs font-sans text-rose-400">{lookupError}</p>
+        ) : null}
+
         {/* INVOICE ENTRY TABLE */}
         <div className="flex-1 overflow-y-auto">
           <table className="w-full text-left">
@@ -97,11 +176,34 @@ export default function BillingTerminal() {
             <tbody>
               {ticket.map((item) => (
                 <tr key={item.variant.id} className="border-b border-slate-700/40 hover:bg-slate-700/20">
-                  <td className="py-4 font-semibold text-slate-200">{item.product.name}</td>
+                  <td className="py-4 font-semibold text-slate-200">
+                    <p>{item.product.name}</p>
+                    <p className="font-mono text-[11px] font-normal text-slate-500">
+                      {item.variant.barcode}
+                    </p>
+                  </td>
                   <td><span className="bg-slate-700 px-2 py-1 rounded text-xs font-bold">{item.variant.size}</span></td>
                   <td className="text-slate-300">{item.variant.color}</td>
                   <td>₹{item.product.base_price}</td>
-                  <td className="font-bold text-slate-200">× {item.quantity}</td>
+                  <td className="font-bold text-slate-200">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => decrementItem(item.variant.id)}
+                        className="h-6 w-6 rounded bg-slate-700 text-xs hover:bg-slate-600"
+                      >
+                        −
+                      </button>
+                      <span>× {item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => incrementItem(item.variant.id)}
+                        className="h-6 w-6 rounded bg-slate-700 text-xs hover:bg-slate-600"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </td>
                   <td className="text-right font-extrabold text-emerald-300">₹{item.product.base_price * item.quantity}</td>
                   <td className="text-center">
                     <button 
@@ -118,9 +220,9 @@ export default function BillingTerminal() {
 
           {ticket.length === 0 && (
             <div className="text-center text-slate-500 mt-32 space-y-2">
-              <div className="text-lg font-bold animate-pulse">[ SCANNER READY ]</div>
+              <div className="text-lg font-bold animate-pulse">[ TYPE OR SCAN EAN ]</div>
               <div className="text-xs font-sans text-slate-600 max-w-sm mx-auto">
-                Trigger your physical USB barcode gun at a clothing tag or add test items to populate the bill matrix.
+                Paste the EAN and press Enter, or use a USB scanner — it types the same code into this box.
               </div>
             </div>
           )}
