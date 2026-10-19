@@ -5,10 +5,8 @@ export const LOW_STOCK_THRESHOLD = 5;
 
 export type StockStatus = "out" | "low" | "in";
 
-export function generateUniqueBarcode() {
-  const prefix = "890";
-  const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-  return prefix + randomDigits;
+export function normalizeScanCode(value: string) {
+  return value.trim().replace(/\s+/g, "");
 }
 
 export function mutationHint(message: string, code?: string) {
@@ -16,10 +14,14 @@ export function mutationHint(message: string, code?: string) {
   if (lower.includes("policy") || code === "42501") {
     return "\n\nRun supabase/migrations/004_admin_product_mutations.sql in the Supabase SQL Editor.";
   }
+  if (code === "23505" || lower.includes("duplicate") || lower.includes("unique")) {
+    return "\n\nThat EAN / barcode is already on another size row.";
+  }
   if (
     lower.includes("category") ||
     lower.includes("department") ||
     lower.includes("image_urls") ||
+    lower.includes("style_code") ||
     code === "PGRST204"
   ) {
     return "\n\nMissing DB columns. Run the latest files in supabase/migrations/ in the Supabase SQL Editor.";
@@ -61,12 +63,20 @@ export function stockStatus(quantity: number): StockStatus {
 export function variantSummary(variants: ProductVariant[]): string {
   if (!variants.length) return "No sizes";
 
-  const sizes = [...new Set(variants.map((variant) => variant.size))];
+  const sizes = [...new Set(variants.map((variant) => variant.size).filter(Boolean))];
   const colors = [...new Set(variants.map((variant) => variant.color).filter(Boolean))];
+  const codes = variants
+    .map((variant) => variant.barcode)
+    .filter(Boolean)
+    .slice(0, 2);
   const sizePart = sizes.join(" · ");
   const colorPart = colors.slice(0, 3).join(", ");
   const extra = colors.length > 3 ? ` +${colors.length - 3}` : "";
+  const codePart = codes.length
+    ? ` · ${codes.join(" · ")}${variants.length > 2 ? "…" : ""}`
+    : "";
 
-  return colorPart ? `${sizePart} · ${colorPart}${extra}` : sizePart;
+  const base = colorPart ? `${sizePart} · ${colorPart}${extra}` : sizePart;
+  return `${base}${codePart}`;
 }
 

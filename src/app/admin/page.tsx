@@ -117,11 +117,18 @@ export default function AdminPanelPage() {
 
       if (!query) return true;
 
+      const style = product.style_code?.toLowerCase() ?? "";
+      const codes = product.variants
+        .map((variant) => variant.barcode?.toLowerCase() ?? "")
+        .join(" ");
+
       return (
         product.name.toLowerCase().includes(query) ||
         product.brand.toLowerCase().includes(query) ||
         product.category?.toLowerCase().includes(query) ||
-        product.department?.toLowerCase().includes(query)
+        product.department?.toLowerCase().includes(query) ||
+        style.includes(query) ||
+        codes.includes(query)
       );
     });
   }, [products, searchQuery, departmentFilter, categoryFilter]);
@@ -318,6 +325,12 @@ export default function AdminPanelPage() {
             </div>
 
             <Link
+              href="/admin/import"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 bg-white")}
+            >
+              Import invoice
+            </Link>
+            <Link
               href="/admin/products/new"
               className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
             >
@@ -392,6 +405,11 @@ export default function AdminPanelPage() {
                           </div>
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">{product.name}</p>
+                            {product.style_code ? (
+                              <p className="truncate font-mono text-[11px] text-muted-foreground">
+                                {product.style_code}
+                              </p>
+                            ) : null}
                             <p className="truncate text-xs text-muted-foreground">
                               {variantSummary(product.variants)}
                             </p>

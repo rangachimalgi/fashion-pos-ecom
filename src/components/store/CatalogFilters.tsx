@@ -85,11 +85,16 @@ export function CatalogFilters({
     filters.priceMin > priceBounds.min ||
     filters.priceMax < priceBounds.max;
 
-  const sortedSizes = [...availableSizes].sort(
-    (a, b) =>
-      SIZE_ORDER.indexOf(a.size as (typeof SIZE_ORDER)[number]) -
-      SIZE_ORDER.indexOf(b.size as (typeof SIZE_ORDER)[number])
-  );
+  const sortedSizes = [...availableSizes].sort((a, b) => {
+    const ia = SIZE_ORDER.indexOf(a.size as (typeof SIZE_ORDER)[number]);
+    const ib = SIZE_ORDER.indexOf(b.size as (typeof SIZE_ORDER)[number]);
+    if (ia === -1 && ib === -1) {
+      return a.size.localeCompare(b.size, undefined, { numeric: true });
+    }
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
 
   return (
     <aside className="w-full shrink-0 border-slate-100 bg-white md:w-56 md:border-r lg:w-64">

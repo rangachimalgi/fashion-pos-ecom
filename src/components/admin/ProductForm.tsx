@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import type { CompleteProduct, ProductVariant } from "@/types/product";
+import type { CompleteProduct } from "@/types/product";
 import {
   STORE_DEPARTMENTS,
   getDefaultCategory,
@@ -14,8 +14,8 @@ import {
 import { categoriesForDepartment, useStoreCategories } from "@/lib/storeCategories";
 import { MAX_PRODUCT_IMAGES, getProductImages } from "@/lib/productImages";
 import {
-  generateUniqueBarcode,
   mutationHint,
+  normalizeScanCode,
   uploadProductImages,
 } from "@/lib/productAdmin";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,9 @@ import {
 type VariantDraft = {
   key: string;
   id?: string;
-  size: ProductVariant["size"];
+  size: string;
   color: string;
+  barcode: string;
   stock_quantity: number;
 };
 
@@ -47,9 +48,10 @@ function newVariant(): VariantDraft {
   variantDraftCount += 1;
   return {
     key: `draft-${variantDraftCount}`,
-    size: "M",
-    color: "Black",
-    stock_quantity: 10,
+    size: "",
+    color: "",
+    barcode: "",
+    stock_quantity: 1,
   };
 }
 
@@ -62,6 +64,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   const [form, setForm] = useState({
     name: product?.name ?? "",
     brand: product?.brand ?? "",
+    style_code: product?.style_code ?? "",
     price: product ? String(product.base_price) : "",
     description: product?.description ?? "",
     department: (product?.department as StoreDepartment) || "Men",
@@ -76,6 +79,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           id: variant.id,
           size: variant.size,
           color: variant.color,
+          barcode: variant.barcode ?? "",
           stock_quantity: variant.stock_quantity,
         }))
       : [newVariant()]
@@ -150,6 +154,24 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       return;
     }
 
+    const preparedVariants = variants.map((variant) => ({
+      ...variant,
+      size: variant.size.trim(),
+      color: variant.color.trim(),
+      barcode: normalizeScanCode(variant.barcode),
+    }));
+
+    if (preparedVariants.some((variant) => !variant.size || !variant.color || !variant.barcode)) {
+      setError("Each size row needs size, color, and the invoice EAN / barcode.");
+      return;
+    }
+
+    const barcodes = preparedVariants.map((variant) => variant.barcode.toLowerCase());
+    if (new Set(barcodes).size !== barcodes.length) {
+      setError("Each size row needs a different EAN / barcode.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setWarning(null);
@@ -158,10 +180,12 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       const uploaded = imageFiles.length ? await uploadProductImages(imageFiles) : [];
       const imageUrls = [...existingImages, ...uploaded];
       const cover = imageUrls[0];
+      const styleCode = form.style_code.trim() || null;
 
       const details = {
         name: form.name.trim(),
         brand: form.brand.trim(),
+        style_code: styleCode,
         base_price: parseFloat(form.price),
         description: form.description.trim() || null,
         department: form.department,
@@ -182,14 +206,28 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           .select("id")
           .single());
 
+        const missingStyle =
+          insertError?.message?.toLowerCase().includes("style_code") ||
+          (insertError?.code === "PGRST204" && Boolean(styleCode));
+
+        if (missingStyle) {
+          const { style_code: _ignored, ...withoutStyle } = details;
+          ({ data: inserted, error: insertError } = await supabase
+            .from("products")
+            .insert([{ ...withoutStyle, image_urls: imageUrls }])
+            .select("id")
+            .single());
+        }
+
         if (
           insertError?.message?.toLowerCase().includes("image_urls") ||
           insertError?.code === "PGRST204"
         ) {
           galleryColumnMissing = true;
+          const { style_code: _ignored, ...withoutStyle } = details;
           ({ data: inserted, error: insertError } = await supabase
             .from("products")
-            .insert([details])
+            .insert([missingStyle ? withoutStyle : details])
             .select("id")
             .single());
         }
@@ -208,7 +246,34 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           .update({ ...details, image_urls: imageUrls })
           .eq("id", productId);
 
-        if (
+        const missingStyle =
+          updateError?.message?.toLowerCase().includes("style_code") ||
+          (updateError?.code === "PGRST204" && Boolean(styleCode));
+
+        if (missingStyle && updateError) {
+          const { style_code: _ignored, ...withoutStyle } = details;
+          const { error: retryError } = await supabase
+            .from("products")
+            .update({ ...withoutStyle, image_urls: imageUrls })
+            .eq("id", productId);
+          if (
+            retryError?.message?.toLowerCase().includes("image_urls") ||
+            retryError?.code === "PGRST204"
+          ) {
+            galleryColumnMissing = true;
+            const { error: fallbackError } = await supabase
+              .from("products")
+              .update(withoutStyle)
+              .eq("id", productId);
+            if (fallbackError) {
+              throw new Error(
+                fallbackError.message + mutationHint(fallbackError.message, fallbackError.code)
+              );
+            }
+          } else if (retryError) {
+            throw new Error(retryError.message + mutationHint(retryError.message, retryError.code));
+          }
+        } else if (
           updateError?.message?.toLowerCase().includes("image_urls") ||
           updateError?.code === "PGRST204"
         ) {
@@ -243,10 +308,11 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         }
       }
 
-      for (const variant of variants) {
+      for (const variant of preparedVariants) {
         const payload = {
           size: variant.size,
-          color: variant.color.trim(),
+          color: variant.color,
+          barcode: variant.barcode,
           stock_quantity: variant.stock_quantity,
         };
 
@@ -255,14 +321,21 @@ export function ProductForm({ mode, product }: ProductFormProps) {
             .from("product_variants")
             .update(payload)
             .eq("id", variant.id);
-          if (variantError) throw variantError;
+          if (variantError) {
+            throw new Error(
+              variantError.message + mutationHint(variantError.message, variantError.code)
+            );
+          }
         } else {
           const { error: variantError } = await supabase.from("product_variants").insert({
             ...payload,
             product_id: productId,
-            barcode: generateUniqueBarcode(),
           });
-          if (variantError) throw variantError;
+          if (variantError) {
+            throw new Error(
+              variantError.message + mutationHint(variantError.message, variantError.code)
+            );
+          }
         }
       }
 
@@ -288,8 +361,8 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         <CardTitle>{mode === "create" ? "Product details" : form.name || "Product"}</CardTitle>
         <CardDescription>
           {mode === "create"
-            ? "Images, details, and size rows. The first image is the catalog cover."
-            : "Update images, details, and stock. The first image is the catalog cover."}
+            ? "Paste the invoice EAN on each size row. The first image is the catalog cover."
+            : "Update images, EAN codes, and stock. The first image is the catalog cover."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -375,7 +448,17 @@ export function ProductForm({ mode, product }: ProductFormProps) {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Price (INR)</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                Product code (style)
+              </label>
+              <Input
+                value={form.style_code}
+                placeholder="XYRK0072-W1-82F"
+                onChange={(event) => setForm({ ...form, style_code: event.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">MRP (INR)</label>
               <Input
                 required
                 type="number"
@@ -449,7 +532,9 @@ export function ProductForm({ mode, product }: ProductFormProps) {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-medium">Variants</h3>
-                <p className="text-xs text-muted-foreground">Size, color, and stock for each row.</p>
+                <p className="text-xs text-muted-foreground">
+                  Size can be S–XXL or 039. EAN is the scan code from the invoice.
+                </p>
               </div>
               <Button
                 type="button"
@@ -466,32 +551,26 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                   key={variant.key}
                   className="grid grid-cols-12 gap-2 rounded-xl border border-border p-3"
                 >
-                  <div className="col-span-3 space-y-1">
+                  <div className="col-span-6 space-y-1 sm:col-span-2">
                     <label className="text-[10px] font-medium text-muted-foreground">Size</label>
-                    <select
+                    <Input
+                      required
                       value={variant.size}
+                      placeholder="039"
                       onChange={(event) => {
                         const next = [...variants];
-                        next[index] = {
-                          ...variant,
-                          size: event.target.value as ProductVariant["size"],
-                        };
+                        next[index] = { ...variant, size: event.target.value };
                         setVariants(next);
                       }}
-                      className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2 text-xs outline-none"
-                    >
-                      {["S", "M", "L", "XL", "XXL"].map((size) => (
-                        <option key={size} value={size}>
-                          {size}
-                        </option>
-                      ))}
-                    </select>
+                      className="h-8 text-xs"
+                    />
                   </div>
-                  <div className="col-span-4 space-y-1">
+                  <div className="col-span-6 space-y-1 sm:col-span-3">
                     <label className="text-[10px] font-medium text-muted-foreground">Color</label>
                     <Input
                       required
                       value={variant.color}
+                      placeholder="White"
                       onChange={(event) => {
                         const next = [...variants];
                         next[index] = { ...variant, color: event.target.value };
@@ -500,7 +579,23 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                       className="h-8 text-xs"
                     />
                   </div>
-                  <div className="col-span-3 space-y-1">
+                  <div className="col-span-8 space-y-1 sm:col-span-4">
+                    <label className="text-[10px] font-medium text-muted-foreground">
+                      EAN / barcode
+                    </label>
+                    <Input
+                      required
+                      value={variant.barcode}
+                      placeholder="89094471002526006"
+                      onChange={(event) => {
+                        const next = [...variants];
+                        next[index] = { ...variant, barcode: event.target.value };
+                        setVariants(next);
+                      }}
+                      className="h-8 font-mono text-xs"
+                    />
+                  </div>
+                  <div className="col-span-4 space-y-1 sm:col-span-2">
                     <label className="text-[10px] font-medium text-muted-foreground">Stock</label>
                     <Input
                       required
@@ -518,7 +613,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                       className="h-8 text-xs"
                     />
                   </div>
-                  <div className="col-span-2 flex items-end">
+                  <div className="col-span-12 flex items-end sm:col-span-1">
                     <Button
                       type="button"
                       variant="outline"

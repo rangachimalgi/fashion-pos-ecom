@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags } from "lucide-react";
+import { FileSpreadsheet, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,7 @@ function pageTitle(pathname: string) {
   }
   if (pathname.startsWith("/admin/orders")) return "Orders";
   if (pathname.startsWith("/admin/categories")) return "Categories";
+  if (pathname.startsWith("/admin/import")) return "Import invoice";
   return "Catalog";
 }
 
@@ -38,6 +39,7 @@ function NavLinks({
     pathname === "/admin" || pathname.startsWith("/admin/products");
   const ordersActive = pathname.startsWith("/admin/orders");
   const categoriesActive = pathname.startsWith("/admin/categories");
+  const importActive = pathname.startsWith("/admin/import");
 
   return (
     <nav className="flex flex-col gap-1">
@@ -79,6 +81,19 @@ function NavLinks({
       >
         <Tags className="size-4" />
         Categories
+      </Link>
+      <Link
+        href="/admin/import"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+          importActive
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <FileSpreadsheet className="size-4" />
+        Import
       </Link>
     </nav>
   );

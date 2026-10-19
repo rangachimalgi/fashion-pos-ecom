@@ -3,6 +3,8 @@ export interface Product {
     name: string;
     description: string | null;
     brand: string;
+    /** Distributor style SKU, e.g. XYRK0072-W1-82F */
+    style_code?: string | null;
     base_price: number;
     image_url: string | null;
     /** Gallery images (up to 6). Primary cover is image_url / first entry. */
@@ -17,8 +19,9 @@ export interface Product {
   export interface ProductVariant {
     id: string;
     product_id: string;
-    size: 'S' | 'M' | 'L' | 'XL' | 'XXL';
+    size: string;
     color: string;
+    /** Distributor EAN from the invoice (what a scanner reads). */
     barcode: string; 
     stock_quantity: number;
     updated_at: string;
