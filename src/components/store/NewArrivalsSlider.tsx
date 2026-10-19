@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/carousel";
 import { ProductCard } from "@/components/store/ProductCard";
 
+const NEW_ARRIVALS_LIMIT = 10;
+
 type NewArrivalsSliderProps = {
   products: CompleteProduct[];
   loading: boolean;
@@ -96,6 +98,12 @@ export function NewArrivalsSlider({
 }: NewArrivalsSliderProps) {
   const sectionTitle = category;
   const showGrid = layout === "grid";
+  const visibleProducts = [...products]
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    .slice(0, NEW_ARRIVALS_LIMIT);
 
   return (
     <section id="catalog" className="px-6 py-8 sm:px-8">
@@ -118,7 +126,7 @@ export function NewArrivalsSlider({
             ))}
           </div>
         </div>
-      ) : products.length === 0 ? (
+      ) : visibleProducts.length === 0 ? (
         <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-20 text-center">
           <p className="text-sm font-bold text-slate-500">
             {searchQuery
@@ -140,13 +148,13 @@ export function NewArrivalsSlider({
         <div>
           <SectionHeading
             title={sectionTitle}
-            count={products.length}
+            count={visibleProducts.length}
             searchQuery={searchQuery}
             totalCount={totalCount}
             onClearSearch={onClearSearch}
           />
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-4">
-            {products.map((product) => (
+            {visibleProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
@@ -155,14 +163,14 @@ export function NewArrivalsSlider({
         <Carousel
           opts={{
             align: "start",
-            loop: products.length > 5,
+            loop: visibleProducts.length > 5,
             dragFree: false,
           }}
           className="w-full"
         >
           <SectionHeading
             title={sectionTitle}
-            count={products.length}
+            count={visibleProducts.length}
             searchQuery={searchQuery}
             totalCount={totalCount}
             onClearSearch={onClearSearch}
@@ -170,7 +178,7 @@ export function NewArrivalsSlider({
 
           <div className="relative">
             <CarouselContent className="-ml-3">
-              {products.map((product) => (
+              {visibleProducts.map((product) => (
                 <CarouselItem
                   key={product.id}
                   className="basis-[58%] pl-3 sm:basis-[38%] md:basis-1/4 lg:basis-1/5"
