@@ -132,8 +132,8 @@
 
 @media print {
   @page {
-    size: A5 portrait;
-    margin: 10mm;
+    size: 80mm auto;
+    margin: 2mm;
   }
 
   html,
@@ -153,8 +153,18 @@
 
   .pos-print-root {
     position: static !important;
-    width: 100% !important;
-    max-width: none !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 !important;
+  }
+
+  html.print-receipt,
+  html.print-receipt body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 80mm !important;
+    min-height: 0 !important;
+    height: auto !important;
   }
 
   html.print-hangtags,
