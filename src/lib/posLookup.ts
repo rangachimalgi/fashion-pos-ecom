@@ -31,8 +31,14 @@ export async function lookupPosByEan(
     products: unknown;
   };
 
+  const costRaw = (productRow as { cost_price?: number | string | null }).cost_price;
+
   return {
-    product: { ...productRow, variants: [variant] } as CompleteProduct,
+    product: {
+      ...(productRow as CompleteProduct),
+      cost_price: costRaw == null ? null : Number(costRaw),
+      variants: [variant as ProductVariant],
+    },
     variant: variant as ProductVariant,
   };
 }

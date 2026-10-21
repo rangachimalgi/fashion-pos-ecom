@@ -9,6 +9,13 @@ export function normalizeScanCode(value: string) {
   return value.trim().replace(/\s+/g, "");
 }
 
+/** Store-made code when the invoice has no EAN. Not a GS1 890 barcode. */
+export function generateStoreBarcode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `EV${Date.now().toString(36)}${hex}`.toUpperCase().slice(0, 18);
+}
+
 export function mutationHint(message: string, code?: string) {
   const lower = message.toLowerCase();
   if (lower.includes("policy") || code === "42501") {
@@ -22,6 +29,7 @@ export function mutationHint(message: string, code?: string) {
     lower.includes("department") ||
     lower.includes("image_urls") ||
     lower.includes("style_code") ||
+    lower.includes("cost_price") ||
     code === "PGRST204"
   ) {
     return "\n\nMissing DB columns. Run the latest files in supabase/migrations/ in the Supabase SQL Editor.";

@@ -420,7 +420,12 @@ export default function AdminPanelPage() {
                         {product.brand}
                       </TableCell>
                       <TableCell className="text-sm font-medium">
-                        ₹{product.base_price}
+                        <p>₹{product.base_price}</p>
+                        {product.cost_price != null ? (
+                          <p className="text-[11px] font-normal text-muted-foreground">
+                            Cost ₹{product.cost_price}
+                          </p>
+                        ) : null}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">

@@ -14,6 +14,7 @@ import {
 import { categoriesForDepartment, useStoreCategories } from "@/lib/storeCategories";
 import { MAX_PRODUCT_IMAGES, getProductImages } from "@/lib/productImages";
 import {
+  generateStoreBarcode,
   mutationHint,
   normalizeScanCode,
   uploadProductImages,
@@ -66,6 +67,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     brand: product?.brand ?? "",
     style_code: product?.style_code ?? "",
     price: product ? String(product.base_price) : "",
+    cost: product?.cost_price != null ? String(product.cost_price) : "",
     description: product?.description ?? "",
     department: (product?.department as StoreDepartment) || "Men",
     category:
@@ -154,15 +156,24 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       return;
     }
 
-    const preparedVariants = variants.map((variant) => ({
-      ...variant,
-      size: variant.size.trim(),
-      color: variant.color.trim(),
-      barcode: normalizeScanCode(variant.barcode),
-    }));
+    const used = new Set<string>();
+    const preparedVariants = variants.map((variant) => {
+      let barcode = normalizeScanCode(variant.barcode);
+      if (!barcode) {
+        barcode = generateStoreBarcode();
+        while (used.has(barcode.toLowerCase())) barcode = generateStoreBarcode();
+      }
+      used.add(barcode.toLowerCase());
+      return {
+        ...variant,
+        size: variant.size.trim(),
+        color: variant.color.trim(),
+        barcode,
+      };
+    });
 
-    if (preparedVariants.some((variant) => !variant.size || !variant.color || !variant.barcode)) {
-      setError("Each size row needs size, color, and the invoice EAN / barcode.");
+    if (preparedVariants.some((variant) => !variant.size || !variant.color)) {
+      setError("Each size row needs size and color.");
       return;
     }
 
@@ -187,6 +198,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         brand: form.brand.trim(),
         style_code: styleCode,
         base_price: parseFloat(form.price),
+        cost_price: form.cost.trim() ? parseFloat(form.cost) : null,
         description: form.description.trim() || null,
         department: form.department,
         category: form.category,
@@ -469,6 +481,19 @@ export function ProductForm({ mode, product }: ProductFormProps) {
               />
             </div>
             <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Cost / Rate (INR)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.cost}
+                placeholder="873.42"
+                onChange={(event) => setForm({ ...form, cost: event.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Department</label>
               <select
                 required
@@ -584,9 +609,8 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                       EAN / barcode
                     </label>
                     <Input
-                      required
                       value={variant.barcode}
-                      placeholder="89094471002526006"
+                      placeholder="Blank = generate"
                       onChange={(event) => {
                         const next = [...variants];
                         next[index] = { ...variant, barcode: event.target.value };

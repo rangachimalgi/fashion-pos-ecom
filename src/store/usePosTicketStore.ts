@@ -11,6 +11,10 @@ interface PosTicketState {
     removeItemFromTicket: (variantId: string) => void;
     clearTicket: () => void;
     getGrandTotal: () => number;
+    patchTicketProduct: (
+      productId: string,
+      fields: Partial<CompleteProduct>
+    ) => void;
 }
 
 export const usePosTicketStore = create<PosTicketState>()(
@@ -77,6 +81,16 @@ export const usePosTicketStore = create<PosTicketState>()(
             },
 
             clearTicket: () => set({ ticket: [] }),
+
+            patchTicketProduct: (productId, fields) => {
+                set((state) => ({
+                    ticket: state.ticket.map((item) =>
+                        item.product.id === productId
+                            ? { ...item, product: { ...item.product, ...fields } }
+                            : item
+                    ),
+                }));
+            },
 
             getGrandTotal: () => {
                 return get().ticket.reduce(

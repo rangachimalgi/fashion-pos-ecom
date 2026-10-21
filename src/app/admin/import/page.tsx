@@ -220,13 +220,14 @@ export default function AdminImportPage() {
                 <TableHead className="h-11 text-xs text-muted-foreground">Code</TableHead>
                 <TableHead className="h-11 text-xs text-muted-foreground">Category</TableHead>
                 <TableHead className="h-11 text-xs text-muted-foreground">Size</TableHead>
+                <TableHead className="h-11 text-xs text-muted-foreground">Cost</TableHead>
                 <TableHead className="h-11 pr-4 text-xs text-muted-foreground">MRP</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {lines.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                     No product rows in that file.
                   </TableCell>
                 </TableRow>
@@ -234,7 +235,12 @@ export default function AdminImportPage() {
                 lines.map((line) => (
                   <TableRow key={`${line.row}-${line.ean}`}>
                     <TableCell className="pl-4 text-xs text-muted-foreground">{line.row}</TableCell>
-                    <TableCell className="font-mono text-xs">{line.ean || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {line.ean || "—"}
+                      {line.generatedEan ? (
+                        <span className="ml-1 text-[10px] text-muted-foreground">(generated)</span>
+                      ) : null}
+                    </TableCell>
                     <TableCell className="text-sm">
                       <p>{line.name || "—"}</p>
                       {line.error ? (
@@ -270,6 +276,9 @@ export default function AdminImportPage() {
                       </select>
                     </TableCell>
                     <TableCell className="text-sm">{line.size || "—"}</TableCell>
+                    <TableCell className="text-sm">
+                      {line.cost ? `₹${line.cost}` : "—"}
+                    </TableCell>
                     <TableCell className="pr-4 text-sm">
                       {line.mrp ? `₹${line.mrp}` : "—"}
                     </TableCell>

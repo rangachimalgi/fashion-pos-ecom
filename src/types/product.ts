@@ -6,6 +6,8 @@ export interface Product {
     /** Distributor style SKU, e.g. XYRK0072-W1-82F */
     style_code?: string | null;
     base_price: number;
+    /** Invoice Rate — what the shop paid. Not shown on the public shop. */
+    cost_price?: number | null;
     image_url: string | null;
     /** Gallery images (up to 6). Primary cover is image_url / first entry. */
     image_urls?: string[] | null;

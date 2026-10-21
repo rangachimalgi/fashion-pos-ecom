@@ -19,6 +19,7 @@ export default function BillingTerminal() {
     removeItemFromTicket,
     getGrandTotal,
     clearTicket,
+    patchTicketProduct,
   } = usePosTicketStore();
   const [paymentMode, setPaymentMode] = useState<PaymentMethod>('CASH');
   const [submitting, setSubmitting] = useState(false);
@@ -38,6 +39,28 @@ export default function BillingTerminal() {
   useEffect(() => {
     eanRef.current?.focus();
   }, [ticket.length]);
+
+  useEffect(() => {
+    const ids = [...new Set(ticket.map((item) => item.product.id))];
+    if (!ids.length) return;
+
+    supabase
+      .from("products")
+      .select("id, cost_price")
+      .in("id", ids)
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        for (const row of data) {
+          const current = ticket.find((item) => item.product.id === row.id);
+          if (!current) continue;
+          const nextCost =
+            row.cost_price == null ? null : Number(row.cost_price);
+          if (current.product.cost_price !== nextCost) {
+            patchTicketProduct(row.id, { cost_price: nextCost });
+          }
+        }
+      });
+  }, [ticket, patchTicketProduct]);
 
   const handleLookup = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -67,10 +90,21 @@ export default function BillingTerminal() {
         return;
       }
 
-      addItemToTicket(hit.product, hit.variant);
+      addItemToTicket(
+        {
+          ...hit.product,
+          cost_price:
+            hit.product.cost_price == null
+              ? null
+              : Number(hit.product.cost_price),
+        },
+        hit.variant
+      );
       setEanInput('');
       setStatus(
-        `${hit.product.name} · ${hit.variant.size} · ₹${hit.product.base_price} added`
+        `${hit.product.name} · ${hit.variant.size} · MRP ₹${hit.product.base_price}${
+          hit.product.cost_price != null ? ` · cost ₹${hit.product.cost_price}` : ""
+        } added`
       );
     } catch (err) {
       setLookupError(err instanceof Error ? err.message : 'Lookup failed');
@@ -167,7 +201,8 @@ export default function BillingTerminal() {
                 <th className="py-2">FASHION ITEM / GARMENT SKU</th>
                 <th>SIZE</th>
                 <th>COLOR</th>
-                <th>UNIT PRICE</th>
+                <th>MRP</th>
+                <th>COST</th>
                 <th>QTY</th>
                 <th className="text-right">LINE TOTAL</th>
                 <th className="text-center">ACTIONS</th>
@@ -185,6 +220,9 @@ export default function BillingTerminal() {
                   <td><span className="bg-slate-700 px-2 py-1 rounded text-xs font-bold">{item.variant.size}</span></td>
                   <td className="text-slate-300">{item.variant.color}</td>
                   <td>₹{item.product.base_price}</td>
+                  <td className="text-slate-400">
+                    {item.product.cost_price != null ? `₹${item.product.cost_price}` : "—"}
+                  </td>
                   <td className="font-bold text-slate-200">
                     <div className="flex items-center gap-2">
                       <button
@@ -267,9 +305,21 @@ export default function BillingTerminal() {
 
         {/* FINANCIAL SUMMARY COUNTER */}
         <div className="border-t border-slate-700 pt-6">
-          <div className="flex justify-between items-baseline mb-6">
-            <span className="text-slate-400 text-sm font-sans">NET RUNNING TOTAL:</span>
-            <span className="text-4xl font-black text-emerald-400">₹{getGrandTotal()}</span>
+          <div className="mb-6 space-y-2">
+            <div className="flex justify-between items-baseline">
+              <span className="text-slate-400 text-sm font-sans">NET RUNNING TOTAL:</span>
+              <span className="text-4xl font-black text-emerald-400">₹{getGrandTotal()}</span>
+            </div>
+            <div className="flex justify-between text-xs text-slate-500 font-sans">
+              <span>COST (RATE)</span>
+              <span>
+                ₹
+                {ticket.reduce(
+                  (sum, item) => sum + Number(item.product.cost_price ?? 0) * item.quantity,
+                  0
+                )}
+              </span>
+            </div>
           </div>
           
           <div className="space-y-2">

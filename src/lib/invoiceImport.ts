@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
-import { mutationHint, normalizeScanCode } from "@/lib/productAdmin";
+import {
+  generateStoreBarcode,
+  mutationHint,
+  normalizeScanCode,
+} from "@/lib/productAdmin";
 import type { CategoryMeta, StoreDepartment } from "@/lib/categories";
 
 export type InvoiceHeader = {
@@ -19,6 +23,7 @@ export type ParsedInvoice = {
   sizeCol: number;
   qtyCol: number;
   mrpCol: number;
+  rateCol: number;
   suggestedTypeCol: number;
 };
 
@@ -32,6 +37,8 @@ export type InvoiceLine = {
   size: string;
   qty: number;
   mrp: number;
+  cost: number;
+  generatedEan: boolean;
   typeText: string;
   category: string | null;
   error: string | null;
@@ -48,12 +55,21 @@ export type ImportSummary = {
 const HEADER_MAP = {
   ean: ["ean code", "ean", "barcode", "scan code", "ean_code"],
   brand: ["brand"],
-  name: ["product description", "description", "product name", "name", "item"],
+  name: [
+    "product description",
+    "description of goods",
+    "description",
+    "product name",
+    "name",
+    "item",
+    "goods",
+  ],
   style: ["product code", "style", "style code", "sku", "article"],
   color: ["color", "colour"],
   size: ["size"],
   qty: ["qty", "quantity", "qty."],
   mrp: ["mrp", "price", "mrp (inr)", "mrp inr"],
+  rate: ["rate", "cost", "cost price", "cp", "purchase rate", "rate rs"],
   type: [
     "category",
     "product type",
@@ -159,13 +175,8 @@ function parsedFromMatrix(matrix: unknown[][]): ParsedInvoice {
   const nameCol = pickColumn(normalized, HEADER_MAP.name);
   const typeCol = pickColumn(normalized, HEADER_MAP.type);
 
-  if (eanCol < 0) {
-    throw new Error(
-      "Could not find an “EAN Code” column. Use the distributor invoice Excel or a text PDF with that header."
-    );
-  }
   if (nameCol < 0) {
-    throw new Error("Could not find a “Product Description” column.");
+    throw new Error("Could not find a product description / Description of Goods column.");
   }
 
   const headers: InvoiceHeader[] = matrix[0].map((label, index) => ({
@@ -188,6 +199,7 @@ function parsedFromMatrix(matrix: unknown[][]): ParsedInvoice {
     sizeCol: pickColumn(normalized, HEADER_MAP.size),
     qtyCol: pickColumn(normalized, HEADER_MAP.qty),
     mrpCol: pickColumn(normalized, HEADER_MAP.mrp),
+    rateCol: pickColumn(normalized, HEADER_MAP.rate),
     suggestedTypeCol: typeCol >= 0 ? typeCol : nameCol,
   };
 }
@@ -214,9 +226,31 @@ function clusterPdfRows(spansByY: Map<number, PdfSpan[]>) {
   });
 }
 
+function isInvoiceFooterText(text: string) {
+  const n = normalizeHeader(text);
+  const c = compact(text);
+  if (!n) return true;
+  if (/^(sl no|si no|total|grand total)$/.test(n)) return true;
+  if (n.includes("out put") || n.includes("output")) return true;
+  if (c.includes("cgst") || c.includes("sgst") || c.includes("igst")) return true;
+  if (n.includes("round off")) return true;
+  if (n.includes("amount in words") || n.includes("amount chargeable")) return true;
+  if (n.includes("bill details") || n.includes("new ref")) return true;
+  if (n.startsWith("less")) return true;
+  if (/(^|\s)(dr|cr)$/i.test(n.replace(/,/g, ""))) return true;
+  if (n.startsWith("inr ") || n.includes("e o e")) return true;
+  if (n.includes("taxable value") && n.length < 40) return true;
+  return false;
+}
+
 function looksLikeHeaderRow(spans: PdfSpan[]) {
   const joined = normalizeHeader(spans.map((span) => span.text).join(" "));
+  const gst =
+    (joined.includes("hsn") || joined.includes("sac")) &&
+    (joined.includes("description") || joined.includes("goods")) &&
+    (joined.includes("qty") || joined.includes("quantity"));
   return (
+    gst ||
     (joined.includes("ean") && joined.includes("code")) ||
     joined.includes("barcode") ||
     joined.includes("ean code")
@@ -247,7 +281,7 @@ async function matrixFromPdf(buffer: ArrayBuffer): Promise<unknown[][]> {
   const headerIndex = clustered.findIndex(looksLikeHeaderRow);
   if (headerIndex < 0) {
     throw new Error(
-      "Could not find an invoice table in this PDF (no EAN Code header). Use Excel, or a text PDF — photo scans will not work."
+      "Could not find an invoice table in this PDF. Use Excel, or a text PDF with EAN or Description of Goods / HSN headers — photo scans will not work."
     );
   }
 
@@ -256,9 +290,8 @@ async function matrixFromPdf(buffer: ArrayBuffer): Promise<unknown[][]> {
   const matrix: unknown[][] = [headerSpans.map((span) => span.text)];
 
   for (const spans of clustered.slice(headerIndex + 1)) {
-    const joined = spans.map((span) => span.text).join(" ").toLowerCase();
-    if (joined.includes("taxable value") && spans.length < 4) continue;
-    if (/^(total|grand total|amount in words)/i.test(joined.trim())) break;
+    const joined = spans.map((span) => span.text).join(" ");
+    if (isInvoiceFooterText(joined)) break;
 
     const cells = headerSpans.map(() => "");
     for (const span of spans) {
@@ -275,7 +308,8 @@ async function matrixFromPdf(buffer: ArrayBuffer): Promise<unknown[][]> {
     }
 
     const hasEan = cells.some((cell) => /\d{12,18}/.test(cell.replace(/\s/g, "")));
-    if (!hasEan) continue;
+    const hasGoods = cells.some((cell) => /[a-zA-Z]{3,}/.test(cell));
+    if (!hasEan && !hasGoods) continue;
     matrix.push(cells);
   }
 
@@ -311,36 +345,49 @@ export function linesFromParsed(
   categories: CategoryMeta[]
 ): InvoiceLine[] {
   const lines: InvoiceLine[] = [];
+  const usedCodes = new Set<string>();
 
   parsed.rows.forEach((cells, index) => {
-    const rawEan = cells[parsed.eanCol] ?? "";
+    const rawEan = parsed.eanCol >= 0 ? cells[parsed.eanCol] ?? "" : "";
     const name = cells[parsed.nameCol] ?? "";
     const brand = parsed.brandCol >= 0 ? cells[parsed.brandCol] ?? "" : "";
     const style_code = parsed.styleCol >= 0 ? cells[parsed.styleCol] ?? "" : "";
     const color = parsed.colorCol >= 0 ? cells[parsed.colorCol] ?? "" : "";
     const size = parsed.sizeCol >= 0 ? cells[parsed.sizeCol] ?? "" : "";
     const qty = parsed.qtyCol >= 0 ? parseQty(cells[parsed.qtyCol] ?? "") : 0;
-    const mrp = parsed.mrpCol >= 0 ? parseMrp(cells[parsed.mrpCol] ?? "") : 0;
-    const ean = normalizeScanCode(rawEan);
+    const listedMrp = parsed.mrpCol >= 0 ? parseMrp(cells[parsed.mrpCol] ?? "") : 0;
+    const cost = parsed.rateCol >= 0 ? parseMrp(cells[parsed.rateCol] ?? "") : 0;
+    const mrp = listedMrp > 0 ? listedMrp : cost;
+    let ean = normalizeScanCode(rawEan);
+    let generatedEan = false;
     const typeText = (cells[typeCol] ?? "").trim() || name;
     const category = guessCategory(typeText, categories);
 
     if (!ean && !name) return;
+    if (isInvoiceFooterText(name) || isInvoiceFooterText(cells.filter(Boolean).join(" "))) {
+      return;
+    }
 
     let error: string | null = null;
-    if (looksScientific(rawEan) || looksScientific(ean)) {
+    if (ean && (looksScientific(rawEan) || looksScientific(ean))) {
       error = "EAN looks rounded by Excel. Set that column to Text and paste the code again.";
-    } else if (!ean) {
-      error = "Missing EAN Code.";
     } else if (!name) {
       error = "Missing product description.";
     } else if (qty < 1) {
       error = "Quantity must be 1 or more.";
     } else if (mrp <= 0) {
-      error = "Missing MRP.";
+      error = "Missing MRP and Rate.";
     } else if (!category) {
       error = "Could not match a category. Add the type under Categories, or pick one here.";
     }
+
+    if (!error && !ean) {
+      let next = generateStoreBarcode();
+      while (usedCodes.has(next)) next = generateStoreBarcode();
+      ean = next;
+      generatedEan = true;
+    }
+    if (ean) usedCodes.add(ean.toLowerCase());
 
     lines.push({
       row: index + 2,
@@ -352,6 +399,8 @@ export function linesFromParsed(
       size,
       qty: qty || 1,
       mrp,
+      cost,
+      generatedEan,
       typeText,
       category,
       error,
@@ -374,6 +423,7 @@ async function insertProduct(
     brand: string;
     style_code: string | null;
     base_price: number;
+    cost_price: number | null;
     department: StoreDepartment;
     category: string;
   }
@@ -382,8 +432,13 @@ async function insertProduct(
 
   let { data, error } = await supabase.from("products").insert([payload]).select("id").single();
 
+  if (error?.message?.toLowerCase().includes("cost_price")) {
+    const { cost_price: _cost, ...withoutCost } = payload;
+    ({ data, error } = await supabase.from("products").insert([withoutCost]).select("id").single());
+  }
+
   if (error?.message?.toLowerCase().includes("style_code") || error?.code === "PGRST204") {
-    const { style_code: _ignored, ...withoutStyle } = payload;
+    const { style_code: _ignored, cost_price: _cost, ...withoutStyle } = payload;
     ({ data, error } = await supabase.from("products").insert([withoutStyle]).select("id").single());
   }
 
@@ -398,12 +453,21 @@ async function updateProductCategory(
   supabase: SupabaseClient,
   productId: string,
   department: StoreDepartment,
-  category: string
+  category: string,
+  cost_price: number | null
 ) {
-  const { error } = await supabase
-    .from("products")
-    .update({ department, category })
-    .eq("id", productId);
+  const patch: Record<string, unknown> = { department, category };
+  if (cost_price != null && cost_price > 0) patch.cost_price = cost_price;
+
+  const { error } = await supabase.from("products").update(patch).eq("id", productId);
+  if (error?.message?.toLowerCase().includes("cost_price")) {
+    const { error: retry } = await supabase
+      .from("products")
+      .update({ department, category })
+      .eq("id", productId);
+    if (retry) throw new Error(retry.message + mutationHint(retry.message, retry.code));
+    return;
+  }
   if (error) throw new Error(error.message + mutationHint(error.message, error.code));
 }
 
@@ -506,6 +570,7 @@ export async function importInvoiceLines(
         brand: first.brand || "Unknown",
         style_code: first.style_code || null,
         base_price: first.mrp,
+        cost_price: first.cost > 0 ? first.cost : null,
         department,
         category,
       });
@@ -514,7 +579,13 @@ export async function importInvoiceLines(
     }
 
     if (productId && !recategorized.has(productId)) {
-      await updateProductCategory(supabase, productId, department, category);
+      await updateProductCategory(
+        supabase,
+        productId,
+        department,
+        category,
+        first.cost > 0 ? first.cost : null
+      );
       recategorized.add(productId);
       summary.categoriesUpdated += 1;
     }
