@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem } from './useCartStore';
 import type { CompleteProduct, ProductVariant } from '../types/product';
+import { clampDiscountPercent, posLineTotal } from '@/lib/posPricing';
 
 interface PosTicketState {
     ticket: CartItem[];
@@ -9,6 +10,7 @@ interface PosTicketState {
     incrementItem: (variantId: string) => void;
     decrementItem: (variantId: string) => void;
     removeItemFromTicket: (variantId: string) => void;
+    setLineDiscount: (variantId: string, percent: number) => void;
     clearTicket: () => void;
     getGrandTotal: () => number;
     patchTicketProduct: (
@@ -46,7 +48,12 @@ export const usePosTicketStore = create<PosTicketState>()(
                     return {
                         ticket: [
                             ...state.ticket,
-                            { product: parentProductDetails, variant, quantity: 1 },
+                            {
+                                product: parentProductDetails,
+                                variant,
+                                quantity: 1,
+                                discountPercent: 0,
+                            },
                         ],
                     };
                 });
@@ -80,6 +87,16 @@ export const usePosTicketStore = create<PosTicketState>()(
                 }));
             },
 
+            setLineDiscount: (variantId, percent) => {
+                set((state) => ({
+                    ticket: state.ticket.map((item) =>
+                        item.variant.id === variantId
+                            ? { ...item, discountPercent: clampDiscountPercent(percent) }
+                            : item
+                    ),
+                }));
+            },
+
             clearTicket: () => set({ ticket: [] }),
 
             patchTicketProduct: (productId, fields) => {
@@ -94,7 +111,13 @@ export const usePosTicketStore = create<PosTicketState>()(
 
             getGrandTotal: () => {
                 return get().ticket.reduce(
-                    (sum, item) => sum + item.product.base_price * item.quantity,
+                    (sum, item) =>
+                        sum +
+                        posLineTotal(
+                            item.product.base_price,
+                            item.quantity,
+                            item.discountPercent ?? 0
+                        ),
                     0
                 );
             },

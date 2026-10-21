@@ -129,3 +129,31 @@
     @apply font-sans;
   }
 }
+
+@media print {
+  @page {
+    size: A5 portrait;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background: white !important;
+    height: auto !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .pos-print-root {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+}

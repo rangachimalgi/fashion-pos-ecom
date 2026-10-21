@@ -5,7 +5,10 @@ import { usePosTicketStore } from '@/store/usePosTicketStore';
 import { supabase } from '@/lib/supabaseClient';
 import { placeOrder } from '@/lib/placeOrder';
 import { lookupPosByEan } from '@/lib/posLookup';
+import { discountedUnitPrice, posLineTotal } from '@/lib/posPricing';
+import { buildPosReceipt, type PosReceipt } from '@/lib/posReceipt';
 import { getStaffProfile, signOutStaff } from '@/lib/staffAuth';
+import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
 import type { PaymentMethod } from '@/types/order';
 import { useRouter } from 'next/navigation';
 
@@ -17,6 +20,7 @@ export default function BillingTerminal() {
     incrementItem,
     decrementItem,
     removeItemFromTicket,
+    setLineDiscount,
     getGrandTotal,
     clearTicket,
     patchTicketProduct,
@@ -28,11 +32,17 @@ export default function BillingTerminal() {
   const [eanInput, setEanInput] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [staffLabel, setStaffLabel] = useState('');
+  const [receipt, setReceipt] = useState<PosReceipt | null>(null);
+  const [receiptPosted, setReceiptPosted] = useState(false);
   const eanRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getStaffProfile()
-      .then((profile) => setIsAdmin(profile?.role === 'admin'))
+      .then((profile) => {
+        setIsAdmin(profile?.role === 'admin');
+        setStaffLabel(profile?.email?.split('@')[0] ?? '');
+      })
       .catch(() => setIsAdmin(false));
   }, []);
 
@@ -114,6 +124,22 @@ export default function BillingTerminal() {
     }
   };
 
+  const openReceipt = (orderId: string, posted: boolean) => {
+    setReceipt(
+      buildPosReceipt(ticket, {
+        orderId,
+        payment: paymentMode,
+        attendedBy: staffLabel,
+      })
+    );
+    setReceiptPosted(posted);
+  };
+
+  const handlePreviewBill = () => {
+    if (ticket.length === 0) return;
+    openReceipt(`preview-${Date.now()}`, false);
+  };
+
   const handleCloseInvoice = async () => {
     if (ticket.length === 0 || submitting) return;
 
@@ -121,15 +147,28 @@ export default function BillingTerminal() {
     setStatus(null);
 
     try {
+      const snapshot = ticket;
       const payload = await placeOrder(supabase, {
         payment_method: paymentMode,
         source: 'POS',
-        items: ticket.map((item) => ({
+        items: snapshot.map((item) => ({
           variant_id: item.variant.id,
           quantity: item.quantity,
+          unit_price: discountedUnitPrice(
+            item.product.base_price,
+            item.discountPercent ?? 0
+          ),
         })),
       });
 
+      setReceipt(
+        buildPosReceipt(snapshot, {
+          orderId: payload.order_id,
+          payment: paymentMode,
+          attendedBy: staffLabel,
+        })
+      );
+      setReceiptPosted(true);
       clearTicket();
       setStatus(`Invoice ${payload.order_id} posted via ${paymentMode}`);
     } catch (err) {
@@ -140,10 +179,10 @@ export default function BillingTerminal() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-900 text-white font-mono p-6 gap-6">
+    <div className="flex h-screen bg-slate-900 text-white font-mono p-6 gap-6 print:block print:h-auto print:bg-white print:p-0">
       
       {/* LEFT WINDOW: CURRENT ACTIVE BILLING TRANSACTION */}
-      <div className="flex-1 bg-slate-800 rounded-xl p-6 flex flex-col border border-slate-700">
+      <div className="flex flex-1 flex-col rounded-xl border border-slate-700 bg-slate-800 p-6 print:hidden">
         <div className="flex justify-between items-center border-b border-slate-700 pb-4 mb-4">
           <h2 className="text-xl font-extrabold text-emerald-400 tracking-wider">🛒 COUNTER POS DESK</h2>
           <div className="flex items-center gap-3">
@@ -204,6 +243,7 @@ export default function BillingTerminal() {
                 <th>MRP</th>
                 <th>COST</th>
                 <th>QTY</th>
+                <th>DISC %</th>
                 <th className="text-right">LINE TOTAL</th>
                 <th className="text-center">ACTIONS</th>
               </tr>
@@ -242,7 +282,32 @@ export default function BillingTerminal() {
                       </button>
                     </div>
                   </td>
-                  <td className="text-right font-extrabold text-emerald-300">₹{item.product.base_price * item.quantity}</td>
+                  <td>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={item.discountPercent ?? 0}
+                        onChange={(event) =>
+                          setLineDiscount(
+                            item.variant.id,
+                            parseFloat(event.target.value) || 0
+                          )
+                        }
+                        className="h-8 w-14 rounded border border-slate-600 bg-slate-900 px-1.5 text-center text-sm text-white outline-none focus:border-emerald-400"
+                      />
+                      <span className="text-xs text-slate-500">%</span>
+                    </div>
+                  </td>
+                  <td className="text-right font-extrabold text-emerald-300">
+                    ₹{posLineTotal(
+                      item.product.base_price,
+                      item.quantity,
+                      item.discountPercent ?? 0
+                    )}
+                  </td>
                   <td className="text-center">
                     <button 
                       onClick={() => removeItemFromTicket(item.variant.id)}
@@ -268,7 +333,7 @@ export default function BillingTerminal() {
       </div>
 
       {/* RIGHT WINDOW: PAYMENT TRANSACTION SUMMARY */}
-      <div className="w-96 bg-slate-800 rounded-xl p-6 flex flex-col justify-between border border-slate-700">
+      <div className="flex w-96 flex-col justify-between rounded-xl border border-slate-700 bg-slate-800 p-6 print:hidden">
         <div>
           <h3 className="text-md font-bold text-slate-400 border-b border-slate-700 pb-2 uppercase tracking-wide">
             Checkout Panel
@@ -326,6 +391,14 @@ export default function BillingTerminal() {
             {status && (
               <p className="text-xs text-center text-emerald-300 font-sans">{status}</p>
             )}
+            <button
+              type="button"
+              disabled={ticket.length === 0}
+              onClick={handlePreviewBill}
+              className="w-full rounded-lg border border-slate-500 py-3 text-sm font-black tracking-wider text-slate-200 hover:bg-slate-700 disabled:border-slate-700 disabled:text-slate-500"
+            >
+              PREVIEW BILL
+            </button>
             <button 
               disabled={ticket.length === 0 || submitting}
               onClick={handleCloseInvoice}
@@ -337,6 +410,14 @@ export default function BillingTerminal() {
         </div>
 
       </div>
+
+      {receipt ? (
+        <PosReceiptPreview
+          receipt={receipt}
+          posted={receiptPosted}
+          onClose={() => setReceipt(null)}
+        />
+      ) : null}
     </div>
   );
 }

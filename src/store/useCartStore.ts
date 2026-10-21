@@ -6,6 +6,8 @@ export interface CartItem {
     product: Omit<CompleteProduct, 'variants'>;
     variant: ProductVariant;
     quantity: number;
+    /** POS only: percent off MRP for this line (0–100). */
+    discountPercent?: number;
 }
 
 interface CartState {

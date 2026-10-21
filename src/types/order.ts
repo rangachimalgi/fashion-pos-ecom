@@ -4,6 +4,8 @@ export type OrderSource = 'ONLINE' | 'POS';
 export interface CheckoutItemInput {
   variant_id: string;
   quantity: number;
+  /** POS line price after discount; online omits this and uses MRP. */
+  unit_price?: number;
 }
 
 export interface ShippingDetails {

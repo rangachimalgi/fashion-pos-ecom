@@ -57,6 +57,7 @@ export async function placeOrder(
   const normalizedItems = items.map((item) => ({
     variant_id: String(item.variant_id ?? ""),
     quantity: Number(item.quantity),
+    unit_price: item.unit_price == null ? undefined : Number(item.unit_price),
   }));
 
   if (
@@ -101,10 +102,16 @@ export async function placeOrder(
       throw new Error(`Not enough stock for ${product.name}. Available: ${variant.stock_quantity}`);
     }
 
+    const catalogPrice = Number(product.base_price);
+    const unitPrice =
+      item.unit_price != null && Number.isFinite(item.unit_price) && item.unit_price >= 0
+        ? Math.round(item.unit_price * 100) / 100
+        : catalogPrice;
+
     lineItems.push({
       variant_id: item.variant_id,
       quantity: item.quantity,
-      price_at_purchase: Number(product.base_price),
+      price_at_purchase: unitPrice,
     });
   }
 
