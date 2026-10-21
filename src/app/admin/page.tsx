@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ListFilter, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Barcode, ListFilter, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 import {
@@ -463,6 +463,16 @@ export default function AdminPanelPage() {
                       </TableCell>
                       <TableCell className="pr-4">
                         <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/admin/tags?product=${product.id}`}
+                            className={cn(
+                              buttonVariants({ variant: "ghost", size: "sm" }),
+                              "gap-1.5"
+                            )}
+                          >
+                            <Barcode className="size-3.5" />
+                            Tags
+                          </Link>
                           <Link
                             href={`/admin/products/${product.id}/edit`}
                             className={cn(

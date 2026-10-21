@@ -156,4 +156,39 @@
     width: 100% !important;
     max-width: none !important;
   }
+
+  html.print-hangtags,
+  html.print-hangtags body,
+  html.print-hangtags #__next,
+  html.print-hangtags body > div {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    min-height: 0 !important;
+    background: white !important;
+  }
+
+  html.print-hangtags .tag-print-root {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
+  html.print-hangtags .product-hang-tag {
+    box-sizing: border-box;
+    width: 76mm !important;
+    height: 38mm !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    break-after: page;
+    page-break-after: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  html.print-hangtags .product-hang-tag:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
 }

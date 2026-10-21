@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { FileSpreadsheet, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags } from "lucide-react";
+import { Barcode, FileSpreadsheet, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,7 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith("/admin/orders")) return "Orders";
   if (pathname.startsWith("/admin/categories")) return "Categories";
   if (pathname.startsWith("/admin/import")) return "Import invoice";
+  if (pathname.startsWith("/admin/tags")) return "Hang tags";
   return "Catalog";
 }
 
@@ -40,6 +41,7 @@ function NavLinks({
   const ordersActive = pathname.startsWith("/admin/orders");
   const categoriesActive = pathname.startsWith("/admin/categories");
   const importActive = pathname.startsWith("/admin/import");
+  const tagsActive = pathname.startsWith("/admin/tags");
 
   return (
     <nav className="flex flex-col gap-1">
@@ -95,6 +97,19 @@ function NavLinks({
         <FileSpreadsheet className="size-4" />
         Import
       </Link>
+      <Link
+        href="/admin/tags"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+          tagsActive
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <Barcode className="size-4" />
+        Hang tags
+      </Link>
     </nav>
   );
 }
@@ -105,8 +120,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const title = pageTitle(pathname);
 
   return (
-    <div className="flex min-h-screen bg-[#fafafa] text-foreground">
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-border/80 bg-white md:flex">
+    <div className="flex min-h-screen bg-[#fafafa] text-foreground print:block print:min-h-0 print:bg-white">
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-border/80 bg-white md:flex print:hidden">
         <div className="flex items-center gap-2.5 border-b border-border/80 px-4 py-4">
           <Link href="/admin" className="flex min-w-0 items-center gap-2">
             <Image
@@ -137,8 +152,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-border/80 bg-white">
+      <div className="flex min-w-0 flex-1 flex-col print:block print:w-full">
+        <header className="sticky top-0 z-20 border-b border-border/80 bg-white print:hidden">
           <div className="flex h-14 items-center gap-3 px-4 md:px-6">
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
               <SheetTrigger
@@ -185,7 +200,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
-        <div className="flex-1">{children}</div>
+        <div className="flex-1 print:m-0 print:p-0">{children}</div>
       </div>
     </div>
   );
