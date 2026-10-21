@@ -9,6 +9,7 @@ import { discountedUnitPrice, posLineTotal } from '@/lib/posPricing';
 import { buildPosReceipt, type PosReceipt } from '@/lib/posReceipt';
 import { getStaffProfile, signOutStaff } from '@/lib/staffAuth';
 import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
+import { PosHistoryPanel } from '@/components/pos/PosHistoryPanel';
 import type { PaymentMethod } from '@/types/order';
 import { useRouter } from 'next/navigation';
 
@@ -35,6 +36,7 @@ export default function BillingTerminal() {
   const [staffLabel, setStaffLabel] = useState('');
   const [receipt, setReceipt] = useState<PosReceipt | null>(null);
   const [receiptPosted, setReceiptPosted] = useState(false);
+  const [deskView, setDeskView] = useState<'sale' | 'history'>('sale');
   const eanRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -184,7 +186,29 @@ export default function BillingTerminal() {
       {/* LEFT WINDOW: CURRENT ACTIVE BILLING TRANSACTION */}
       <div className="flex flex-1 flex-col rounded-xl border border-slate-700 bg-slate-800 p-6 print:hidden">
         <div className="flex justify-between items-center border-b border-slate-700 pb-4 mb-4">
-          <h2 className="text-xl font-extrabold text-emerald-400 tracking-wider">🛒 COUNTER POS DESK</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-extrabold text-emerald-400 tracking-wider">🛒 COUNTER POS DESK</h2>
+            <div className="flex rounded-lg border border-slate-600 p-0.5">
+              <button
+                type="button"
+                onClick={() => setDeskView('sale')}
+                className={`rounded-md px-3 py-1 text-[11px] font-black tracking-wider ${
+                  deskView === 'sale' ? 'bg-emerald-600 text-white' : 'text-slate-400'
+                }`}
+              >
+                SALE
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeskView('history')}
+                className={`rounded-md px-3 py-1 text-[11px] font-black tracking-wider ${
+                  deskView === 'history' ? 'bg-emerald-600 text-white' : 'text-slate-400'
+                }`}
+              >
+                HISTORY
+              </button>
+            </div>
+          </div>
           <div className="flex items-center gap-3">
             {isAdmin ? (
               <Link
@@ -205,12 +229,19 @@ export default function BillingTerminal() {
             >
               Sign out
             </button>
-            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded text-xs animate-pulse">
-              ● SYSTEM ONLINE & CONNECTED
-            </span>
           </div>
         </div>
 
+        {deskView === "history" ? (
+          <PosHistoryPanel
+            attendedBy={staffLabel}
+            onReprint={(next) => {
+              setReceipt(next);
+              setReceiptPosted(true);
+            }}
+          />
+        ) : (
+          <>
         <form onSubmit={handleLookup} className="mb-4 flex gap-2">
           <input
             ref={eanRef}
@@ -330,10 +361,12 @@ export default function BillingTerminal() {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
 
       {/* RIGHT WINDOW: PAYMENT TRANSACTION SUMMARY */}
-      <div className="flex w-96 flex-col justify-between rounded-xl border border-slate-700 bg-slate-800 p-6 print:hidden">
+      <div className={`flex w-96 flex-col justify-between rounded-xl border border-slate-700 bg-slate-800 p-6 print:hidden ${deskView === "history" ? "hidden" : ""}`}>
         <div>
           <h3 className="text-md font-bold text-slate-400 border-b border-slate-700 pb-2 uppercase tracking-wide">
             Checkout Panel

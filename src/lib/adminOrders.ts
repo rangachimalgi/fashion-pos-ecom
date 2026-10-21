@@ -1,9 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AdminOrder, OrderLineItem, ShippingDetails } from "@/types/order";
+import type { AdminOrder, OrderLineItem, OrderSource, ShippingDetails } from "@/types/order";
 
 type VariantProduct = {
   name?: string | null;
   brand?: string | null;
+  base_price?: number | null;
+  style_code?: string | null;
 };
 
 type VariantJoin = {
@@ -63,6 +65,8 @@ function normalizeLine(row: LineRow): OrderLineItem | null {
     size: variant?.size ?? null,
     color: variant?.color ?? null,
     barcode: variant?.barcode ?? null,
+    base_price: product?.base_price != null ? Number(product.base_price) : null,
+    style_code: product?.style_code ?? null,
   };
 }
 
@@ -82,7 +86,7 @@ async function enrichBareLines(
   const variantIds = [...new Set(lines.map((line) => line.variant_id))];
   const { data } = await supabase
     .from("product_variants")
-    .select("id, size, color, barcode, products(name, brand)")
+    .select("id, size, color, barcode, products(name, brand, base_price, style_code)")
     .in("id", variantIds);
 
   const map = new Map(
@@ -106,6 +110,10 @@ async function enrichBareLines(
       size: line.size ?? variant.size ?? null,
       color: line.color ?? variant.color ?? null,
       barcode: line.barcode ?? variant.barcode ?? null,
+      base_price:
+        line.base_price ??
+        (product?.base_price != null ? Number(product.base_price) : null),
+      style_code: line.style_code ?? product?.style_code ?? null,
     };
   });
 }
@@ -130,7 +138,7 @@ async function loadItemsForOrders(
   if (missingIds.length) {
     const { data, error } = await supabase
       .from("order_items")
-      .select("order_id, variant_id, quantity, price_at_purchase, product_variants(size, color, barcode, products(name, brand))")
+      .select("order_id, variant_id, quantity, price_at_purchase, product_variants(size, color, barcode, products(name, brand, base_price, style_code))")
       .in("order_id", missingIds);
 
     if (!error && data) {
@@ -181,14 +189,21 @@ function toAdminOrder(order: OrderRow, items: OrderLineItem[]): AdminOrder {
   };
 }
 
-export async function listAdminOrders(supabase: SupabaseClient): Promise<AdminOrder[]> {
-  let { data, error } = await supabase
-    .from("orders")
-    .select("*")
-    .order("created_at", { ascending: false });
+export async function listAdminOrders(
+  supabase: SupabaseClient,
+  options?: { source?: OrderSource; from?: string; to?: string }
+): Promise<AdminOrder[]> {
+  let query = supabase.from("orders").select("*");
+  if (options?.source) query = query.eq("source", options.source);
+  if (options?.from) query = query.gte("created_at", options.from);
+  if (options?.to) query = query.lt("created_at", options.to);
+
+  let { data, error } = await query.order("created_at", { ascending: false });
 
   if (error && error.message.toLowerCase().includes("created_at")) {
-    ({ data, error } = await supabase.from("orders").select("*").order("id", { ascending: false }));
+    let fallback = supabase.from("orders").select("*");
+    if (options?.source) fallback = fallback.eq("source", options.source);
+    ({ data, error } = await fallback.order("id", { ascending: false }));
   }
 
   if (error) {

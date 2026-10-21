@@ -39,6 +39,8 @@ export interface OrderLineItem {
   size: string | null;
   color: string | null;
   barcode: string | null;
+  base_price?: number | null;
+  style_code?: string | null;
 }
 
 export interface AdminOrder {
