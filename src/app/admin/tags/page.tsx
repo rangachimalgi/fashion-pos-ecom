@@ -6,6 +6,7 @@ import { Printer, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 import { buildHangTag, type HangTag } from "@/lib/storeTag";
+import { printHangTags } from "@/lib/printHangTags";
 import { ProductHangTag } from "@/components/admin/ProductHangTag";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -143,28 +144,9 @@ function AdminTagsPageInner() {
     setSelected(next);
   };
 
-  useEffect(() => {
-    const style = document.createElement("style");
-    style.setAttribute("data-hangtags-print", "true");
-    style.textContent =
-      "@media print { @page { size: 24mm 96mm; margin: 0; } }";
-    document.head.appendChild(style);
-
-    const done = () => document.documentElement.classList.remove("print-hangtags");
-    window.addEventListener("afterprint", done);
-    return () => {
-      style.remove();
-      window.removeEventListener("afterprint", done);
-      done();
-    };
-  }, []);
-
   const printTags = () => {
-    const previousTitle = document.title;
-    document.title = " ";
-    document.documentElement.classList.add("print-hangtags");
-    window.print();
-    document.title = previousTitle;
+    if (!previewTags.length) return;
+    printHangTags(previewTags);
   };
 
   const printRows: HangTag[][] = [];
@@ -278,7 +260,7 @@ function AdminTagsPageInner() {
         <div>
           <h2 className="text-sm font-semibold">On-screen preview</h2>
           <p className="text-xs text-muted-foreground">
-            Two labels per row, printed horizontally on the sticker.
+            Two labels per row. Each sticker is 2 inch × 1 inch, printed left to right.
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -289,7 +271,7 @@ function AdminTagsPageInner() {
 
       {previewTags.length === 0 ? (
         <p className="no-print text-sm text-muted-foreground">
-          Tick sizes above to see tags. Print lays two stickers per row on the roll.
+          Tick sizes above to see tags. Print uses a 4×1 inch row: two horizontal stickers.
         </p>
       ) : (
         <div className="tag-print-root flex flex-wrap gap-3 print:block print:gap-0">
