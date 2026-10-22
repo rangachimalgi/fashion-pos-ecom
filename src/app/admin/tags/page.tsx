@@ -6,7 +6,7 @@ import { Printer, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 import { buildHangTag, type HangTag } from "@/lib/storeTag";
-import { printHangTags } from "@/lib/printHangTags";
+import { chunkHangTagRows, printHangTags } from "@/lib/printHangTags";
 import { ProductHangTag } from "@/components/admin/ProductHangTag";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,13 +146,10 @@ function AdminTagsPageInner() {
 
   const printTags = () => {
     if (!previewTags.length) return;
-    printHangTags(previewTags);
+    printHangTags();
   };
 
-  const printRows: HangTag[][] = [];
-  for (let i = 0; i < previewTags.length; i += 2) {
-    printRows.push(previewTags.slice(i, i + 2));
-  }
+  const printRows = useMemo(() => chunkHangTagRows(previewTags), [previewTags]);
 
   return (
     <div className="px-4 py-6 md:px-6 print:m-0 print:p-0">
@@ -183,7 +180,7 @@ function AdminTagsPageInner() {
             onClick={printTags}
           >
             <Printer className="size-3.5" />
-            Print {previewTags.length || ""}
+            Print {previewTags.length || ""} Tags
           </Button>
         </div>
       </div>
@@ -260,7 +257,7 @@ function AdminTagsPageInner() {
         <div>
           <h2 className="text-sm font-semibold">On-screen preview</h2>
           <p className="text-xs text-muted-foreground">
-            Two labels per row. Each sticker is 2 inch × 1 inch, printed left to right.
+            Two hang tags per row on 110×50 mm stock (black mark).
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -271,17 +268,22 @@ function AdminTagsPageInner() {
 
       {previewTags.length === 0 ? (
         <p className="no-print text-sm text-muted-foreground">
-          Tick sizes above to see tags. Print uses a 4×1 inch row: two horizontal stickers.
+          Tick sizes above to see tags. Print outputs two hang tags per row on 110×50 mm.
         </p>
       ) : (
         <div className="tag-print-root flex flex-wrap gap-3 print:block print:gap-0">
           {printRows.map((row, rowIndex) => (
-            <div key={rowIndex} className="tag-print-row flex gap-3 print:flex-col print:gap-0">
-              {row.map((tag, index) => (
-                <div key={`${tag.id}-${rowIndex}-${index}`} className="tag-slot">
-                  <ProductHangTag tag={tag} />
+            <div key={rowIndex} className="tag-print-row flex gap-3 print:flex print:gap-0">
+              <div className="tag-slot">
+                <ProductHangTag tag={row.left} />
+              </div>
+              {row.right ? (
+                <div className="tag-slot">
+                  <ProductHangTag tag={row.right} />
                 </div>
-              ))}
+              ) : (
+                <div className="tag-slot" />
+              )}
             </div>
           ))}
         </div>
