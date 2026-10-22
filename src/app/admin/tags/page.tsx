@@ -146,7 +146,8 @@ function AdminTagsPageInner() {
   useEffect(() => {
     const style = document.createElement("style");
     style.setAttribute("data-hangtags-print", "true");
-    style.textContent = "@media print { @page { size: 96mm 24mm; margin: 0; } }";
+    style.textContent =
+      "@media print { @page { size: 24mm 96mm; margin: 0; } }";
     document.head.appendChild(style);
 
     const done = () => document.documentElement.classList.remove("print-hangtags");
@@ -277,7 +278,7 @@ function AdminTagsPageInner() {
         <div>
           <h2 className="text-sm font-semibold">On-screen preview</h2>
           <p className="text-xs text-muted-foreground">
-            Two labels per row. Each sticker is just under 2 inch × 1 inch.
+            Two labels per row, printed horizontally on the sticker.
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -293,9 +294,11 @@ function AdminTagsPageInner() {
       ) : (
         <div className="tag-print-root flex flex-wrap gap-3 print:block print:gap-0">
           {printRows.map((row, rowIndex) => (
-            <div key={rowIndex} className="tag-print-row flex gap-3 print:gap-0">
+            <div key={rowIndex} className="tag-print-row flex gap-3 print:flex-col print:gap-0">
               {row.map((tag, index) => (
-                <ProductHangTag key={`${tag.id}-${rowIndex}-${index}`} tag={tag} />
+                <div key={`${tag.id}-${rowIndex}-${index}`} className="tag-slot">
+                  <ProductHangTag tag={tag} />
+                </div>
               ))}
             </div>
           ))}

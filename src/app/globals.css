@@ -193,8 +193,9 @@
 
   html.print-hangtags .tag-print-row {
     display: flex !important;
-    width: 96mm !important;
-    height: 24mm !important;
+    flex-direction: column !important;
+    width: 24mm !important;
+    height: 96mm !important;
     margin: 0 !important;
     padding: 0 !important;
     gap: 0 !important;
@@ -210,12 +211,22 @@
     page-break-after: auto;
   }
 
+  html.print-hangtags .tag-slot {
+    display: flex !important;
+    width: 24mm !important;
+    height: 48mm !important;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden !important;
+  }
+
   html.print-hangtags .product-hang-tag {
     box-sizing: border-box;
     width: 48mm !important;
     height: 24mm !important;
     margin: 0 !important;
     overflow: hidden !important;
+    transform: rotate(90deg);
     break-inside: avoid;
     page-break-inside: avoid;
   }
