@@ -191,11 +191,13 @@
     gap: 0 !important;
   }
 
-  html.print-hangtags .product-hang-tag {
-    box-sizing: border-box;
-    width: 76mm !important;
-    height: 38mm !important;
+  html.print-hangtags .tag-print-row {
+    display: flex !important;
+    width: 96mm !important;
+    height: 24mm !important;
     margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
     overflow: hidden !important;
     break-after: page;
     page-break-after: always;
@@ -203,8 +205,18 @@
     page-break-inside: avoid;
   }
 
-  html.print-hangtags .product-hang-tag:last-child {
+  html.print-hangtags .tag-print-row:last-child {
     break-after: auto;
     page-break-after: auto;
+  }
+
+  html.print-hangtags .product-hang-tag {
+    box-sizing: border-box;
+    width: 48mm !important;
+    height: 24mm !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

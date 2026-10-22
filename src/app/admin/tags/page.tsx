@@ -146,7 +146,7 @@ function AdminTagsPageInner() {
   useEffect(() => {
     const style = document.createElement("style");
     style.setAttribute("data-hangtags-print", "true");
-    style.textContent = "@media print { @page { size: 76mm 38mm; margin: 0; } }";
+    style.textContent = "@media print { @page { size: 96mm 24mm; margin: 0; } }";
     document.head.appendChild(style);
 
     const done = () => document.documentElement.classList.remove("print-hangtags");
@@ -159,9 +159,17 @@ function AdminTagsPageInner() {
   }, []);
 
   const printTags = () => {
+    const previousTitle = document.title;
+    document.title = " ";
     document.documentElement.classList.add("print-hangtags");
     window.print();
+    document.title = previousTitle;
   };
+
+  const printRows: HangTag[][] = [];
+  for (let i = 0; i < previewTags.length; i += 2) {
+    printRows.push(previewTags.slice(i, i + 2));
+  }
 
   return (
     <div className="px-4 py-6 md:px-6 print:m-0 print:p-0">
@@ -269,7 +277,7 @@ function AdminTagsPageInner() {
         <div>
           <h2 className="text-sm font-semibold">On-screen preview</h2>
           <p className="text-xs text-muted-foreground">
-            This grid is just to check. Print is one tag per page, one garment each.
+            Two labels per row. Each sticker is just under 2 inch × 1 inch.
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -280,12 +288,16 @@ function AdminTagsPageInner() {
 
       {previewTags.length === 0 ? (
         <p className="no-print text-sm text-muted-foreground">
-          Tick sizes above to see tags. Print sends one label per page so each garment gets its own sticker.
+          Tick sizes above to see tags. Print lays two stickers per row on the roll.
         </p>
       ) : (
         <div className="tag-print-root flex flex-wrap gap-3 print:block print:gap-0">
-          {previewTags.map((tag, index) => (
-            <ProductHangTag key={`${tag.id}-${index}`} tag={tag} />
+          {printRows.map((row, rowIndex) => (
+            <div key={rowIndex} className="tag-print-row flex gap-3 print:gap-0">
+              {row.map((tag, index) => (
+                <ProductHangTag key={`${tag.id}-${rowIndex}-${index}`} tag={tag} />
+              ))}
+            </div>
           ))}
         </div>
       )}
