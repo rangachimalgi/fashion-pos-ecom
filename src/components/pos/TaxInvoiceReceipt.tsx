@@ -7,109 +7,104 @@ function inr(n: number) {
 
 export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
   return (
-    <div className="pos-receipt mx-auto w-[80mm] overflow-hidden bg-white font-sans text-[10px] leading-tight text-neutral-800">
-      <div className="bg-[#1a1510] px-2.5 py-2.5 text-center text-white">
-        <p className="text-[8px] font-medium tracking-[0.22em] text-[#d4a574]">
-          {STORE_RECEIPT.name}
-        </p>
-        <p className="text-base font-semibold tracking-[0.16em]">{STORE_RECEIPT.nameLine2}</p>
-        <p className="mt-1 text-[8px] leading-snug text-neutral-300">
+    <div className="pos-receipt mx-auto w-[80mm] overflow-hidden bg-white text-[12px] font-black leading-snug text-black [font-family:Arial,Helvetica,sans-serif]">
+      <div className="bg-black px-2 py-2 text-center text-white">
+        <p className="text-[11px] font-bold tracking-wide">{STORE_RECEIPT.name}</p>
+        <p className="text-lg font-black tracking-wide">{STORE_RECEIPT.nameLine2}</p>
+        <p className="mt-1 text-[10px] font-semibold leading-snug text-white">
           {STORE_RECEIPT.addressLines.join(" · ")}
         </p>
-        <p className="mt-0.5 text-[8px] text-neutral-400">
-          GSTIN {STORE_RECEIPT.gstin} · Ph {STORE_RECEIPT.phone}
+        <p className="mt-0.5 text-[10px] font-semibold text-white">
+          GSTIN {STORE_RECEIPT.gstin}
         </p>
-        <p className="mt-1.5 text-[8px] font-semibold tracking-[0.2em] text-[#d4a574]">
-          TAX INVOICE
-        </p>
+        <p className="text-[10px] font-semibold text-white">Ph {STORE_RECEIPT.phone}</p>
+        <p className="mt-1.5 text-[11px] font-black tracking-widest text-white">TAX INVOICE</p>
       </div>
 
-      <div className="grid grid-cols-3 px-2.5 py-1.5 text-[9px]">
+      <div className="grid grid-cols-3 border-b-2 border-black px-2 py-1.5 text-[11px] font-bold">
         <div>
-          <p className="text-[7px] uppercase tracking-wider text-neutral-400">Bill</p>
-          <p className="font-medium text-neutral-900">{receipt.billNo}</p>
+          <p className="text-[9px] font-bold uppercase">Bill</p>
+          <p>{receipt.billNo}</p>
         </div>
         <div className="text-center">
-          <p className="text-[7px] uppercase tracking-wider text-neutral-400">Date</p>
-          <p className="font-medium text-neutral-900">{receipt.dateLabel}</p>
+          <p className="text-[9px] font-bold uppercase">Date</p>
+          <p>{receipt.dateLabel}</p>
         </div>
         <div className="text-right">
-          <p className="text-[7px] uppercase tracking-wider text-neutral-400">Time</p>
-          <p className="font-medium text-neutral-900">{receipt.timeLabel}</p>
+          <p className="text-[9px] font-bold uppercase">Time</p>
+          <p>{receipt.timeLabel}</p>
         </div>
       </div>
 
-      <div className="px-2.5">
-        <div className="grid grid-cols-[1fr_auto_auto] gap-x-2 border-y border-neutral-200 py-1 text-[7px] font-medium uppercase tracking-wider text-neutral-400">
+      <div className="px-2">
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-2 border-b-2 border-black py-1 text-[10px] font-black uppercase">
           <span>Item</span>
-          <span className="w-6 text-right">Qty</span>
-          <span className="w-14 text-right">Value</span>
+          <span className="w-7 text-right">Qty</span>
+          <span className="w-16 text-right">Value</span>
         </div>
 
         {receipt.lines.map((line) => (
-          <div key={`${line.sl}-${line.code}`} className="border-b border-neutral-100 py-1">
+          <div key={`${line.sl}-${line.code}`} className="border-b border-black py-1.5">
             <div className="grid grid-cols-[1fr_auto_auto] items-start gap-x-2">
               <div className="min-w-0">
-                <p className="text-[10px] font-medium capitalize text-neutral-900">
+                <p className="text-[12px] font-bold uppercase">
                   {line.sl}. {line.desc}
                 </p>
-                <p className="font-mono text-[8px] text-neutral-500">{line.code}</p>
+                <p className="text-[10px] font-bold">{line.code}</p>
               </div>
-              <p className="w-6 text-right text-neutral-700">{line.qty}</p>
-              <div className="w-14 text-right">
-                <p className="font-medium text-neutral-900">{inr(line.value)}</p>
-                <p className="text-[8px] text-neutral-400">{inr(line.rate)}</p>
+              <p className="w-7 text-right font-bold">{line.qty}</p>
+              <div className="w-16 text-right">
+                <p className="font-black">{inr(line.value)}</p>
+                <p className="text-[10px] font-bold">{inr(line.rate)}</p>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="px-2.5 py-1.5">
-        <p className="flex justify-between text-neutral-500">
-          <span>Total · {receipt.itemCount} pcs</span>
-          <span>₹ {inr(receipt.total)}</span>
+      <div className="px-2 py-2 text-[14px] font-black leading-none">
+        <p className="flex justify-between py-0.5">
+          <span>TOTAL · {receipt.itemCount} PCS</span>
+          <span>Rs {inr(receipt.total)}</span>
         </p>
-        <p className="mt-0.5 flex justify-between text-neutral-500">
-          <span>Discount</span>
-          <span>₹ {inr(receipt.discount)}</span>
+        <p className="flex justify-between py-0.5">
+          <span>DISCOUNT</span>
+          <span>Rs {inr(receipt.discount)}</span>
         </p>
-        <p className="mt-1 flex items-end justify-between border-t border-neutral-200 pt-1">
-          <span className="text-[8px] font-semibold uppercase tracking-wider text-neutral-500">
-            Net amount
-          </span>
-          <span className="text-sm font-semibold text-neutral-900">₹ {inr(receipt.netAmount)}</span>
+        <p className="mt-1 flex items-center justify-between border-t-2 border-black pt-1.5 text-[15px]">
+          <span>NET AMOUNT</span>
+          <span>Rs {inr(receipt.netAmount)}</span>
         </p>
       </div>
 
-      <div className="flex justify-between px-2.5 text-[9px] text-neutral-600">
+      <div className="flex justify-between px-2 text-[11px] font-bold">
         <span>Attended: {receipt.attendedBy || "—"}</span>
         <span>Pay: {receipt.payment}</span>
       </div>
 
-      <div className="mt-1 px-2.5 text-[9px] text-neutral-600">
+      <div className="mt-1 px-2 text-[11px] font-bold">
         <p className="flex justify-between">
           <span>
             CGST @{STORE_RECEIPT.cgstRate.toFixed(2)}% on {inr(receipt.taxable)}
           </span>
-          <span>₹ {inr(receipt.cgst)}</span>
+          <span>Rs {inr(receipt.cgst)}</span>
         </p>
         <p className="flex justify-between">
           <span>
             SGST @{STORE_RECEIPT.sgstRate.toFixed(2)}% on {inr(receipt.taxable)}
           </span>
-          <span>₹ {inr(receipt.sgst)}</span>
+          <span>Rs {inr(receipt.sgst)}</span>
         </p>
       </div>
 
-      <div className="mt-1.5 border-t border-neutral-200 px-2.5 py-1.5">
-        <p className="text-[7px] font-semibold uppercase tracking-wider text-neutral-400">Terms</p>
-        <ul className="mt-0.5 space-y-0 text-[7px] leading-snug text-neutral-500">
+      <div className="mt-1.5 border-t-2 border-black px-2 py-1.5">
+        <p className="text-[10px] font-black uppercase">Terms</p>
+        <ul className="mt-0.5 text-[10px] font-bold leading-snug">
           {STORE_RECEIPT.terms.map((term) => (
-            <li key={term}>{term}</li>
+            <li key={term}>* {term}</li>
           ))}
         </ul>
-        <p className="mt-1.5 text-center text-[8px] font-medium tracking-wide text-[#b8874c]">
+        <p className="mt-1.5 text-center text-[11px] font-black">
           {STORE_RECEIPT.footer}
         </p>
       </div>
