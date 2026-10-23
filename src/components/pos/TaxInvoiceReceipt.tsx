@@ -7,7 +7,7 @@ function inr(n: number) {
 
 export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
   return (
-    <div className="pos-receipt mx-auto w-[80mm] overflow-hidden bg-white text-[12px] font-black leading-snug text-black [font-family:Arial,Helvetica,sans-serif]">
+    <div className="pos-receipt mx-auto w-[80mm] overflow-hidden bg-white text-[12px] font-black leading-snug text-black font-[Arial,Helvetica,sans-serif]">
       <div className="bg-black px-2 py-2 text-center text-white">
         <p className="text-[11px] font-bold tracking-wide">{STORE_RECEIPT.name}</p>
         <p className="text-lg font-black tracking-wide">{STORE_RECEIPT.nameLine2}</p>

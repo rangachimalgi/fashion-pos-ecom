@@ -87,7 +87,7 @@ export function PosHistoryPanel({
               type="month"
               value={month}
               onChange={(event) => setMonth(event.target.value)}
-              className="h-8 rounded-lg border border-slate-600 bg-slate-900 py-0 pr-8 pl-2 font-sans text-xs text-white [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+              className="h-8 rounded-lg border border-slate-600 bg-slate-900 py-0 pr-8 pl-2 font-sans text-xs text-white scheme-dark [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:top-0 [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
             />
           </label>
         ) : null}
