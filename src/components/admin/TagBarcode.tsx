@@ -12,11 +12,19 @@ export function TagBarcode({ value }: { value: string }) {
       format: "CODE128",
       displayValue: false,
       margin: 0,
-      height: 42,
-      width: 1.15,
+      height: 40,
+      width: 2,
       background: "transparent",
     });
+    // Let CSS size the bars (stretch to the box) instead of fixed pixel width/height.
+    const svg = ref.current;
+    const w = svg.getAttribute("width");
+    const h = svg.getAttribute("height");
+    if (w && h) svg.setAttribute("viewBox", `0 0 ${parseFloat(w)} ${parseFloat(h)}`);
+    svg.removeAttribute("width");
+    svg.removeAttribute("height");
+    svg.setAttribute("preserveAspectRatio", "none");
   }, [value]);
 
-  return <svg ref={ref} className="h-[14mm] w-[52mm] max-w-full" />;
+  return <svg ref={ref} className="h-[8mm] w-[44mm] max-w-full" />;
 }

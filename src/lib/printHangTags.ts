@@ -13,7 +13,7 @@ export function printHangTags() {
   const style = document.createElement("style");
   style.setAttribute("data-hangtags-print", "true");
   style.textContent =
-    "@media print { @page { size: 110mm 50mm; margin: 0; } }";
+    "@media print { @page { size: 102mm 25mm; margin: 0; } }";
   document.head.appendChild(style);
   document.documentElement.classList.add("print-hangtags");
   document.title = " ";
