@@ -106,7 +106,7 @@ function HangTagPages({
 
 function AdminTagsPageInner() {
   const searchParams = useSearchParams();
-  const [align, setAlign] = useState<Align>({ pitch: 28, x: 0, y: 0 });
+  const [align, setAlign] = useState<Align>({ pitch: 29, x: 0, y: 10.5 });
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
