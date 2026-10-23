@@ -173,19 +173,25 @@
     height: auto !important;
   }
 
-  html.print-hangtags body * {
-    visibility: hidden;
+  /* Hang tags: 110 x 50 mm sheet = 4 stickers (27.4 x 50 mm) across, 2 tags of 55 x 50 mm. */
+  html.print-hangtags,
+  html.print-hangtags body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 110mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
   }
 
-  html.print-hangtags .tag-print-root,
-  html.print-hangtags .tag-print-root * {
-    visibility: visible;
+  /* Remove the whole app (admin shell etc.) from layout so only the tag portal prints. */
+  html.print-hangtags body > *:not(.tag-print-portal) {
+    display: none !important;
   }
 
-  html.print-hangtags .tag-print-root {
-    position: absolute;
-    left: 0;
-    top: 0;
+  html.print-hangtags .tag-print-portal {
+    display: block !important;
+    position: static !important;
     width: 110mm;
     margin: 0;
     padding: 0;
@@ -196,7 +202,8 @@
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     width: 110mm;
-    height: 50mm;
+    /* a hair under 50mm so rounding never spills onto an extra (blank) label */
+    height: 49.6mm;
     margin: 0 !important;
     padding: 0 !important;
     gap: 0 !important;
@@ -204,6 +211,8 @@
     box-sizing: border-box;
     page-break-after: always;
     break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   html.print-hangtags .tag-print-row:last-child {
@@ -213,12 +222,16 @@
 
   html.print-hangtags .tag-slot {
     width: 55mm !important;
-    height: 50mm;
+    height: 49.6mm;
     box-sizing: border-box;
   }
 
   html.print-hangtags .product-hang-tag {
     width: 55mm !important;
-    height: 50mm !important;
+    height: 49.6mm !important;
   }
+}
+
+.tag-print-portal {
+  display: none;
 }

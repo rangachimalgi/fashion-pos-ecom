@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { Printer, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -34,8 +35,36 @@ export default function AdminTagsPage() {
   );
 }
 
+function HangTagRows({
+  rows,
+  className,
+}: {
+  rows: ReturnType<typeof chunkHangTagRows>;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      {rows.map((row, rowIndex) => (
+        <div key={rowIndex} className="tag-print-row flex flex-nowrap gap-3">
+          <div className="tag-slot">
+            <ProductHangTag tag={row.left} />
+          </div>
+          <div className="tag-slot">
+            {row.right ? <ProductHangTag tag={row.right} /> : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AdminTagsPageInner() {
   const searchParams = useSearchParams();
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const productId = searchParams.get("product");
   const [products, setProducts] = useState<CompleteProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -271,22 +300,20 @@ function AdminTagsPageInner() {
           Tick sizes above to see tags. Print outputs two hang tags per row on 110×50 mm.
         </p>
       ) : (
-        <div className="tag-print-root flex flex-wrap gap-3 print:block print:gap-0">
-          {printRows.map((row, rowIndex) => (
-            <div
-              key={rowIndex}
-              className="tag-print-row flex flex-nowrap gap-3 print:flex print:flex-row print:gap-0"
-            >
-              <div className="tag-slot">
-                <ProductHangTag tag={row.left} />
-              </div>
-              <div className="tag-slot">
-                {row.right ? <ProductHangTag tag={row.right} /> : null}
-              </div>
-            </div>
-          ))}
+        <div className="no-print">
+          <HangTagRows rows={printRows} className="flex flex-wrap gap-3" />
         </div>
       )}
+
+      {/* Print-only copy, mounted straight under <body> so the admin shell can't affect page layout. */}
+      {mounted && previewTags.length > 0
+        ? createPortal(
+            <div className="tag-print-portal">
+              <HangTagRows rows={printRows} />
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
