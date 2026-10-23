@@ -297,7 +297,7 @@ function AdminTagsPageInner() {
 
       {previewTags.length === 0 ? (
         <p className="no-print text-sm text-muted-foreground">
-          Tick sizes above to see tags. Print outputs two hang tags per row on 102×25 mm (2 stickers of 50×25 mm per row).
+          Tick sizes above to see tags. Print outputs two hang tags per row on 107×25 mm (2 stickers of 50×25 mm per row).
         </p>
       ) : (
         <div className="no-print">

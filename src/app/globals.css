@@ -173,13 +173,13 @@
     height: auto !important;
   }
 
-  /* Hang tags: roll has 2 stickers across, each 50 x 25 mm, ~2 mm gap between them.
-     Sheet = 102 x 25 mm, fed one row at a time (continuous, as many rows as requested). */
+  /* Hang tags: roll is 107 mm wide = 2 mm edge + 50 mm sticker + 3 mm gap + 50 mm sticker + 2 mm edge.
+     Stickers are 50 x 25 mm. Sheet = 107 x 25 mm, fed one row at a time (continuous). */
   html.print-hangtags,
   html.print-hangtags body {
     margin: 0 !important;
     padding: 0 !important;
-    width: 102mm !important;
+    width: 107mm !important;
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
@@ -193,7 +193,7 @@
   html.print-hangtags .tag-print-portal {
     display: block !important;
     position: static !important;
-    width: 102mm;
+    width: 107mm;
     margin: 0;
     padding: 0;
   }
@@ -202,12 +202,12 @@
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
-    width: 102mm;
+    width: 107mm;
     /* a hair under 25mm so rounding never spills onto an extra (blank) label */
     height: 24.6mm;
     margin: 0 !important;
-    padding: 0 !important;
-    gap: 2mm !important;
+    padding: 0 2mm !important;
+    gap: 3mm !important;
     overflow: hidden;
     box-sizing: border-box;
     page-break-after: always;
