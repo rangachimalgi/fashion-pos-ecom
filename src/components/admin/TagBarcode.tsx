@@ -12,11 +12,11 @@ export function TagBarcode({ value }: { value: string }) {
       format: "CODE128",
       displayValue: false,
       margin: 0,
-      height: 48,
-      width: 1.2,
+      height: 42,
+      width: 1.15,
       background: "transparent",
     });
   }, [value]);
 
-  return <svg ref={ref} className="h-[16mm] w-[50mm] max-w-full" />;
+  return <svg ref={ref} className="h-[14mm] w-[52mm] max-w-full" />;
 }

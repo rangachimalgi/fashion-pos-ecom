@@ -194,6 +194,7 @@
   html.print-hangtags .tag-print-row {
     display: flex !important;
     flex-direction: row !important;
+    flex-wrap: nowrap !important;
     width: 110mm;
     height: 50mm;
     margin: 0 !important;
@@ -211,7 +212,7 @@
   }
 
   html.print-hangtags .tag-slot {
-    width: 55mm;
+    width: 55mm !important;
     height: 50mm;
     box-sizing: border-box;
   }

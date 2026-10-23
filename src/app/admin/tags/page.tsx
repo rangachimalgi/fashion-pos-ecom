@@ -257,7 +257,7 @@ function AdminTagsPageInner() {
         <div>
           <h2 className="text-sm font-semibold">On-screen preview</h2>
           <p className="text-xs text-muted-foreground">
-            Two hang tags per row on 110×50 mm stock (black mark).
+            Two hang tags per row, same layout as the shop sticker.
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -273,17 +273,16 @@ function AdminTagsPageInner() {
       ) : (
         <div className="tag-print-root flex flex-wrap gap-3 print:block print:gap-0">
           {printRows.map((row, rowIndex) => (
-            <div key={rowIndex} className="tag-print-row flex gap-3 print:flex print:gap-0">
+            <div
+              key={rowIndex}
+              className="tag-print-row flex flex-nowrap gap-3 print:flex print:flex-row print:gap-0"
+            >
               <div className="tag-slot">
                 <ProductHangTag tag={row.left} />
               </div>
-              {row.right ? (
-                <div className="tag-slot">
-                  <ProductHangTag tag={row.right} />
-                </div>
-              ) : (
-                <div className="tag-slot" />
-              )}
+              <div className="tag-slot">
+                {row.right ? <ProductHangTag tag={row.right} /> : null}
+              </div>
             </div>
           ))}
         </div>
