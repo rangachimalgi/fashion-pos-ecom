@@ -12,8 +12,8 @@ export function printHangTags() {
   const previousTitle = document.title;
   const style = document.createElement("style");
   style.setAttribute("data-hangtags-print", "true");
-  style.textContent =
-    "@media print { @page { size: 107mm 25mm; margin: 0; } }";
+  // Match the driver's USER paper exactly (4x6 in, portrait) so nothing gets rotated.
+  style.textContent = "@media print { @page { size: 101.6mm 152.4mm; margin: 0; } }";
   document.head.appendChild(style);
   document.documentElement.classList.add("print-hangtags");
   document.title = " ";

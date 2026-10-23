@@ -26,5 +26,5 @@ export function TagBarcode({ value }: { value: string }) {
     svg.setAttribute("preserveAspectRatio", "none");
   }, [value]);
 
-  return <svg ref={ref} className="h-[8mm] w-[44mm] max-w-full" />;
+  return <svg ref={ref} className="h-[8mm] w-[40mm] max-w-full" />;
 }

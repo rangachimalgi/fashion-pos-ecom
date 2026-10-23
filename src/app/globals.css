@@ -173,13 +173,13 @@
     height: auto !important;
   }
 
-  /* Hang tags: roll is 107 mm wide = 2 mm edge + 50 mm sticker + 3 mm gap + 50 mm sticker + 2 mm edge.
-     Stickers are 50 x 25 mm. Sheet = 107 x 25 mm, fed one row at a time (continuous). */
+  /* Hang tags: driver paper "USER" = 101.6 x 152.4 mm portrait. Sticker rows (2 stickers of
+     50 x 25 mm, 3 mm gap, ~28 mm pitch) are stacked on it; tags are 45 mm wide, centred on each sticker. */
   html.print-hangtags,
   html.print-hangtags body {
     margin: 0 !important;
     padding: 0 !important;
-    width: 107mm !important;
+    width: 101.6mm !important;
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
@@ -193,42 +193,44 @@
   html.print-hangtags .tag-print-portal {
     display: block !important;
     position: static !important;
-    width: 107mm;
+    width: 101.6mm;
     margin: 0;
     padding: 0;
+  }
+
+  html.print-hangtags .tag-print-page {
+    width: 101.6mm;
+    height: 152mm; /* a hair under 152.4 so it never spills onto an extra page */
+    box-sizing: border-box;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  html.print-hangtags .tag-print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
   }
 
   html.print-hangtags .tag-print-row {
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
-    width: 107mm;
-    /* a hair under 25mm so rounding never spills onto an extra (blank) label */
     height: 24.6mm;
-    margin: 0 !important;
-    padding: 0 2mm !important;
-    gap: 3mm !important;
-    overflow: hidden;
+    padding: 0 0 0 4.5mm !important;
+    gap: 8mm !important;
+    overflow: visible;
     box-sizing: border-box;
-    page-break-after: always;
-    break-after: page;
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  html.print-hangtags .tag-print-row:last-child {
-    page-break-after: auto;
-    break-after: auto;
   }
 
   html.print-hangtags .tag-slot {
-    width: 50mm !important;
+    width: 45mm !important;
     height: 24.6mm;
     box-sizing: border-box;
   }
 
   html.print-hangtags .product-hang-tag {
-    width: 50mm !important;
+    width: 45mm !important;
     height: 24.6mm !important;
   }
 }

@@ -58,8 +58,55 @@ function HangTagRows({
   );
 }
 
+// Driver paper (USER) is 101.6 x 152.4 mm. Rows are stacked on it at the real sticker pitch.
+const PAGE_HEIGHT_MM = 152;
+const TAG_HEIGHT_MM = 24.6;
+
+type Align = { pitch: number; x: number; y: number };
+
+function HangTagPages({
+  rows,
+  align,
+}: {
+  rows: ReturnType<typeof chunkHangTagRows>;
+  align: Align;
+}) {
+  const pitch = Math.max(TAG_HEIGHT_MM + 0.5, align.pitch);
+  const perPage = Math.max(1, Math.floor((PAGE_HEIGHT_MM - align.y) / pitch));
+  const pages: Array<typeof rows> = [];
+  for (let i = 0; i < rows.length; i += perPage) pages.push(rows.slice(i, i + perPage));
+
+  return (
+    <>
+      {pages.map((pageRows, pageIndex) => (
+        <div
+          key={pageIndex}
+          className="tag-print-page"
+          style={{ paddingTop: `${align.y}mm`, paddingLeft: `${align.x}mm` }}
+        >
+          {pageRows.map((row, rowIndex) => (
+            <div
+              key={rowIndex}
+              className="tag-print-row"
+              style={{ marginBottom: `${pitch - TAG_HEIGHT_MM}mm` }}
+            >
+              <div className="tag-slot">
+                <ProductHangTag tag={row.left} />
+              </div>
+              <div className="tag-slot">
+                {row.right ? <ProductHangTag tag={row.right} /> : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
+
 function AdminTagsPageInner() {
   const searchParams = useSearchParams();
+  const [align, setAlign] = useState<Align>({ pitch: 28, x: 0, y: 0 });
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -282,6 +329,35 @@ function AdminTagsPageInner() {
         </Table>
       </div>
 
+      <div className="no-print mb-6 flex flex-wrap items-end gap-4 rounded-xl border border-border bg-white p-3">
+        <p className="w-full text-xs text-muted-foreground">
+          Print alignment (mm) — only if tags land off the stickers. Row pitch = sticker height + gap.
+        </p>
+        {(
+          [
+            ["pitch", "Row pitch", 0.1],
+            ["x", "Shift right", 0.5],
+            ["y", "Shift down", 0.5],
+          ] as const
+        ).map(([key, label, step]) => (
+          <label key={key} className="text-xs text-muted-foreground">
+            {label}
+            <Input
+              type="number"
+              step={step}
+              value={align[key]}
+              onChange={(event) =>
+                setAlign((current) => ({
+                  ...current,
+                  [key]: Number.isFinite(event.target.valueAsNumber) ? event.target.valueAsNumber : 0,
+                }))
+              }
+              className="mt-1 h-8 w-24"
+            />
+          </label>
+        ))}
+      </div>
+
       <div className="no-print mb-3 flex items-baseline justify-between">
         <div>
           <h2 className="text-sm font-semibold">On-screen preview</h2>
@@ -297,7 +373,7 @@ function AdminTagsPageInner() {
 
       {previewTags.length === 0 ? (
         <p className="no-print text-sm text-muted-foreground">
-          Tick sizes above to see tags. Print outputs two hang tags per row on 107×25 mm (2 stickers of 50×25 mm per row).
+          Tick sizes above to see tags. Print uses the driver USER paper (101.6×152.4 mm) with two tags per sticker row.
         </p>
       ) : (
         <div className="no-print">
@@ -309,7 +385,7 @@ function AdminTagsPageInner() {
       {mounted && previewTags.length > 0
         ? createPortal(
             <div className="tag-print-portal">
-              <HangTagRows rows={printRows} />
+              <HangTagPages rows={printRows} align={align} />
             </div>,
             document.body,
           )
