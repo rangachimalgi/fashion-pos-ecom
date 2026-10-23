@@ -44,8 +44,10 @@ function oneLabel(x, tag) {
 function tsplRow(left, right) {
   return [
     "SIZE 110 mm, 50 mm",
-    "BLINE 3 mm, 0 mm",
+    // Stock: 4 stickers across (27.4 x 50 mm each), plain gap labels, no black mark.
+    "GAP 3 mm, 0 mm",
     "DIRECTION 1",
+    "REFERENCE 0,0",
     "CLS",
     oneLabel(60, left),
     oneLabel(520, right),

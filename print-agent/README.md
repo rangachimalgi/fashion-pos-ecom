@@ -30,4 +30,4 @@ If the agent is not running, the page will say it cannot connect.
 
 ## Stock
 
-Each job is **110 mm × 50 mm** with **BLINE** (black mark / notch), two hang tags in one row. Left column at x=60, right at x=520.
+Each job is **110 mm × 50 mm** with **GAP** sensing (plain gap labels, 4 stickers of 27.4 × 50 mm across), two hang tags in one row. Left column at x=60, right at x=520.
