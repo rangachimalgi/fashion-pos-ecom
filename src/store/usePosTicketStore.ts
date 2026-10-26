@@ -2,16 +2,20 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem } from './useCartStore';
 import type { CompleteProduct, ProductVariant } from '../types/product';
+import type { AdminOrder } from '@/types/order';
 import { clampDiscountPercent, posLineTotal } from '@/lib/posPricing';
 
 interface PosTicketState {
     ticket: CartItem[];
+    editingOrder: AdminOrder | null;
     addItemToTicket: (product: CompleteProduct, variant: ProductVariant) => void;
     incrementItem: (variantId: string) => void;
     decrementItem: (variantId: string) => void;
     removeItemFromTicket: (variantId: string) => void;
     setLineDiscount: (variantId: string, percent: number) => void;
     clearTicket: () => void;
+    replaceTicket: (ticket: CartItem[]) => void;
+    setEditingOrder: (order: AdminOrder | null) => void;
     getGrandTotal: () => number;
     patchTicketProduct: (
       productId: string,
@@ -23,6 +27,7 @@ export const usePosTicketStore = create<PosTicketState>()(
     persist(
         (set, get) => ({
             ticket: [],
+            editingOrder: null,
 
             addItemToTicket: (product, variant) => {
                 set((state) => {
@@ -32,13 +37,18 @@ export const usePosTicketStore = create<PosTicketState>()(
 
                     if (existingItemIndex > -1) {
                         const existing = state.ticket[existingItemIndex];
-                        if (existing.quantity >= variant.stock_quantity) {
+                        const cap = Math.max(
+                            Number(variant.stock_quantity ?? 0),
+                            Number(existing.variant.stock_quantity ?? 0)
+                        );
+                        if (existing.quantity >= cap) {
                             return { ticket: state.ticket };
                         }
 
                         const updatedTicket = [...state.ticket];
                         updatedTicket[existingItemIndex] = {
                             ...existing,
+                            variant: { ...existing.variant, stock_quantity: cap },
                             quantity: existing.quantity + 1,
                         };
                         return { ticket: updatedTicket };
@@ -97,7 +107,9 @@ export const usePosTicketStore = create<PosTicketState>()(
                 }));
             },
 
-            clearTicket: () => set({ ticket: [] }),
+            clearTicket: () => set({ ticket: [], editingOrder: null }),
+            replaceTicket: (ticket) => set({ ticket }),
+            setEditingOrder: (order) => set({ editingOrder: order }),
 
             patchTicketProduct: (productId, fields) => {
                 set((state) => ({
@@ -124,7 +136,10 @@ export const usePosTicketStore = create<PosTicketState>()(
         }),
         {
             name: 'vibewear-pos-ticket',
-            partialize: (state) => ({ ticket: state.ticket }),
+            partialize: (state) => ({
+                ticket: state.ticket,
+                editingOrder: state.editingOrder,
+            }),
         }
     )
 );

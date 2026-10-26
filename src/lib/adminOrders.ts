@@ -177,13 +177,20 @@ function shippingFromRow(order: OrderRow): ShippingDetails | null {
 }
 
 function toAdminOrder(order: OrderRow, items: OrderLineItem[]): AdminOrder {
+  const itemsTotal = items.reduce(
+    (sum, line) => sum + Number(line.price_at_purchase) * Number(line.quantity),
+    0
+  );
+
   return {
     id: order.id,
-    total_amount: Number(order.total_amount ?? 0),
+    total_amount: items.length
+      ? Math.round(itemsTotal * 100) / 100
+      : Number(order.total_amount ?? 0),
     payment_method: order.payment_method || "—",
     source: order.source || "—",
     created_at: order.created_at ?? null,
-    item_count: items.length,
+    item_count: items.reduce((sum, line) => sum + Number(line.quantity), 0),
     items,
     shipping: shippingFromRow(order),
   };

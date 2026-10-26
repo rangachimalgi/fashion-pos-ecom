@@ -7,10 +7,17 @@ import { placeOrder } from '@/lib/placeOrder';
 import { lookupPosByEan } from '@/lib/posLookup';
 import { discountedUnitPrice, posLineTotal } from '@/lib/posPricing';
 import { buildPosReceipt, type PosReceipt } from '@/lib/posReceipt';
+import {
+  reservedQtyOnOrder,
+  ticketFromOrder,
+  updatePosOrder,
+} from '@/lib/posOrderMutations';
+import { shortOrderId } from '@/lib/formatOrder';
 import { getStaffProfile, signOutStaff } from '@/lib/staffAuth';
 import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
 import { PosHistoryPanel } from '@/components/pos/PosHistoryPanel';
-import type { PaymentMethod } from '@/types/order';
+import type { CartItem } from '@/store/useCartStore';
+import type { AdminOrder, PaymentMethod } from '@/types/order';
 import { useRouter } from 'next/navigation';
 
 export default function BillingTerminal() {
@@ -24,9 +31,16 @@ export default function BillingTerminal() {
     setLineDiscount,
     getGrandTotal,
     clearTicket,
+    replaceTicket,
+    setEditingOrder,
+    editingOrder,
     patchTicketProduct,
   } = usePosTicketStore();
   const [paymentMode, setPaymentMode] = useState<PaymentMethod>('CASH');
+  const [stashedSale, setStashedSale] = useState<{
+    ticket: CartItem[];
+    payment: PaymentMethod;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -51,6 +65,12 @@ export default function BillingTerminal() {
   useEffect(() => {
     eanRef.current?.focus();
   }, [ticket.length]);
+
+  useEffect(() => {
+    if (editingOrder) {
+      setPaymentMode(editingOrder.payment_method === 'UPI' ? 'UPI' : 'CASH');
+    }
+  }, [editingOrder]);
 
   useEffect(() => {
     const ids = [...new Set(ticket.map((item) => item.product.id))];
@@ -89,7 +109,10 @@ export default function BillingTerminal() {
         setLookupError(`No product for EAN ${code}`);
         return;
       }
-      if (hit.variant.stock_quantity <= 0) {
+      const available =
+        hit.variant.stock_quantity + reservedQtyOnOrder(editingOrder, hit.variant.id);
+
+      if (available <= 0) {
         setLookupError(
           `${hit.product.name} · ${hit.variant.size} is out of stock (MRP ₹${hit.product.base_price})`
         );
@@ -97,8 +120,8 @@ export default function BillingTerminal() {
       }
 
       const already = ticket.find((item) => item.variant.id === hit.variant.id);
-      if (already && already.quantity >= hit.variant.stock_quantity) {
-        setLookupError(`Only ${hit.variant.stock_quantity} in stock for that EAN`);
+      if (already && already.quantity >= available) {
+        setLookupError(`Only ${available} in stock for that EAN`);
         return;
       }
 
@@ -110,7 +133,7 @@ export default function BillingTerminal() {
               ? null
               : Number(hit.product.cost_price),
         },
-        hit.variant
+        { ...hit.variant, stock_quantity: available }
       );
       setEanInput('');
       setStatus(
@@ -126,20 +149,57 @@ export default function BillingTerminal() {
     }
   };
 
+  const receiptAt = editingOrder?.created_at
+    ? new Date(editingOrder.created_at)
+    : undefined;
+
   const openReceipt = (orderId: string, posted: boolean) => {
     setReceipt(
       buildPosReceipt(ticket, {
         orderId,
         payment: paymentMode,
         attendedBy: staffLabel,
+        at: receiptAt,
       })
     );
     setReceiptPosted(posted);
   };
 
+  const beginEdit = async (order: AdminOrder) => {
+    setLookupError(null);
+    setStatus(null);
+    try {
+      const nextTicket = await ticketFromOrder(supabase, order);
+      if (!editingOrder && ticket.length > 0) {
+        setStashedSale({ ticket, payment: paymentMode });
+      }
+      replaceTicket(nextTicket);
+      setEditingOrder(order);
+      setPaymentMode(order.payment_method === 'UPI' ? 'UPI' : 'CASH');
+      setDeskView('sale');
+      setStatus(`Editing bill ${shortOrderId(order.id)}`);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Could not open that bill');
+      setDeskView('sale');
+    }
+  };
+
+  const cancelEdit = () => {
+    if (stashedSale) {
+      replaceTicket(stashedSale.ticket);
+      setPaymentMode(stashedSale.payment);
+      setStashedSale(null);
+    } else {
+      replaceTicket([]);
+    }
+    setEditingOrder(null);
+    setStatus(null);
+    setDeskView('history');
+  };
+
   const handlePreviewBill = () => {
     if (ticket.length === 0) return;
-    openReceipt(`preview-${Date.now()}`, false);
+    openReceipt(editingOrder?.id ?? `preview-${Date.now()}`, false);
   };
 
   const handleCloseInvoice = async () => {
@@ -150,29 +210,45 @@ export default function BillingTerminal() {
 
     try {
       const snapshot = ticket;
-      const payload = await placeOrder(supabase, {
-        payment_method: paymentMode,
-        source: 'POS',
-        items: snapshot.map((item) => ({
-          variant_id: item.variant.id,
-          quantity: item.quantity,
-          unit_price: discountedUnitPrice(
-            item.product.base_price,
-            item.discountPercent ?? 0
-          ),
-        })),
-      });
+      const items = snapshot.map((item) => ({
+        variant_id: item.variant.id,
+        quantity: item.quantity,
+        unit_price: discountedUnitPrice(
+          item.product.base_price,
+          item.discountPercent ?? 0
+        ),
+      }));
+
+      let orderId: string;
+      if (editingOrder) {
+        await updatePosOrder(supabase, editingOrder, {
+          payment_method: paymentMode,
+          items,
+        });
+        orderId = editingOrder.id;
+        setStatus(`Invoice ${shortOrderId(orderId)} updated via ${paymentMode}`);
+      } else {
+        const payload = await placeOrder(supabase, {
+          payment_method: paymentMode,
+          source: 'POS',
+          items,
+        });
+        orderId = payload.order_id;
+        setStatus(`Invoice ${orderId} posted via ${paymentMode}`);
+      }
 
       setReceipt(
         buildPosReceipt(snapshot, {
-          orderId: payload.order_id,
+          orderId,
           payment: paymentMode,
           attendedBy: staffLabel,
+          at: editingOrder?.created_at ? new Date(editingOrder.created_at) : undefined,
         })
       );
       setReceiptPosted(true);
+      setStashedSale(null);
       clearTicket();
-      setStatus(`Invoice ${payload.order_id} posted via ${paymentMode}`);
+      if (editingOrder) setDeskView('history');
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Checkout failed');
     } finally {
@@ -239,6 +315,7 @@ export default function BillingTerminal() {
               setReceipt(next);
               setReceiptPosted(true);
             }}
+            onEdit={beginEdit}
           />
         ) : (
           <>
@@ -261,6 +338,20 @@ export default function BillingTerminal() {
         </form>
         {lookupError ? (
           <p className="mb-3 text-xs font-sans text-rose-400">{lookupError}</p>
+        ) : null}
+        {editingOrder ? (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+            <p className="font-sans text-xs text-amber-200">
+              Editing bill {shortOrderId(editingOrder.id)} — scan, qty, discount and pay the same as a new sale. Save updates this bill.
+            </p>
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="shrink-0 rounded-md border border-amber-500/50 px-2 py-1 text-[11px] font-black tracking-wider text-amber-100 hover:bg-amber-500/20"
+            >
+              CANCEL EDIT
+            </button>
+          </div>
         ) : null}
 
         {/* INVOICE ENTRY TABLE */}
@@ -437,7 +528,13 @@ export default function BillingTerminal() {
               onClick={handleCloseInvoice}
               className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-black py-4 rounded-lg text-lg tracking-wider transition transform active:scale-95 shadow-md"
             >
-              {submitting ? 'POSTING INVOICE...' : 'CLOSE & PRINT INVOICE'}
+              {submitting
+                ? editingOrder
+                  ? 'SAVING BILL...'
+                  : 'POSTING INVOICE...'
+                : editingOrder
+                  ? 'SAVE & PRINT INVOICE'
+                  : 'CLOSE & PRINT INVOICE'}
             </button>
           </div>
         </div>
