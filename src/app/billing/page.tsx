@@ -335,6 +335,19 @@ export default function BillingTerminal() {
           >
             {lookingUp ? '…' : 'ADD'}
           </button>
+          <button
+            type="button"
+            disabled={ticket.length === 0}
+            onClick={() => {
+              replaceTicket([]);
+              setLookupError(null);
+              setStatus(null);
+              eanRef.current?.focus();
+            }}
+            className="rounded-lg border border-rose-500/40 px-4 text-xs font-black tracking-wider text-rose-300 hover:bg-rose-500/10 disabled:border-slate-700 disabled:text-slate-600"
+          >
+            CLEAR ALL
+          </button>
         </form>
         {lookupError ? (
           <p className="mb-3 text-xs font-sans text-rose-400">{lookupError}</p>
