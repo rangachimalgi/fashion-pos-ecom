@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Barcode, FileSpreadsheet, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags } from "lucide-react";
+import { Barcode, FileSpreadsheet, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Trash2 } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabaseClient";
+import { countPendingDeleteRequests } from "@/lib/deleteRequests";
 
 function pageTitle(pathname: string) {
   if (pathname.startsWith("/admin/products/new")) return "New product";
@@ -23,6 +25,7 @@ function pageTitle(pathname: string) {
     return "Order";
   }
   if (pathname.startsWith("/admin/orders")) return "Orders";
+  if (pathname.startsWith("/admin/delete-requests")) return "Delete requests";
   if (pathname.startsWith("/admin/categories")) return "Categories";
   if (pathname.startsWith("/admin/import")) return "Import invoice";
   if (pathname.startsWith("/admin/tags")) return "Hang tags";
@@ -32,9 +35,11 @@ function pageTitle(pathname: string) {
 function NavLinks({
   pathname,
   onNavigate,
+  pendingDeletes = 0,
 }: {
   pathname: string;
   onNavigate?: () => void;
+  pendingDeletes?: number;
 }) {
   const catalogActive =
     pathname === "/admin" || pathname.startsWith("/admin/products");
@@ -42,6 +47,7 @@ function NavLinks({
   const categoriesActive = pathname.startsWith("/admin/categories");
   const importActive = pathname.startsWith("/admin/import");
   const tagsActive = pathname.startsWith("/admin/tags");
+  const deletesActive = pathname.startsWith("/admin/delete-requests");
 
   return (
     <nav className="flex flex-col gap-1">
@@ -110,6 +116,24 @@ function NavLinks({
         <Barcode className="size-4" />
         Hang tags
       </Link>
+      <Link
+        href="/admin/delete-requests"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+          deletesActive
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <Trash2 className="size-4" />
+        Delete requests
+        {pendingDeletes > 0 ? (
+          <span className="ml-auto rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white">
+            {pendingDeletes}
+          </span>
+        ) : null}
+      </Link>
     </nav>
   );
 }
@@ -117,7 +141,18 @@ function NavLinks({
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingDeletes, setPendingDeletes] = useState(0);
   const title = pageTitle(pathname);
+
+  useEffect(() => {
+    let cancelled = false;
+    countPendingDeleteRequests(supabase).then((count) => {
+      if (!cancelled) setPendingDeletes(count);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   return (
     <div className="flex min-h-screen bg-[#fafafa] text-foreground print:block print:min-h-0 print:bg-white">
@@ -138,7 +173,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </Link>
         </div>
         <div className="flex flex-1 flex-col justify-between p-3">
-          <NavLinks pathname={pathname} />
+          <NavLinks pathname={pathname} pendingDeletes={pendingDeletes} />
           <div className="space-y-1">
             <Link
               href="/billing"
@@ -178,6 +213,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 <div className="flex h-full flex-col justify-between p-3">
                   <NavLinks
                     pathname={pathname}
+                    pendingDeletes={pendingDeletes}
                     onNavigate={() => setMenuOpen(false)}
                   />
                   <div className="space-y-1">

@@ -23,7 +23,7 @@ export class AuthError extends Error {
  */
 export async function requireStaff(
   request: Request,
-  roles: StaffRole[] = ["admin", "staff"]
+  roles: StaffRole[] = ["admin", "manager", "staff"]
 ): Promise<{ userId: string; role: StaffRole }> {
   const admin = getSupabaseAdmin();
   let userId: string | undefined;

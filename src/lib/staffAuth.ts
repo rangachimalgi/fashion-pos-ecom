@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 
-export type StaffRole = "admin" | "staff";
+export type StaffRole = "admin" | "manager" | "staff";
 
 export type StaffProfile = {
   userId: string;
@@ -19,7 +19,7 @@ export class NoStaffAccessError extends Error {
 }
 
 function isStaffRole(value: string): value is StaffRole {
-  return value === "admin" || value === "staff";
+  return value === "admin" || value === "manager" || value === "staff";
 }
 
 /**

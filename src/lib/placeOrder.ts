@@ -21,6 +21,8 @@ export function statusFromDbError(error: { code?: string; message: string }): Ch
   switch (error.code) {
     case "PT400":
       return 400;
+    case "PT403":
+      return 403;
     case "PT404":
       return 404;
     case "PT409":
@@ -38,7 +40,7 @@ export function toCheckoutError(error: { code?: string; message: string }) {
     error.code === "PGRST202" ||
     (lower.includes("function") && lower.includes("could not find"));
   const hint = missingFn
-    ? "\n\nRun supabase/migrations/013_secure_rls_and_order_functions.sql in the Supabase SQL Editor."
+    ? "\n\nRun supabase/migrations 013 and 014 in the Supabase SQL Editor."
     : "";
   return new CheckoutError(error.message + hint, statusFromDbError(error));
 }

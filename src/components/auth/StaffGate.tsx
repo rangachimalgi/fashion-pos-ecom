@@ -32,7 +32,7 @@ export function StaffGate({ allow, children }: StaffGateProps) {
         }
 
         if (!allowKey.split(",").includes(profile.role)) {
-          router.replace(profile.role === "staff" ? "/billing" : "/admin");
+          router.replace(profile.role === "admin" ? "/admin" : "/billing");
           return;
         }
 

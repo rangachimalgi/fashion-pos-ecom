@@ -6,5 +6,5 @@ export default function BillingLayout({
 }: {
   children: ReactNode;
 }) {
-  return <StaffGate allow={["admin", "staff"]}>{children}</StaffGate>;
+  return <StaffGate allow={["admin", "manager", "staff"]}>{children}</StaffGate>;
 }

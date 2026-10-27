@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { getStaffProfile, NoStaffAccessError, signOutStaff } from "@/lib/staffAuth";
+import { getStaffProfile, NoStaffAccessError, signOutStaff, type StaffRole } from "@/lib/staffAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,8 +14,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-function redirectForRole(role: "admin" | "staff", next: string | null) {
-  if (role === "staff") return "/billing";
+function redirectForRole(role: StaffRole, next: string | null) {
+  if (role !== "admin") return "/billing";
   if (next && (next.startsWith("/admin") || next.startsWith("/billing"))) {
     return next;
   }

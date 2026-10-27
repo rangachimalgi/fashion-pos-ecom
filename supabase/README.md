@@ -24,6 +24,7 @@ Never change schema only in the dashboard without a matching file here.
 | `001_rls_product_inserts.sql` | Allow anon insert on products/variants | Likely already applied |
 | `002_product_department_category.sql` | Adds `department` + `category` columns | **Run this if category filter is empty** |
 | `013_secure_rls_and_order_functions.sql` | Replaces every anonymous policy with staff-only writes; moves checkout / POS edit / POS delete into transactional functions | **Run together with the matching app deploy** (see below) |
+| `014_roles_discount_caps_delete_requests.sql` | Adds the `manager` role, per-role discount caps (admin 100% / manager 5% / staff 2%), and approval-based bill deletion | Run after 013, with the matching app deploy |
 
 ## Security model (after 013)
 
@@ -44,3 +45,14 @@ Never change schema only in the dashboard without a matching file here.
 
 Defined in code: `src/lib/categories.ts`  
 Saved from: `src/app/billing/add-product/page.tsx`
+
+## POS roles (after 014)
+
+| Role | Max line discount | Delete a bill |
+|------|-------------------|---------------|
+| admin | 100% (never above MRP) | directly |
+| manager | 5% | sends a request with a reason; admin approves |
+| staff | 2% | sends a request with a reason; admin approves |
+
+Add a login: create the user in Supabase Auth, then
+`insert into public.profiles (user_id, role) select id, 'manager' from auth.users where email = '...' on conflict (user_id) do update set role = excluded.role;`

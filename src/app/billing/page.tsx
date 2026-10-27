@@ -13,7 +13,10 @@ import {
   updatePosOrder,
 } from '@/lib/posOrderMutations';
 import { shortOrderId } from '@/lib/formatOrder';
-import { getStaffProfile, signOutStaff } from '@/lib/staffAuth';
+import { getStaffProfile, signOutStaff, type StaffRole } from '@/lib/staffAuth';
+import { DISCOUNT_CAP_PERCENT, ROLE_LABEL } from '@/lib/staffRoles';
+import { countPendingDeleteRequests } from '@/lib/deleteRequests';
+import { DeleteRequestsPanel } from '@/components/pos/DeleteRequestsPanel';
 import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
 import { PosHistoryPanel } from '@/components/pos/PosHistoryPanel';
 import type { CartItem } from '@/store/useCartStore';
@@ -46,21 +49,53 @@ export default function BillingTerminal() {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [eanInput, setEanInput] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<StaffRole | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const [staffLabel, setStaffLabel] = useState('');
   const [receipt, setReceipt] = useState<PosReceipt | null>(null);
   const [receiptPosted, setReceiptPosted] = useState(false);
-  const [deskView, setDeskView] = useState<'sale' | 'history'>('sale');
+  const [deskView, setDeskView] = useState<'sale' | 'history' | 'requests'>('sale');
   const eanRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getStaffProfile()
       .then((profile) => {
-        setIsAdmin(profile?.role === 'admin');
+        setRole(profile?.role ?? null);
         setStaffLabel(profile?.email?.split('@')[0] ?? '');
       })
-      .catch(() => setIsAdmin(false));
+      .catch(() => setRole(null));
   }, []);
+
+  const isAdmin = role === 'admin';
+  // UI limit only - the database enforces the real cap per role.
+  const maxDiscount = role ? DISCOUNT_CAP_PERCENT[role] : 0;
+
+  const refreshPendingCount = () => {
+    countPendingDeleteRequests(supabase).then(setPendingCount);
+  };
+
+  useEffect(() => {
+    countPendingDeleteRequests(supabase).then(setPendingCount);
+  }, [deskView]);
+
+  // When editing an existing bill, keep whatever discount it already has.
+  const lineDiscountLimit = (variantId: string, mrp: number) => {
+    if (!editingOrder || !mrp) return maxDiscount;
+    const line = editingOrder.items.find((entry) => entry.variant_id === variantId);
+    if (!line) return maxDiscount;
+    const original = Math.round((1 - Number(line.price_at_purchase) / mrp) * 100);
+    return Math.max(maxDiscount, original);
+  };
+
+  // A saved ticket from another login must not carry a bigger discount over.
+  useEffect(() => {
+    if (!role) return;
+    for (const item of ticket) {
+      const limit = lineDiscountLimit(item.variant.id, item.product.base_price);
+      if ((item.discountPercent ?? 0) > limit) setLineDiscount(item.variant.id, limit);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, ticket, editingOrder]);
 
   useEffect(() => {
     eanRef.current?.focus();
@@ -283,9 +318,28 @@ export default function BillingTerminal() {
               >
                 HISTORY
               </button>
+              <button
+                type="button"
+                onClick={() => setDeskView('requests')}
+                className={`rounded-md px-3 py-1 text-[11px] font-black tracking-wider ${
+                  deskView === 'requests' ? 'bg-emerald-600 text-white' : 'text-slate-400'
+                }`}
+              >
+                REQUESTS
+                {pendingCount > 0 ? (
+                  <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-px text-[10px] text-slate-900">
+                    {pendingCount}
+                  </span>
+                ) : null}
+              </button>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {role ? (
+              <span className="font-sans text-[11px] text-slate-400">
+                {ROLE_LABEL[role]} · max discount {maxDiscount}%
+              </span>
+            ) : null}
             {isAdmin ? (
               <Link
                 href="/admin"
@@ -308,9 +362,13 @@ export default function BillingTerminal() {
           </div>
         </div>
 
-        {deskView === "history" ? (
+        {deskView === "requests" ? (
+          <DeleteRequestsPanel role={role} theme="pos" onChanged={refreshPendingCount} />
+        ) : deskView === "history" ? (
           <PosHistoryPanel
             attendedBy={staffLabel}
+            role={role}
+            onRequestsChanged={refreshPendingCount}
             onReprint={(next) => {
               setReceipt(next);
               setReceiptPosted(true);
@@ -422,13 +480,16 @@ export default function BillingTerminal() {
                       <input
                         type="number"
                         min={0}
-                        max={100}
+                        max={lineDiscountLimit(item.variant.id, item.product.base_price)}
                         step={1}
                         value={item.discountPercent ?? 0}
                         onChange={(event) =>
                           setLineDiscount(
                             item.variant.id,
-                            parseFloat(event.target.value) || 0
+                            Math.min(
+                              parseFloat(event.target.value) || 0,
+                              lineDiscountLimit(item.variant.id, item.product.base_price)
+                            )
                           )
                         }
                         className="h-8 w-14 rounded border border-slate-600 bg-slate-900 px-1.5 text-center text-sm text-white outline-none focus:border-emerald-400"
@@ -470,7 +531,7 @@ export default function BillingTerminal() {
       </div>
 
       {/* RIGHT WINDOW: PAYMENT TRANSACTION SUMMARY */}
-      <div className={`flex w-96 flex-col justify-between rounded-xl border border-slate-700 bg-slate-800 p-6 print:hidden ${deskView === "history" ? "hidden" : ""}`}>
+      <div className={`flex w-96 flex-col justify-between rounded-xl border border-slate-700 bg-slate-800 p-6 print:hidden ${deskView !== "sale" ? "hidden" : ""}`}>
         <div>
           <h3 className="text-md font-bold text-slate-400 border-b border-slate-700 pb-2 uppercase tracking-wide">
             Checkout Panel
