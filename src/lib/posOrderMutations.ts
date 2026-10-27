@@ -1,34 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CartItem } from "@/store/useCartStore";
 import { clampDiscountPercent } from "@/lib/posPricing";
+import { toCheckoutError } from "@/lib/placeOrder";
 import type { AdminOrder, PaymentMethod } from "@/types/order";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 
-async function bumpStock(
-  supabase: SupabaseClient,
-  variantId: string,
-  delta: number
-) {
-  if (!delta) return;
-  const { data, error } = await supabase
-    .from("product_variants")
-    .select("id, stock_quantity")
-    .eq("id", variantId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("A size on this bill is no longer in the catalog.");
-
-  const next = Number(data.stock_quantity ?? 0) + delta;
-  if (next < 0) {
-    throw new Error("Not enough stock to increase that quantity.");
-  }
-
-  const { error: updateError } = await supabase
-    .from("product_variants")
-    .update({ stock_quantity: next, updated_at: new Date().toISOString() })
-    .eq("id", variantId);
-  if (updateError) throw new Error(updateError.message);
-}
+// Stock + order changes happen inside Postgres functions (see
+// supabase/migrations/013_*.sql): one transaction, row locks, and a staff-role
+// check. Nothing here touches stock or order rows directly any more.
 
 export async function deletePosOrder(
   supabase: SupabaseClient,
@@ -36,19 +15,8 @@ export async function deletePosOrder(
 ) {
   if (order.source !== "POS") throw new Error("Only POS bills can be deleted here.");
 
-  for (const line of order.items) {
-    await bumpStock(supabase, line.variant_id, line.quantity);
-  }
-
-  const { error } = await supabase.from("orders").delete().eq("id", order.id);
-  if (error) {
-    throw new Error(
-      error.message +
-        (error.message.toLowerCase().includes("policy") || error.code === "42501"
-          ? "\n\nRun supabase/migrations/012_pos_order_updates.sql in the Supabase SQL Editor."
-          : "")
-    );
-  }
+  const { error } = await supabase.rpc("delete_pos_order", { p_order_id: order.id });
+  if (error) throw toCheckoutError(error);
 }
 
 export type PosOrderEditLine = {
@@ -78,58 +46,12 @@ export async function updatePosOrder(
     throw new Error("Each line needs a quantity of 1+ and a valid price.");
   }
 
-  for (const line of order.items) {
-    await bumpStock(supabase, line.variant_id, line.quantity);
-  }
-
-  try {
-    for (const line of items) {
-      await bumpStock(supabase, line.variant_id, -line.quantity);
-    }
-  } catch (err) {
-    for (const line of order.items) {
-      await bumpStock(supabase, line.variant_id, -line.quantity);
-    }
-    throw err;
-  }
-
-  const { error: clearError } = await supabase
-    .from("order_items")
-    .delete()
-    .eq("order_id", order.id);
-  if (clearError) throw new Error(clearError.message);
-
-  const total = items.reduce((sum, line) => sum + line.unit_price * line.quantity, 0);
-
-  const { error: insertError } = await supabase.from("order_items").insert(
-    items.map((line) => ({
-      order_id: order.id,
-      variant_id: line.variant_id,
-      quantity: line.quantity,
-      price_at_purchase: line.unit_price,
-    }))
-  );
-  if (insertError) throw new Error(insertError.message);
-
-  const { data: updatedRows, error: orderError } = await supabase
-    .from("orders")
-    .update({
-      payment_method: next.payment_method,
-      total_amount: Math.round(total * 100) / 100,
-    })
-    .eq("id", order.id)
-    .select("id");
-  if (orderError || !updatedRows?.length) {
-    const message = orderError?.message ?? "This bill total was not saved.";
-    throw new Error(
-      message +
-        (message.toLowerCase().includes("policy") ||
-        orderError?.code === "42501" ||
-        !updatedRows?.length
-          ? "\n\nRun supabase/migrations/012_pos_order_updates.sql in the Supabase SQL Editor."
-          : "")
-    );
-  }
+  const { error } = await supabase.rpc("update_pos_order", {
+    p_order_id: order.id,
+    p_payment_method: next.payment_method,
+    p_items: items,
+  });
+  if (error) throw toCheckoutError(error);
 }
 
 export function reservedQtyOnOrder(order: AdminOrder | null, variantId: string) {

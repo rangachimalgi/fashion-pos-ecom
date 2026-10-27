@@ -5,37 +5,53 @@ import { normalizedShipping, validateShipping } from "@/lib/shipping";
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "UPI"];
 const ORDER_SOURCES: OrderSource[] = ["ONLINE", "POS"];
 
-type ProductRow = {
-  id: string;
-  name: string;
-  base_price: number;
-};
-
-type VariantRow = {
-  id: string;
-  stock_quantity: number;
-  products: ProductRow | ProductRow[] | null;
-};
-
-function schemaHint(message: string) {
-  const lower = message.toLowerCase();
-  if (
-    lower.includes("customer_name") ||
-    lower.includes("customer_phone") ||
-    lower.includes("address_line") ||
-    lower.includes("pincode")
+/** An error with the HTTP status the API layer should answer with. */
+export class CheckoutError extends Error {
+  constructor(
+    message: string,
+    public readonly status: 400 | 403 | 404 | 409 | 500 = 400
   ) {
-    return "\n\nRun supabase/migrations/008_order_delivery.sql in the Supabase SQL Editor.";
+    super(message);
+    this.name = "CheckoutError";
   }
-  if (lower.includes("does not exist") || lower.includes("schema cache") || lower.includes("order_items")) {
-    return "\n\nRun supabase/migrations/006_orders.sql in the Supabase SQL Editor.";
-  }
-  if (lower.includes("policy") || lower.includes("42501")) {
-    return "\n\nRun supabase/migrations/006_orders.sql in the Supabase SQL Editor.";
-  }
-  return "";
 }
 
+/** Maps the Postgres error codes raised by supabase/migrations/013 to HTTP statuses. */
+export function statusFromDbError(error: { code?: string; message: string }): CheckoutError["status"] {
+  switch (error.code) {
+    case "PT400":
+      return 400;
+    case "PT404":
+      return 404;
+    case "PT409":
+      return 409;
+    case "42501":
+      return 403;
+    default:
+      return 500;
+  }
+}
+
+export function toCheckoutError(error: { code?: string; message: string }) {
+  const lower = error.message.toLowerCase();
+  const missingFn =
+    error.code === "PGRST202" ||
+    (lower.includes("function") && lower.includes("could not find"));
+  const hint = missingFn
+    ? "\n\nRun supabase/migrations/013_secure_rls_and_order_functions.sql in the Supabase SQL Editor."
+    : "";
+  return new CheckoutError(error.message + hint, statusFromDbError(error));
+}
+
+/**
+ * Places an order through the `place_order` Postgres function, which runs the
+ * stock check, stock decrement and order insert in ONE transaction with row
+ * locks. Prices always come from the database; only a signed-in staff user
+ * posting a POS bill may send a discounted `unit_price` (never above MRP).
+ *
+ * - Online checkout: call with the service-role client from /api/checkout.
+ * - POS: call with the signed-in staff user's browser client.
+ */
 export async function placeOrder(
   supabase: SupabaseClient,
   body: CheckoutRequest
@@ -43,152 +59,45 @@ export async function placeOrder(
   const { payment_method, source, items, shipping } = body;
 
   if (!PAYMENT_METHODS.includes(payment_method)) {
-    throw new Error("payment_method must be CASH or UPI");
+    throw new CheckoutError("payment_method must be CASH or UPI");
   }
-
   if (!ORDER_SOURCES.includes(source)) {
-    throw new Error("source must be ONLINE or POS");
+    throw new CheckoutError("source must be ONLINE or POS");
   }
-
   if (!Array.isArray(items) || items.length === 0) {
-    throw new Error("Cart is empty");
+    throw new CheckoutError("Cart is empty");
   }
 
-  const normalizedItems = items.map((item) => ({
+  const lines = items.map((item) => ({
     variant_id: String(item.variant_id ?? ""),
     quantity: Number(item.quantity),
-    unit_price: item.unit_price == null ? undefined : Number(item.unit_price),
+    ...(item.unit_price == null ? {} : { unit_price: Number(item.unit_price) }),
   }));
 
-  if (
-    normalizedItems.some(
-      (item) => !item.variant_id || !Number.isInteger(item.quantity) || item.quantity < 1
-    )
-  ) {
-    throw new Error("Each item needs a variant_id and a quantity of 1+");
+  if (lines.some((line) => !line.variant_id || !Number.isInteger(line.quantity) || line.quantity < 1)) {
+    throw new CheckoutError("Each item needs a variant_id and a quantity of 1+");
   }
 
-  const variantIds = [...new Set(normalizedItems.map((item) => item.variant_id))];
-
-  const { data: variants, error: variantError } = await supabase
-    .from("product_variants")
-    .select("id, stock_quantity, products(id, name, base_price)")
-    .in("id", variantIds);
-
-  if (variantError) throw new Error(variantError.message + schemaHint(variantError.message));
-
-  const variantMap = new Map(
-    ((variants ?? []) as unknown as VariantRow[]).map((row) => [row.id, row])
-  );
-
-  if (variantMap.size !== variantIds.length) {
-    throw new Error("One or more variants were not found");
-  }
-
-  const lineItems: Array<{
-    variant_id: string;
-    quantity: number;
-    price_at_purchase: number;
-  }> = [];
-
-  for (const item of normalizedItems) {
-    const variant = variantMap.get(item.variant_id);
-    const product = Array.isArray(variant?.products) ? variant.products[0] : variant?.products;
-    if (!variant || !product) {
-      throw new Error("Variant is missing its parent product");
-    }
-
-    if (variant.stock_quantity < item.quantity) {
-      throw new Error(`Not enough stock for ${product.name}. Available: ${variant.stock_quantity}`);
-    }
-
-    const catalogPrice = Number(product.base_price);
-    const unitPrice =
-      item.unit_price != null && Number.isFinite(item.unit_price) && item.unit_price >= 0
-        ? Math.round(item.unit_price * 100) / 100
-        : catalogPrice;
-
-    lineItems.push({
-      variant_id: item.variant_id,
-      quantity: item.quantity,
-      price_at_purchase: unitPrice,
-    });
-  }
-
-  const totalAmount = lineItems.reduce(
-    (sum, item) => sum + item.price_at_purchase * item.quantity,
-    0
-  );
-
-  let delivery: Record<string, string> | undefined;
+  let delivery: ReturnType<typeof normalizedShipping> | null = null;
   if (source === "ONLINE") {
-    if (!shipping) throw new Error("Add a delivery name, phone, and address.");
+    if (!shipping) throw new CheckoutError("Add a delivery name, phone, and address.");
     const shippingError = validateShipping(shipping);
-    if (shippingError) throw new Error(shippingError);
-    const next = normalizedShipping(shipping);
-    delivery = {
-      customer_name: next.customer_name,
-      customer_phone: next.customer_phone,
-      address_line1: next.address_line1,
-      address_line2: next.address_line2,
-      city: next.city,
-      state: next.state,
-      pincode: next.pincode,
-    };
+    if (shippingError) throw new CheckoutError(shippingError);
+    delivery = normalizedShipping(shipping);
   }
 
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .insert({
-      total_amount: totalAmount,
-      payment_method,
-      source,
-      ...delivery,
-    })
-    .select("id, total_amount")
-    .single();
+  const { data, error } = await supabase.rpc("place_order", {
+    p_payment_method: payment_method,
+    p_source: source,
+    p_items: lines,
+    p_shipping: delivery,
+  });
 
-  if (orderError || !order) {
-    const message = orderError?.message || "Order was not created";
-    throw new Error(message + schemaHint(message));
-  }
+  if (error) throw toCheckoutError(error);
 
-  const orderId = order.id as string;
-
-  const { error: itemsError } = await supabase.from("order_items").insert(
-    lineItems.map((item) => ({
-      ...item,
-      order_id: orderId,
-    }))
-  );
-
-  if (itemsError) {
-    await supabase.from("orders").delete().eq("id", orderId);
-    throw new Error(itemsError.message + schemaHint(itemsError.message));
-  }
-
-  for (const item of lineItems) {
-    const variant = variantMap.get(item.variant_id)!;
-    const nextStock = variant.stock_quantity - item.quantity;
-
-    const { data: updatedRows, error: stockError } = await supabase
-      .from("product_variants")
-      .update({ stock_quantity: nextStock, updated_at: new Date().toISOString() })
-      .eq("id", item.variant_id)
-      .gte("stock_quantity", item.quantity)
-      .select("id");
-
-    if (stockError || !updatedRows?.length) {
-      await supabase.from("order_items").delete().eq("order_id", orderId);
-      await supabase.from("orders").delete().eq("id", orderId);
-      throw new Error(
-        stockError?.message ?? "Stock changed during checkout. Order was rolled back."
-      );
-    }
-  }
-
+  const result = data as { order_id: string; total_amount: number | string };
   return {
-    order_id: orderId,
-    total_amount: Number(order.total_amount ?? totalAmount),
+    order_id: result.order_id,
+    total_amount: Number(result.total_amount),
   };
 }

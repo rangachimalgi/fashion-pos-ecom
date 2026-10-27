@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { getStaffProfile } from "@/lib/staffAuth";
+import { getStaffProfile, NoStaffAccessError, signOutStaff } from "@/lib/staffAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -54,14 +54,13 @@ function LoginForm() {
 
       const profile = await getStaffProfile();
       if (!profile) {
-        throw new Error(
-          "Signed in, but no staff profile was found.\n\nRun supabase/migrations/007_staff_profiles.sql in the Supabase SQL Editor."
-        );
+        throw new Error("Could not load your staff profile. Please try again.");
       }
 
       router.replace(redirectForRole(profile.role, next));
       router.refresh();
     } catch (err) {
+      if (err instanceof NoStaffAccessError) await signOutStaff();
       setError(err instanceof Error ? err.message : "Could not sign in");
     } finally {
       setSubmitting(false);

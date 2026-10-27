@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useCartStore } from "@/store/useCartStore";
 import { useWishlistStore } from "@/store/useWishlistStore";
 import { getProductPrimaryImage } from "@/lib/productImages";
-import { supabase } from "@/lib/supabaseClient";
-import { placeOrder } from "@/lib/placeOrder";
+import { submitOnlineOrder } from "@/lib/checkoutClient";
 import type { PaymentMethod, ShippingDetails } from "@/types/order";
 import { emptyShipping, validateShipping } from "@/lib/shipping";
 
@@ -77,9 +76,8 @@ export default function BagPage() {
     setError(null);
 
     try {
-      const payload = await placeOrder(supabase, {
+      const payload = await submitOnlineOrder({
         payment_method: paymentMethod,
-        source: "ONLINE",
         items: cart.map((item) => ({
           variant_id: item.variant.id,
           quantity: item.quantity,

@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { placeOrder } from '@/lib/placeOrder';
+import { CheckoutError, placeOrder } from '@/lib/placeOrder';
 import type { CheckoutRequest } from '@/types/order';
 
+/**
+ * Public online checkout (web bag + mobile app).
+ *
+ * This endpoint can only ever create ONLINE orders at catalog prices:
+ * `source` is forced and any client-sent `unit_price` is dropped. POS bills
+ * are posted by signed-in staff straight to the `place_order` database
+ * function, which checks their role.
+ */
 export async function POST(request: Request) {
-  let body: CheckoutRequest;
+  let body: Partial<CheckoutRequest>;
 
   try {
     body = await request.json();
@@ -12,20 +20,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
+  if (!body || typeof body !== 'object' || !Array.isArray(body.items)) {
+    return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
+  }
+
   try {
-    const result = await placeOrder(getSupabaseAdmin(), body);
+    const result = await placeOrder(getSupabaseAdmin(), {
+      payment_method: body.payment_method as CheckoutRequest['payment_method'],
+      source: 'ONLINE',
+      items: body.items.map((item) => ({
+        variant_id: item?.variant_id,
+        quantity: item?.quantity,
+      })),
+      shipping: body.shipping,
+    });
     return NextResponse.json(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Checkout failed';
-    const status =
-      message.includes('empty') ||
-      message.includes('must be') ||
-      message.includes('not found') ||
-      message.includes('quantity')
-        ? 400
-        : message.includes('Not enough stock') || message.includes('Stock changed')
-          ? 409
-          : 500;
-    return NextResponse.json({ error: message }, { status });
+    if (err instanceof CheckoutError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    console.error('[checkout] unexpected error', err);
+    return NextResponse.json({ error: 'Checkout failed' }, { status: 500 });
   }
 }

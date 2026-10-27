@@ -8,10 +8,27 @@ export type StaffProfile = {
   role: StaffRole;
 };
 
+/** Signed in, but no row in public.profiles - so no staff access. */
+export class NoStaffAccessError extends Error {
+  constructor() {
+    super(
+      "This account is signed in but is not set up as staff.\n\nAsk an admin to add it to the profiles table."
+    );
+    this.name = "NoStaffAccessError";
+  }
+}
+
 function isStaffRole(value: string): value is StaffRole {
   return value === "admin" || value === "staff";
 }
 
+/**
+ * The signed-in staff member, or null when nobody is signed in.
+ * Throws NoStaffAccessError for a signed-in user without a staff profile.
+ *
+ * This is a UI convenience only. Real enforcement is in the database (RLS +
+ * is_staff()) and in server routes (requireStaff).
+ */
 export async function getStaffProfile(): Promise<StaffProfile | null> {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw new Error(sessionError.message);
@@ -33,12 +50,12 @@ export async function getStaffProfile(): Promise<StaffProfile | null> {
     throw new Error(error.message + extra);
   }
 
-  const role = data?.role && isStaffRole(data.role) ? data.role : "staff";
+  if (!data?.role || !isStaffRole(data.role)) throw new NoStaffAccessError();
 
   return {
     userId: user.id,
     email: user.email ?? null,
-    role,
+    role: data.role,
   };
 }
 

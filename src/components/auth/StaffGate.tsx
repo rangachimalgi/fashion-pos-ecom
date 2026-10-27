@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getStaffProfile, type StaffRole } from "@/lib/staffAuth";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 type StaffGateProps = {
   allow: StaffRole[];
@@ -50,10 +51,11 @@ export function StaffGate({ allow, children }: StaffGateProps) {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fafafa] px-6">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#fafafa] px-6">
         <p className="max-w-md whitespace-pre-wrap text-center text-sm text-destructive">
           {error}
         </p>
+        <SignOutButton variant="outline" />
       </div>
     );
   }

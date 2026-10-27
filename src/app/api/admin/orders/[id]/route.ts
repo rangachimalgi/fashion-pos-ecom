@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getAdminOrder } from "@/lib/adminOrders";
+import { AuthError, requireStaff } from "@/lib/serverAuth";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireStaff(request, ["admin"]);
     const { id } = await context.params;
     const order = await getAdminOrder(getSupabaseAdmin(), id);
 
@@ -16,7 +18,10 @@ export async function GET(
 
     return NextResponse.json({ order });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load order";
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    console.error("[admin/orders/:id] failed", err);
+    return NextResponse.json({ error: "Failed to load order" }, { status: 500 });
   }
 }
