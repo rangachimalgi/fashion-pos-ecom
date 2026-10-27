@@ -40,7 +40,7 @@ export function toCheckoutError(error: { code?: string; message: string }) {
     error.code === "PGRST202" ||
     (lower.includes("function") && lower.includes("could not find"));
   const hint = missingFn
-    ? "\n\nRun supabase/migrations 013 and 014 in the Supabase SQL Editor."
+    ? "\n\nRun the latest supabase/migrations (013 to 018, in order) in the Supabase SQL Editor."
     : "";
   return new CheckoutError(error.message + hint, statusFromDbError(error));
 }
@@ -58,7 +58,7 @@ export async function placeOrder(
   supabase: SupabaseClient,
   body: CheckoutRequest
 ): Promise<CheckoutResponse> {
-  const { payment_method, source, items, shipping, sales_person_id } = body;
+  const { payment_method, source, items, shipping, sales_person_id, cash_received, cash_change } = body;
 
   if (!PAYMENT_METHODS.includes(payment_method)) {
     throw new CheckoutError("payment_method must be CASH or UPI");
@@ -94,6 +94,9 @@ export async function placeOrder(
     p_items: lines,
     p_shipping: delivery,
     p_sales_person_id: source === "POS" ? (sales_person_id ?? null) : null,
+    // Only a POS bill paid in cash moves the cash counter.
+    p_cash_received: source === "POS" && payment_method === "CASH" ? (cash_received ?? null) : null,
+    p_cash_change: source === "POS" && payment_method === "CASH" ? (cash_change ?? null) : null,
   });
 
   if (error) throw toCheckoutError(error);

@@ -17,6 +17,9 @@ import { getStaffProfile, signOutStaff, type StaffRole } from '@/lib/staffAuth';
 import { DISCOUNT_CAP_PERCENT, ROLE_LABEL } from '@/lib/staffRoles';
 import { countPendingDeleteRequests } from '@/lib/deleteRequests';
 import { listSalesPeople, type SalesPerson } from '@/lib/salesPeople';
+import { cashDueFor, DEFAULT_DENOMINATIONS, listCashDenominations } from '@/lib/cashLedger';
+import { CashLedgerPanel } from '@/components/pos/CashLedgerPanel';
+import { CashTender, useCashTender } from '@/components/pos/CashTender';
 import { DeleteRequestsPanel } from '@/components/pos/DeleteRequestsPanel';
 import { PosSearchSuggestions } from '@/components/pos/PosSearchSuggestions';
 import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
@@ -60,8 +63,20 @@ export default function BillingTerminal() {
   const [staffLabel, setStaffLabel] = useState('');
   const [receipt, setReceipt] = useState<PosReceipt | null>(null);
   const [receiptPosted, setReceiptPosted] = useState(false);
-  const [deskView, setDeskView] = useState<'sale' | 'history' | 'requests'>('sale');
+  const [deskView, setDeskView] = useState<'sale' | 'history' | 'requests' | 'cash'>('sale');
+  const [denominations, setDenominations] = useState<number[]>(DEFAULT_DENOMINATIONS);
   const eanRef = useRef<HTMLInputElement>(null);
+
+  // Cash side of the bill: what the customer handed over and the change given.
+  // Cash due is the bill to the nearest rupee (the database uses the same rule).
+  const cashDue = cashDueFor(getGrandTotal());
+  const tender = useCashTender(cashDue, denominations);
+
+  useEffect(() => {
+    listCashDenominations(supabase)
+      .then(setDenominations)
+      .catch(() => setDenominations(DEFAULT_DENOMINATIONS));
+  }, []);
 
   useEffect(() => {
     getStaffProfile()
@@ -233,6 +248,14 @@ export default function BillingTerminal() {
     }
   };
 
+  // A bill that was already paid in cash for this same amount keeps the cash it
+  // recorded; anything else paid in cash needs the notes/coins entered.
+  const cashUnchanged =
+    Boolean(editingOrder) &&
+    editingOrder?.payment_method === 'CASH' &&
+    cashDueFor(Number(editingOrder?.total_amount ?? 0)) === cashDue;
+  const needsCashEntry = paymentMode === 'CASH' && !cashUnchanged;
+
   const receiptAt = editingOrder?.created_at
     ? new Date(editingOrder.created_at)
     : undefined;
@@ -260,6 +283,7 @@ export default function BillingTerminal() {
       replaceTicket(nextTicket);
       setEditingOrder(order);
       setPickedSalesPersonId('');
+      tender.reset();
       setPaymentMode(order.payment_method === 'UPI' ? 'UPI' : 'CASH');
       setDeskView('sale');
       setStatus(`Editing bill ${shortOrderId(order.id)}`);
@@ -279,6 +303,7 @@ export default function BillingTerminal() {
     }
     setEditingOrder(null);
     setPickedSalesPersonId('');
+    tender.reset();
     setStatus(null);
     setDeskView('history');
   };
@@ -295,6 +320,12 @@ export default function BillingTerminal() {
       setStatus('Choose who attended this customer.');
       return;
     }
+
+    if (needsCashEntry && !tender.valid) {
+      setStatus(tender.problem);
+      return;
+    }
+    const cash = needsCashEntry ? tender.payload() : {};
 
     setSubmitting(true);
     setStatus(null);
@@ -317,6 +348,7 @@ export default function BillingTerminal() {
           payment_method: paymentMode,
           items,
           sales_person_id: salesPersonId || null,
+          ...cash,
         });
         orderId = editingOrder.id;
         setStatus(`Invoice ${shortOrderId(orderId)} updated via ${paymentMode}`);
@@ -326,6 +358,7 @@ export default function BillingTerminal() {
           source: 'POS',
           items,
           sales_person_id: salesPersonId || null,
+          ...cash,
         });
         orderId = payload.order_id;
         setStatus(`Invoice ${orderId} posted via ${paymentMode}`);
@@ -341,6 +374,7 @@ export default function BillingTerminal() {
       );
       setReceiptPosted(true);
       setPickedSalesPersonId('');
+      tender.reset();
       setStashedSale(null);
       clearTicket();
       if (editingOrder) setDeskView('history');
@@ -392,6 +426,17 @@ export default function BillingTerminal() {
                   </span>
                 ) : null}
               </button>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => setDeskView('cash')}
+                  className={`rounded-md px-3 py-1 text-[11px] font-black tracking-wider ${
+                    deskView === 'cash' ? 'bg-emerald-600 text-white' : 'text-slate-400'
+                  }`}
+                >
+                  CASH
+                </button>
+              ) : null}
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -422,7 +467,9 @@ export default function BillingTerminal() {
           </div>
         </div>
 
-        {deskView === "requests" ? (
+        {deskView === "cash" && isAdmin ? (
+          <CashLedgerPanel />
+        ) : deskView === "requests" ? (
           <DeleteRequestsPanel role={role} theme="pos" onChanged={refreshPendingCount} />
         ) : deskView === "history" ? (
           <PosHistoryPanel
@@ -474,6 +521,7 @@ export default function BillingTerminal() {
             disabled={ticket.length === 0}
             onClick={() => {
               replaceTicket([]);
+              tender.reset();
               setLookupError(null);
               setStatus(null);
               eanRef.current?.focus();
@@ -636,7 +684,7 @@ export default function BillingTerminal() {
 
       {/* RIGHT WINDOW: PAYMENT TRANSACTION SUMMARY */}
       <div className={`flex w-96 flex-col justify-between rounded-xl border border-slate-700 bg-slate-800 p-6 print:hidden ${deskView !== "sale" ? "hidden" : ""}`}>
-        <div>
+        <div className="min-h-0 overflow-y-auto pr-1">
           <h3 className="text-md font-bold text-slate-400 border-b border-slate-700 pb-2 uppercase tracking-wide">
             Checkout Panel
           </h3>
@@ -697,6 +745,17 @@ export default function BillingTerminal() {
                 </button>
               </div>
             </div>
+
+            {paymentMode === 'CASH' ? (
+              needsCashEntry ? (
+                <CashTender due={cashDue} denominations={denominations} tender={tender} />
+              ) : (
+                <p className="rounded-lg border border-slate-600 bg-slate-900/40 px-3 py-2 font-sans text-xs text-slate-400">
+                  This bill was already paid in cash for ₹{cashDue}. Its cash record stays as it is. Change the
+                  items or amount and you will be asked for the notes and coins again.
+                </p>
+              )
+            ) : null}
           </div>
         </div>
 

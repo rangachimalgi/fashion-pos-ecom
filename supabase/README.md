@@ -28,6 +28,7 @@ Never change schema only in the dashboard without a matching file here.
 | `015_min_margin_price_floor.sql` | A discounted POS line can never sell below cost + 5% (all roles) | Run after 014, with the matching app deploy |
 | `016_sales_team.sql` | Sales team list (admin-managed), "attended by" saved on every POS bill, per-person sales report | Run after 015, with the matching app deploy |
 | `017_sales_reports.sql` | Admin-only sales / GST / profit report by day or month, with the cost price saved on every bill line | Run after 016, with the matching app deploy |
+| `018_petty_cash_ledger.sql` | Cash counter by note/coin (admin-only to view and edit); cash POS bills must record notes received and change given, and edits/deletes reverse it | Run after 017, with the matching app deploy |
 
 ## Security model (after 013)
 

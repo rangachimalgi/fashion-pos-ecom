@@ -25,6 +25,10 @@ export interface CheckoutRequest {
   shipping?: ShippingDetails;
   /** POS only: who attended the customer (ignored for online orders). */
   sales_person_id?: string | null;
+  /** POS cash bills only: notes/coins received from the customer, e.g. { "500": 2 }. */
+  cash_received?: Record<string, number> | null;
+  /** POS cash bills only: notes/coins given back as change. */
+  cash_change?: Record<string, number> | null;
 }
 
 export interface CheckoutResponse {

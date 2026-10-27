@@ -33,6 +33,12 @@ export async function updatePosOrder(
     items: PosOrderEditLine[];
     /** Omit / null to keep the bill's current salesperson. */
     sales_person_id?: string | null;
+    /**
+     * Notes/coins for a cash bill. Leave out when the bill was already paid in
+     * cash for the same amount (the recorded cash stays as it is).
+     */
+    cash_received?: Record<string, number> | null;
+    cash_change?: Record<string, number> | null;
   }
 ) {
   if (order.source !== "POS") throw new Error("Only POS bills can be edited here.");
@@ -53,6 +59,8 @@ export async function updatePosOrder(
     p_payment_method: next.payment_method,
     p_items: items,
     p_sales_person_id: next.sales_person_id ?? null,
+    p_cash_received: next.payment_method === "CASH" ? (next.cash_received ?? null) : null,
+    p_cash_change: next.payment_method === "CASH" ? (next.cash_change ?? null) : null,
   });
   if (error) throw toCheckoutError(error);
 }
