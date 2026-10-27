@@ -5,7 +5,7 @@ import { usePosTicketStore } from '@/store/usePosTicketStore';
 import { supabase } from '@/lib/supabaseClient';
 import { placeOrder } from '@/lib/placeOrder';
 import { lookupPosByEan } from '@/lib/posLookup';
-import { discountedUnitPrice, posLineTotal } from '@/lib/posPricing';
+import { discountedUnitPrice, maxDiscountForMargin, posLineTotal } from '@/lib/posPricing';
 import { buildPosReceipt, type PosReceipt } from '@/lib/posReceipt';
 import {
   reservedQtyOnOrder,
@@ -17,10 +17,12 @@ import { getStaffProfile, signOutStaff, type StaffRole } from '@/lib/staffAuth';
 import { DISCOUNT_CAP_PERCENT, ROLE_LABEL } from '@/lib/staffRoles';
 import { countPendingDeleteRequests } from '@/lib/deleteRequests';
 import { DeleteRequestsPanel } from '@/components/pos/DeleteRequestsPanel';
+import { PosSearchSuggestions } from '@/components/pos/PosSearchSuggestions';
 import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
 import { PosHistoryPanel } from '@/components/pos/PosHistoryPanel';
 import type { CartItem } from '@/store/useCartStore';
 import type { AdminOrder, PaymentMethod } from '@/types/order';
+import type { CompleteProduct, ProductVariant } from '@/types/product';
 import { useRouter } from 'next/navigation';
 
 export default function BillingTerminal() {
@@ -48,6 +50,7 @@ export default function BillingTerminal() {
   const [status, setStatus] = useState<string | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [eanInput, setEanInput] = useState('');
+  const [suggestOpen, setSuggestOpen] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [role, setRole] = useState<StaffRole | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
@@ -78,20 +81,31 @@ export default function BillingTerminal() {
     countPendingDeleteRequests(supabase).then(setPendingCount);
   }, [deskView]);
 
+  // Biggest discount for a line: the role's cap, and never so deep that the
+  // price drops below cost + 5%. (The database enforces both.)
   // When editing an existing bill, keep whatever discount it already has.
-  const lineDiscountLimit = (variantId: string, mrp: number) => {
-    if (!editingOrder || !mrp) return maxDiscount;
+  const lineDiscountLimit = (
+    variantId: string,
+    mrp: number,
+    cost: number | null | undefined
+  ) => {
+    const base = Math.min(maxDiscount, maxDiscountForMargin(mrp, cost));
+    if (!editingOrder || !mrp) return base;
     const line = editingOrder.items.find((entry) => entry.variant_id === variantId);
-    if (!line) return maxDiscount;
+    if (!line) return base;
     const original = Math.round((1 - Number(line.price_at_purchase) / mrp) * 100);
-    return Math.max(maxDiscount, original);
+    return Math.max(base, original);
   };
 
   // A saved ticket from another login must not carry a bigger discount over.
   useEffect(() => {
     if (!role) return;
     for (const item of ticket) {
-      const limit = lineDiscountLimit(item.variant.id, item.product.base_price);
+      const limit = lineDiscountLimit(
+        item.variant.id,
+        item.product.base_price,
+        item.product.cost_price
+      );
       if ((item.discountPercent ?? 0) > limit) setLineDiscount(item.variant.id, limit);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,6 +143,45 @@ export default function BillingTerminal() {
       });
   }, [ticket, patchTicketProduct]);
 
+  // Shared by the EAN scan and the search suggestions. Returns false (and says
+  // why) when the piece can't be added.
+  const addVariantToTicket = (product: CompleteProduct, variant: ProductVariant) => {
+    const available =
+      Number(variant.stock_quantity ?? 0) + reservedQtyOnOrder(editingOrder, variant.id);
+
+    if (available <= 0) {
+      setLookupError(
+        `${product.name} · ${variant.size} is out of stock (MRP ₹${product.base_price})`
+      );
+      return false;
+    }
+
+    const already = ticket.find((item) => item.variant.id === variant.id);
+    if (already && already.quantity >= available) {
+      setLookupError(`Only ${available} in stock for ${product.name} · ${variant.size}`);
+      return false;
+    }
+
+    addItemToTicket(
+      {
+        ...product,
+        cost_price: product.cost_price == null ? null : Number(product.cost_price),
+      },
+      { ...variant, stock_quantity: available }
+    );
+    return true;
+  };
+
+  const handlePick = (product: CompleteProduct, variant: ProductVariant) => {
+    setLookupError(null);
+    if (addVariantToTicket(product, variant)) {
+      setEanInput('');
+      setSuggestOpen(false);
+      setStatus(`${product.name} · ${variant.size} · MRP ₹${product.base_price} added`);
+    }
+    eanRef.current?.focus();
+  };
+
   const handleLookup = async (event?: FormEvent) => {
     event?.preventDefault();
     const code = eanInput.trim();
@@ -141,35 +194,10 @@ export default function BillingTerminal() {
     try {
       const hit = await lookupPosByEan(supabase, code);
       if (!hit) {
-        setLookupError(`No product for EAN ${code}`);
+        setLookupError(`No product for “${code}”. Pick one from the suggestions, or check the code.`);
         return;
       }
-      const available =
-        hit.variant.stock_quantity + reservedQtyOnOrder(editingOrder, hit.variant.id);
-
-      if (available <= 0) {
-        setLookupError(
-          `${hit.product.name} · ${hit.variant.size} is out of stock (MRP ₹${hit.product.base_price})`
-        );
-        return;
-      }
-
-      const already = ticket.find((item) => item.variant.id === hit.variant.id);
-      if (already && already.quantity >= available) {
-        setLookupError(`Only ${available} in stock for that EAN`);
-        return;
-      }
-
-      addItemToTicket(
-        {
-          ...hit.product,
-          cost_price:
-            hit.product.cost_price == null
-              ? null
-              : Number(hit.product.cost_price),
-        },
-        { ...hit.variant, stock_quantity: available }
-      );
+      if (!addVariantToTicket(hit.product, hit.variant)) return;
       setEanInput('');
       setStatus(
         `${hit.product.name} · ${hit.variant.size} · MRP ₹${hit.product.base_price}${
@@ -378,14 +406,30 @@ export default function BillingTerminal() {
         ) : (
           <>
         <form onSubmit={handleLookup} className="mb-4 flex gap-2">
-          <input
-            ref={eanRef}
-            value={eanInput}
-            onChange={(event) => setEanInput(event.target.value)}
-            placeholder="Type or scan EAN, then Enter"
-            autoComplete="off"
-            className="h-11 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 font-mono text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-400"
-          />
+          <div className="relative flex-1">
+            <input
+              ref={eanRef}
+              value={eanInput}
+              onChange={(event) => {
+                setEanInput(event.target.value);
+                setSuggestOpen(true);
+              }}
+              onFocus={() => setSuggestOpen(true)}
+              onBlur={() => setSuggestOpen(false)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setSuggestOpen(false);
+              }}
+              placeholder="Scan EAN, or search by name / brand / style code"
+              autoComplete="off"
+              className="h-11 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 font-mono text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-400"
+            />
+            <PosSearchSuggestions
+              query={eanInput}
+              open={suggestOpen}
+              editingOrder={editingOrder}
+              onPick={handlePick}
+            />
+          </div>
           <button
             type="submit"
             disabled={lookingUp || !eanInput.trim()}
@@ -480,7 +524,16 @@ export default function BillingTerminal() {
                       <input
                         type="number"
                         min={0}
-                        max={lineDiscountLimit(item.variant.id, item.product.base_price)}
+                        max={lineDiscountLimit(
+                          item.variant.id,
+                          item.product.base_price,
+                          item.product.cost_price
+                        )}
+                        title={`Highest discount allowed on this item: ${lineDiscountLimit(
+                          item.variant.id,
+                          item.product.base_price,
+                          item.product.cost_price
+                        )}%`}
                         step={1}
                         value={item.discountPercent ?? 0}
                         onChange={(event) =>
@@ -488,7 +541,11 @@ export default function BillingTerminal() {
                             item.variant.id,
                             Math.min(
                               parseFloat(event.target.value) || 0,
-                              lineDiscountLimit(item.variant.id, item.product.base_price)
+                              lineDiscountLimit(
+                                item.variant.id,
+                                item.product.base_price,
+                                item.product.cost_price
+                              )
                             )
                           )
                         }
@@ -496,6 +553,21 @@ export default function BillingTerminal() {
                       />
                       <span className="text-xs text-slate-500">%</span>
                     </div>
+                    {lineDiscountLimit(
+                      item.variant.id,
+                      item.product.base_price,
+                      item.product.cost_price
+                    ) < maxDiscount ? (
+                      <p className="mt-0.5 font-sans text-[10px] text-amber-400">
+                        max{' '}
+                        {lineDiscountLimit(
+                          item.variant.id,
+                          item.product.base_price,
+                          item.product.cost_price
+                        )}
+                        % (margin)
+                      </p>
+                    ) : null}
                   </td>
                   <td className="text-right font-extrabold text-emerald-300">
                     ₹{posLineTotal(

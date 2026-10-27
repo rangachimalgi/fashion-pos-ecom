@@ -25,6 +25,7 @@ Never change schema only in the dashboard without a matching file here.
 | `002_product_department_category.sql` | Adds `department` + `category` columns | **Run this if category filter is empty** |
 | `013_secure_rls_and_order_functions.sql` | Replaces every anonymous policy with staff-only writes; moves checkout / POS edit / POS delete into transactional functions | **Run together with the matching app deploy** (see below) |
 | `014_roles_discount_caps_delete_requests.sql` | Adds the `manager` role, per-role discount caps (admin 100% / manager 5% / staff 2%), and approval-based bill deletion | Run after 013, with the matching app deploy |
+| `015_min_margin_price_floor.sql` | A discounted POS line can never sell below cost + 5% (all roles) | Run after 014, with the matching app deploy |
 
 ## Security model (after 013)
 
