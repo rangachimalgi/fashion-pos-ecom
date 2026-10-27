@@ -35,6 +35,8 @@ type OrderRow = {
   city?: string | null;
   state?: string | null;
   pincode?: string | null;
+  sales_person_id?: string | null;
+  attended_by_name?: string | null;
   order_items?: LineRow[] | null;
 };
 
@@ -193,6 +195,8 @@ function toAdminOrder(order: OrderRow, items: OrderLineItem[]): AdminOrder {
     item_count: items.reduce((sum, line) => sum + Number(line.quantity), 0),
     items,
     shipping: shippingFromRow(order),
+    sales_person_id: order.sales_person_id ?? null,
+    attended_by: order.attended_by_name ?? null,
   };
 }
 

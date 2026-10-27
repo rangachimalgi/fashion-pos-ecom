@@ -23,6 +23,8 @@ export interface CheckoutRequest {
   source: OrderSource;
   items: CheckoutItemInput[];
   shipping?: ShippingDetails;
+  /** POS only: who attended the customer (ignored for online orders). */
+  sales_person_id?: string | null;
 }
 
 export interface CheckoutResponse {
@@ -52,4 +54,7 @@ export interface AdminOrder {
   item_count: number;
   items: OrderLineItem[];
   shipping: ShippingDetails | null;
+  /** POS bills: the salesperson who attended, as named when the bill was made. */
+  sales_person_id: string | null;
+  attended_by: string | null;
 }

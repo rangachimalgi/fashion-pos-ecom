@@ -31,6 +31,8 @@ export async function updatePosOrder(
   next: {
     payment_method: PaymentMethod;
     items: PosOrderEditLine[];
+    /** Omit / null to keep the bill's current salesperson. */
+    sales_person_id?: string | null;
   }
 ) {
   if (order.source !== "POS") throw new Error("Only POS bills can be edited here.");
@@ -50,6 +52,7 @@ export async function updatePosOrder(
     p_order_id: order.id,
     p_payment_method: next.payment_method,
     p_items: items,
+    p_sales_person_id: next.sales_person_id ?? null,
   });
   if (error) throw toCheckoutError(error);
 }

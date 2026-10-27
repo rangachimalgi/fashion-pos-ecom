@@ -58,7 +58,7 @@ export async function placeOrder(
   supabase: SupabaseClient,
   body: CheckoutRequest
 ): Promise<CheckoutResponse> {
-  const { payment_method, source, items, shipping } = body;
+  const { payment_method, source, items, shipping, sales_person_id } = body;
 
   if (!PAYMENT_METHODS.includes(payment_method)) {
     throw new CheckoutError("payment_method must be CASH or UPI");
@@ -93,6 +93,7 @@ export async function placeOrder(
     p_source: source,
     p_items: lines,
     p_shipping: delivery,
+    p_sales_person_id: source === "POS" ? (sales_person_id ?? null) : null,
   });
 
   if (error) throw toCheckoutError(error);

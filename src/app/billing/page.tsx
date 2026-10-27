@@ -16,6 +16,7 @@ import { shortOrderId } from '@/lib/formatOrder';
 import { getStaffProfile, signOutStaff, type StaffRole } from '@/lib/staffAuth';
 import { DISCOUNT_CAP_PERCENT, ROLE_LABEL } from '@/lib/staffRoles';
 import { countPendingDeleteRequests } from '@/lib/deleteRequests';
+import { listSalesPeople, type SalesPerson } from '@/lib/salesPeople';
 import { DeleteRequestsPanel } from '@/components/pos/DeleteRequestsPanel';
 import { PosSearchSuggestions } from '@/components/pos/PosSearchSuggestions';
 import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
@@ -54,6 +55,8 @@ export default function BillingTerminal() {
   const [lookingUp, setLookingUp] = useState(false);
   const [role, setRole] = useState<StaffRole | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [salesPeople, setSalesPeople] = useState<SalesPerson[]>([]);
+  const [pickedSalesPersonId, setPickedSalesPersonId] = useState('');
   const [staffLabel, setStaffLabel] = useState('');
   const [receipt, setReceipt] = useState<PosReceipt | null>(null);
   const [receiptPosted, setReceiptPosted] = useState(false);
@@ -70,6 +73,24 @@ export default function BillingTerminal() {
   }, []);
 
   const isAdmin = role === 'admin';
+
+  useEffect(() => {
+    listSalesPeople(supabase)
+      .then(setSalesPeople)
+      .catch(() => setSalesPeople([]));
+  }, []);
+
+  // Who attended this customer. When editing a bill it starts as that bill's
+  // salesperson; picking someone else overrides it.
+  const salesPersonId = pickedSalesPersonId || editingOrder?.sales_person_id || '';
+  const activeSalesPeople = salesPeople.filter((person) => person.active);
+  const selectableSalesPeople = salesPeople.filter(
+    (person) => person.active || person.id === salesPersonId
+  );
+  const attendedName =
+    salesPeople.find((person) => person.id === salesPersonId)?.name ??
+    editingOrder?.attended_by ??
+    staffLabel;
   // UI limit only - the database enforces the real cap per role.
   const maxDiscount = role ? DISCOUNT_CAP_PERCENT[role] : 0;
 
@@ -221,7 +242,7 @@ export default function BillingTerminal() {
       buildPosReceipt(ticket, {
         orderId,
         payment: paymentMode,
-        attendedBy: staffLabel,
+        attendedBy: attendedName,
         at: receiptAt,
       })
     );
@@ -238,6 +259,7 @@ export default function BillingTerminal() {
       }
       replaceTicket(nextTicket);
       setEditingOrder(order);
+      setPickedSalesPersonId('');
       setPaymentMode(order.payment_method === 'UPI' ? 'UPI' : 'CASH');
       setDeskView('sale');
       setStatus(`Editing bill ${shortOrderId(order.id)}`);
@@ -256,6 +278,7 @@ export default function BillingTerminal() {
       replaceTicket([]);
     }
     setEditingOrder(null);
+    setPickedSalesPersonId('');
     setStatus(null);
     setDeskView('history');
   };
@@ -268,11 +291,17 @@ export default function BillingTerminal() {
   const handleCloseInvoice = async () => {
     if (ticket.length === 0 || submitting) return;
 
+    if (activeSalesPeople.length > 0 && !salesPersonId) {
+      setStatus('Choose who attended this customer.');
+      return;
+    }
+
     setSubmitting(true);
     setStatus(null);
 
     try {
       const snapshot = ticket;
+      const attended = attendedName;
       const items = snapshot.map((item) => ({
         variant_id: item.variant.id,
         quantity: item.quantity,
@@ -287,6 +316,7 @@ export default function BillingTerminal() {
         await updatePosOrder(supabase, editingOrder, {
           payment_method: paymentMode,
           items,
+          sales_person_id: salesPersonId || null,
         });
         orderId = editingOrder.id;
         setStatus(`Invoice ${shortOrderId(orderId)} updated via ${paymentMode}`);
@@ -295,6 +325,7 @@ export default function BillingTerminal() {
           payment_method: paymentMode,
           source: 'POS',
           items,
+          sales_person_id: salesPersonId || null,
         });
         orderId = payload.order_id;
         setStatus(`Invoice ${orderId} posted via ${paymentMode}`);
@@ -304,11 +335,12 @@ export default function BillingTerminal() {
         buildPosReceipt(snapshot, {
           orderId,
           payment: paymentMode,
-          attendedBy: staffLabel,
+          attendedBy: attended,
           at: editingOrder?.created_at ? new Date(editingOrder.created_at) : undefined,
         })
       );
       setReceiptPosted(true);
+      setPickedSalesPersonId('');
       setStashedSale(null);
       clearTicket();
       if (editingOrder) setDeskView('history');
@@ -610,6 +642,36 @@ export default function BillingTerminal() {
           </h3>
           
           <div className="mt-6 space-y-6">
+            <div>
+              <label htmlFor="attended-by" className="text-xs text-slate-400 tracking-wider">
+                ATTENDED BY
+              </label>
+              <select
+                id="attended-by"
+                value={salesPersonId}
+                onChange={(event) => setPickedSalesPersonId(event.target.value)}
+                disabled={selectableSalesPeople.length === 0}
+                className="mt-2 h-11 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 font-sans text-sm text-white outline-none scheme-dark focus:border-emerald-400 disabled:text-slate-500"
+              >
+                <option value="">
+                  {activeSalesPeople.length > 0 ? 'Select salesperson…' : 'No salespeople added yet'}
+                </option>
+                {selectableSalesPeople.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                    {person.active ? '' : ' (inactive)'}
+                  </option>
+                ))}
+              </select>
+              {activeSalesPeople.length === 0 && isAdmin ? (
+                <Link
+                  href="/admin/sales-team"
+                  className="mt-1.5 inline-block font-sans text-[11px] text-emerald-300 hover:underline"
+                >
+                  Add your sales team in the admin panel
+                </Link>
+              ) : null}
+            </div>
             <div>
               <label className="text-xs text-slate-400 tracking-wider">SELECT PAYMENT INSTRUMENT</label>
               <div className="grid grid-cols-2 gap-3 mt-2">

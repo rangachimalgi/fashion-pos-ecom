@@ -165,6 +165,7 @@ export function PosHistoryPanel({
               <tr>
                 <th className="py-2 font-medium">Bill</th>
                 <th className="py-2 font-medium">When</th>
+                <th className="py-2 font-medium">Attended</th>
                 <th className="py-2 font-medium">Pay</th>
                 <th className="py-2 text-right font-medium">Items</th>
                 <th className="py-2 text-right font-medium">Net</th>
@@ -178,6 +179,7 @@ export function PosHistoryPanel({
                   <td className="py-3 font-sans text-xs text-slate-300">
                     {formatOrderTime(order.created_at)}
                   </td>
+                  <td className="py-3 font-sans text-xs text-slate-300">{order.attended_by ?? "—"}</td>
                   <td className="py-3 text-slate-200">{order.payment_method}</td>
                   <td className="py-3 text-right text-slate-300">{order.item_count}</td>
                   <td className="py-3 text-right font-semibold text-emerald-400">
@@ -187,7 +189,7 @@ export function PosHistoryPanel({
                     <div className="flex justify-end gap-1">
                       <button
                         type="button"
-                        onClick={() => onReprint(buildPosReceiptFromOrder(order, attendedBy))}
+                        onClick={() => onReprint(buildPosReceiptFromOrder(order, order.attended_by ?? attendedBy))}
                         className="rounded-md border border-slate-500 px-2 py-1 text-[11px] font-black tracking-wider text-slate-200 hover:bg-slate-700"
                       >
                         PRINT
