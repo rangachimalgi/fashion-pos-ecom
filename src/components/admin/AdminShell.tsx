@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Barcode, ChartColumn, FileSpreadsheet, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Trash2, Users } from "lucide-react";
+import { Barcode, ChartColumn, ClipboardList, FileSpreadsheet, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Trash2, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +28,9 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith("/admin/delete-requests")) return "Delete requests";
   if (pathname.startsWith("/admin/sales-team")) return "Sales team";
   if (pathname.startsWith("/admin/reports")) return "Sales & profit";
+  if (pathname.startsWith("/admin/purchases/new")) return "New purchase";
+  if (pathname.startsWith("/admin/purchases/")) return "Purchase";
+  if (pathname.startsWith("/admin/purchases")) return "Purchases";
   if (pathname.startsWith("/admin/categories")) return "Categories";
   if (pathname.startsWith("/admin/import")) return "Import invoice";
   if (pathname.startsWith("/admin/tags")) return "Hang tags";
@@ -52,6 +55,7 @@ function NavLinks({
   const deletesActive = pathname.startsWith("/admin/delete-requests");
   const salesActive = pathname.startsWith("/admin/sales-team");
   const reportsActive = pathname.startsWith("/admin/reports");
+  const purchasesActive = pathname.startsWith("/admin/purchases");
 
   return (
     <nav className="flex flex-col gap-1">
@@ -80,6 +84,19 @@ function NavLinks({
       >
         <Receipt className="size-4" />
         Orders
+      </Link>
+      <Link
+        href="/admin/purchases"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+          purchasesActive
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <ClipboardList className="size-4" />
+        Purchases
       </Link>
       <Link
         href="/admin/categories"

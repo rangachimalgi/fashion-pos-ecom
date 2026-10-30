@@ -113,6 +113,9 @@ function AdminTagsPageInner() {
     () => false,
   );
   const productId = searchParams.get("product");
+  // ?purchase=<id>: only the sizes bought on that purchase, one tag per piece.
+  const purchaseId = searchParams.get("purchase");
+  const [purchaseQty, setPurchaseQty] = useState<Record<string, number> | null>(null);
   const [products, setProducts] = useState<CompleteProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,12 +148,39 @@ function AdminTagsPageInner() {
     fetchProducts();
   }, [fetchProducts]);
 
+  useEffect(() => {
+    if (!purchaseId) return;
+    let cancelled = false;
+    supabase
+      .from("purchase_items")
+      .select("variant_id, qty")
+      .eq("purchase_id", purchaseId)
+      .then(({ data, error: purchaseError }) => {
+        if (cancelled) return;
+        if (purchaseError) {
+          setError(purchaseError.message);
+          setPurchaseQty({});
+          return;
+        }
+        const map: Record<string, number> = {};
+        for (const item of (data ?? []) as Array<{ variant_id: string | null; qty: number }>) {
+          if (item.variant_id) map[item.variant_id] = (map[item.variant_id] ?? 0) + Number(item.qty);
+        }
+        setPurchaseQty(map);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [purchaseId]);
+
   const rows = useMemo<TagRow[]>(() => {
     const q = query.trim().toLowerCase();
     const list: TagRow[] = [];
+    if (purchaseId && !purchaseQty) return list;
     for (const product of products) {
       if (productId && product.id !== productId) continue;
       for (const variant of product.variants) {
+        if (purchaseQty && !(variant.id in purchaseQty)) continue;
         if (!variant.barcode && !product.style_code) continue;
         const hay = [
           product.name,
@@ -172,17 +202,19 @@ function AdminTagsPageInner() {
       }
     }
     return list;
-  }, [products, query, productId]);
+  }, [products, query, productId, purchaseId, purchaseQty]);
 
   useEffect(() => {
-    if (!productId || loading) return;
+    if ((!productId && !purchaseQty) || loading) return;
     setSelected((current) => {
       if (Object.keys(current).length) return current;
       const next: Record<string, number> = {};
-      for (const row of rows) next[row.key] = 1;
+      for (const row of rows) {
+        next[row.key] = purchaseQty ? Math.max(1, Math.min(99, purchaseQty[row.key] ?? 1)) : 1;
+      }
       return next;
     });
-  }, [productId, loading, rows]);
+  }, [productId, purchaseQty, loading, rows]);
 
   const previewTags = useMemo(() => {
     const tags: HangTag[] = [];
