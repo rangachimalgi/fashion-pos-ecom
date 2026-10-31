@@ -8,6 +8,19 @@
 -- 2. _apply_order_lines / update_pos_order keep that snapshot up to date.
 -- 3. sales_report(): sales, GST, cost and profit per day or per month.
 
+-- Also defined in 015. Repeated here so 017 works even if 015 was skipped
+-- (the order functions below call it whenever a line is discounted).
+create or replace function public.min_margin_percent()
+returns numeric
+language sql
+immutable
+as $$
+  select 5::numeric;
+$$;
+
+revoke all on function public.min_margin_percent() from public;
+grant execute on function public.min_margin_percent() to authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- 1. Cost snapshot
 -- ---------------------------------------------------------------------------
