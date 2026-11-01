@@ -19,6 +19,7 @@ import {
   type ReportSource,
 } from "@/lib/salesReport";
 import { STORE_RECEIPT } from "@/lib/storeReceipt";
+import { ReportTabs } from "@/components/admin/ReportTabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -152,6 +153,8 @@ export default function ReportsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 md:px-6">
+      <ReportTabs active="sales" />
+
       {/* ---------- Filters ---------- */}
       <section className="rounded-xl border border-border bg-white p-4">
         <div className="flex flex-wrap gap-1.5">
