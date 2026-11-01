@@ -30,6 +30,7 @@ Never change schema only in the dashboard without a matching file here.
 | `017_sales_reports.sql` | Admin-only sales / GST / profit report by day or month, with the cost price saved on every bill line | Run after 016, with the matching app deploy |
 | `018_petty_cash_ledger.sql` | Cash counter by note/coin (admin-only to view and edit); cash POS bills must record notes received and change given, and edits/deletes reverse it | Run after 017, with the matching app deploy |
 | `019_purchases.sql` | Supplier purchase entry: suppliers, purchase bills, lines. Saving creates products, sizes, barcodes and stock; cost = rate - discount + GST; profit % sets the MRP. Admin only. To continue the old software's numbering: `select setval('public.purchase_entry_seq', 116);` | Run after 018, with the matching app deploy |
+| `020_margin_report.sql` | Item-wise margin report (one row per bill line: cost, sale value, discount, net, margin). Admin only | Run after 019, with the matching app deploy |
 
 ## Security model (after 013)
 

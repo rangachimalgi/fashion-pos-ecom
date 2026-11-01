@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/admin/reports", label: "Sales & profit", id: "sales" },
+  { href: "/admin/reports/margin", label: "Item margin", id: "margin" },
   { href: "/admin/reports/purchases", label: "Purchases", id: "purchases" },
 ] as const;
 

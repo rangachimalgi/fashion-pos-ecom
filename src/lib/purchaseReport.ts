@@ -461,11 +461,11 @@ export function summaryLines(
 // Downloads
 // ---------------------------------------------------------------------------
 
-function fileSpan(filters: PurchaseReportFilters) {
+export function fileSpan(filters: { from: string; to: string }) {
   return !filters.from && !filters.to ? "all-time" : `${filters.from || "start"}_to_${filters.to || "today"}`;
 }
 
-function generated() {
+export function generated() {
   return new Date().toLocaleString("en-IN", { timeZone: SHOP_TIMEZONE });
 }
 
@@ -503,7 +503,7 @@ export async function exportPurchaseReportXlsx({ data, filters, supplierName }: 
   XLSX.writeFile(book, `purchases-report_${fileSpan(filters)}.xlsx`);
 }
 
-function pdfNumber(cell: Cell, kind: CellKind) {
+export function pdfNumber(cell: Cell, kind: CellKind) {
   if (typeof cell === "string") return cell;
   if (kind === "money") {
     return cell.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

@@ -28,6 +28,7 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith("/admin/delete-requests")) return "Delete requests";
   if (pathname.startsWith("/admin/sales-team")) return "Sales team";
   if (pathname.startsWith("/admin/reports/purchases")) return "Purchases report";
+  if (pathname.startsWith("/admin/reports/margin")) return "Item margin report";
   if (pathname.startsWith("/admin/reports")) return "Sales & profit";
   if (pathname.startsWith("/admin/purchases/new")) return "New purchase";
   if (pathname.startsWith("/admin/purchases/")) return "Purchase";
