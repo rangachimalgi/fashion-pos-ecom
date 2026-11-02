@@ -5,6 +5,7 @@ const TABS = [
   { href: "/admin/reports", label: "Sales & profit", id: "sales" },
   { href: "/admin/reports/margin", label: "Item margin", id: "margin" },
   { href: "/admin/reports/purchases", label: "Purchases", id: "purchases" },
+  { href: "/admin/reports/gst", label: "GST", id: "gst" },
 ] as const;
 
 export function ReportTabs({ active }: { active: (typeof TABS)[number]["id"] }) {
