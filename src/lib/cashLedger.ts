@@ -5,7 +5,7 @@ import { toCheckoutError } from "@/lib/placeOrder";
 export type CashCounts = Record<string, number>;
 
 /** Used until the list is loaded from the database (public.cash_drawer). */
-export const DEFAULT_DENOMINATIONS = [500, 100, 50, 20, 10, 5, 2, 1];
+export const DEFAULT_DENOMINATIONS = [500, 200, 100, 50, 20, 10, 5, 2, 1];
 
 export function cashValue(counts: CashCounts): number {
   return Object.entries(counts).reduce(
@@ -77,6 +77,21 @@ export async function fetchDrawer(supabase: SupabaseClient): Promise<DrawerRow[]
     denomination: Number(row.denomination),
     quantity: Number(row.quantity),
   }));
+}
+
+/** How much is in the till right now (staff). Breakdown stays admin-only. */
+export async function fetchDrawerTotal(supabase: SupabaseClient): Promise<number> {
+  const { data, error } = await supabase.rpc("cash_drawer_total");
+  if (!error) return Number(data ?? 0);
+
+  // Migration 023 not run yet: an admin can still add up the drawer directly.
+  // Everyone else reads zero rows (the table is admin-only), which must not be
+  // shown as a real "0" in the till.
+  const rows = await fetchDrawer(supabase);
+  if (rows.length === 0) {
+    throw new Error("Run supabase/migrations/023_cash_drawer_total.sql to show the counter total.");
+  }
+  return rows.reduce((sum, row) => sum + row.denomination * row.quantity, 0);
 }
 
 /** How many recent movements the cash panel shows. */

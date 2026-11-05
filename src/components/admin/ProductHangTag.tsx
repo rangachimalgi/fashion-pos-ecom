@@ -23,7 +23,7 @@ export function ProductHangTag({ tag }: { tag: HangTag }) {
       <div className="mt-auto flex items-end justify-between gap-1">
         <p className="text-[10px] font-black leading-none">{tag.size}</p>
         <p className="text-right text-[8px] font-black leading-none">
-          RATE: <span className="text-[11px]">{tag.rateLabel}</span>
+          MRP: <span className="text-[11px]">{tag.rateLabel}</span>
         </p>
       </div>
     </div>

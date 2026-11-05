@@ -264,7 +264,7 @@ function AdminTagsPageInner() {
       <div className="no-print mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">
-            Same hang-tag as the shop: barcode, style, size, and Rate from cost — not MRP.
+            Same hang-tag as the shop: barcode, style, size, and MRP.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -305,7 +305,7 @@ function AdminTagsPageInner() {
               <TableHead>Product</TableHead>
               <TableHead>EAN</TableHead>
               <TableHead>Size</TableHead>
-              <TableHead>Rate (cost)</TableHead>
+              <TableHead>MRP</TableHead>
               <TableHead className="pr-4 text-right">Copies</TableHead>
             </TableRow>
           </TableHeader>

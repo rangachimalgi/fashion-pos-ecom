@@ -12,12 +12,12 @@ import {
   ticketFromOrder,
   updatePosOrder,
 } from '@/lib/posOrderMutations';
-import { shortOrderId } from '@/lib/formatOrder';
+import { formatInr, shortOrderId } from '@/lib/formatOrder';
 import { getStaffProfile, signOutStaff, type StaffRole } from '@/lib/staffAuth';
 import { DISCOUNT_CAP_PERCENT, ROLE_LABEL } from '@/lib/staffRoles';
 import { countPendingDeleteRequests } from '@/lib/deleteRequests';
 import { listSalesPeople, type SalesPerson } from '@/lib/salesPeople';
-import { cashDueFor, DEFAULT_DENOMINATIONS, listCashDenominations } from '@/lib/cashLedger';
+import { cashDueFor, DEFAULT_DENOMINATIONS, fetchDrawerTotal, listCashDenominations } from '@/lib/cashLedger';
 import { CashLedgerPanel } from '@/components/pos/CashLedgerPanel';
 import { CashTender, useCashTender } from '@/components/pos/CashTender';
 import { DeleteRequestsPanel } from '@/components/pos/DeleteRequestsPanel';
@@ -65,12 +65,26 @@ export default function BillingTerminal() {
   const [receiptPosted, setReceiptPosted] = useState(false);
   const [deskView, setDeskView] = useState<'sale' | 'history' | 'requests' | 'cash'>('sale');
   const [denominations, setDenominations] = useState<number[]>(DEFAULT_DENOMINATIONS);
+  const [drawerTotal, setDrawerTotal] = useState<number | null>(null);
+  const [drawerError, setDrawerError] = useState<string | null>(null);
   const eanRef = useRef<HTMLInputElement>(null);
 
   // Cash side of the bill: what the customer handed over and the change given.
   // Cash due is the bill to the nearest rupee (the database uses the same rule).
   const cashDue = cashDueFor(getGrandTotal());
   const tender = useCashTender(cashDue, denominations);
+
+  const refreshDrawerTotal = () => {
+    fetchDrawerTotal(supabase)
+      .then((total) => {
+        setDrawerTotal(total);
+        setDrawerError(null);
+      })
+      .catch((err) => {
+        setDrawerTotal(null);
+        setDrawerError(err instanceof Error ? err.message : 'Could not load the counter total');
+      });
+  };
 
   useEffect(() => {
     listCashDenominations(supabase)
@@ -86,6 +100,11 @@ export default function BillingTerminal() {
       })
       .catch(() => setRole(null));
   }, []);
+
+  useEffect(() => {
+    if (!role) return;
+    refreshDrawerTotal();
+  }, [role, deskView]);
 
   const isAdmin = role === 'admin';
 
@@ -377,6 +396,7 @@ export default function BillingTerminal() {
       tender.reset();
       setStashedSale(null);
       clearTicket();
+      refreshDrawerTotal();
       if (editingOrder) setDeskView('history');
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Checkout failed');
@@ -437,6 +457,19 @@ export default function BillingTerminal() {
                   CASH
                 </button>
               ) : null}
+            </div>
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">
+              <p className="font-sans text-[10px] uppercase tracking-wider text-slate-400">
+                In counter
+              </p>
+              <p
+                title={drawerError ?? undefined}
+                className={`text-sm font-black leading-none ${
+                  drawerError ? 'text-amber-300' : drawerTotal != null && drawerTotal < 0 ? 'text-rose-300' : 'text-emerald-300'
+                }`}
+              >
+                {drawerError ? 'unavailable' : drawerTotal == null ? '…' : formatInr(drawerTotal)}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -723,9 +756,10 @@ export default function BillingTerminal() {
             <div>
               <label className="text-xs text-slate-400 tracking-wider">SELECT PAYMENT INSTRUMENT</label>
               <div className="grid grid-cols-2 gap-3 mt-2">
+                <div>
                 <button 
                   onClick={() => setPaymentMode('CASH')}
-                  className={`py-3 rounded-lg font-bold border transition duration-200 ${
+                  className={`w-full py-3 rounded-lg font-bold border transition duration-200 ${
                     paymentMode === 'CASH' 
                       ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg shadow-emerald-900/30' 
                       : 'bg-slate-700 border-slate-600 text-slate-400 hover:bg-slate-600'
@@ -733,6 +767,18 @@ export default function BillingTerminal() {
                 >
                   💵 CASH DESK
                 </button>
+                <p className="mt-1.5 text-center font-sans text-xs text-slate-400">
+                  In counter{' '}
+                  <span
+                    title={drawerError ?? undefined}
+                    className={`font-black ${
+                      drawerError ? 'text-amber-300' : drawerTotal != null && drawerTotal < 0 ? 'text-rose-300' : 'text-emerald-300'
+                    }`}
+                  >
+                    {drawerError ? 'unavailable' : drawerTotal == null ? '…' : formatInr(drawerTotal)}
+                  </span>
+                </p>
+                </div>
                 <button 
                   onClick={() => setPaymentMode('UPI')}
                   className={`py-3 rounded-lg font-bold border transition duration-200 ${

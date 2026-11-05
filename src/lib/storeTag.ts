@@ -13,11 +13,11 @@ export type HangTag = {
   rateLabel: string;
 };
 
-export function formatTagRate(cost: number | null | undefined) {
-  if (cost == null || !Number.isFinite(cost)) return "—";
-  const rounded = Math.round(cost);
-  if (Math.abs(cost - rounded) < 0.005) return `${rounded}/-`;
-  return `${cost.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`;
+export function formatTagRate(amount: number | null | undefined) {
+  if (amount == null || !Number.isFinite(amount)) return "—";
+  const rounded = Math.round(amount);
+  if (Math.abs(amount - rounded) < 0.005) return `${rounded}/-`;
+  return `${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`;
 }
 
 export function buildHangTag(product: CompleteProduct, variant: ProductVariant): HangTag {
@@ -33,7 +33,7 @@ export function buildHangTag(product: CompleteProduct, variant: ProductVariant):
     name: product.name.trim(),
     detail: parts.join(" ").toUpperCase(),
     size: String(variant.size || "").toUpperCase(),
-    rateLabel: formatTagRate(product.cost_price),
+    rateLabel: formatTagRate(product.base_price),
   };
 }
 
