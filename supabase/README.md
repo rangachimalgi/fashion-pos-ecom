@@ -32,6 +32,8 @@ Never change schema only in the dashboard without a matching file here.
 | `019_purchases.sql` | Supplier purchase entry: suppliers, purchase bills, lines. Saving creates products, sizes, barcodes and stock; cost = rate - discount + GST; profit % sets the MRP. Admin only. To continue the old software's numbering: `select setval('public.purchase_entry_seq', 116);` | Run after 018, with the matching app deploy |
 | `020_margin_report.sql` | Item-wise margin report (one row per bill line: cost, sale value, discount, net, margin). Admin only | Run after 019, with the matching app deploy |
 | `021_gst_hsn_summary.sql` | GST report: sales by HSN code (qty, value, discount, taxable, CGST/SGST). HSN comes from the latest purchase entry. Admin only | Run after 020, with the matching app deploy |
+| `024_fix_is_admin_null.sql` | **Security fix. Run first.** `is_admin()` returned null (not false) for a signed-in user with no staff profile, so such a user could run the admin-only functions from 016 to 021 (reports, cash counter, suppliers, purchases) | Run now, even if you skip the rest |
+| `025_employees_attendance_leave.sql` | Employees (login created by an admin), check in / check out, leave requests with approve / reject. Employees have no POS or admin access. Needs `SUPABASE_SECRET_KEY` on the server | Run after 024, with the matching app deploy |
 
 ## Security model (after 013)
 

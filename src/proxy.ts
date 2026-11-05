@@ -8,8 +8,24 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const authed = hasAuthCookie(request);
   const isLogin = pathname === "/login";
+  const isEmployeeLogin = pathname === "/employee/login";
+  const isEmployeeArea = pathname.startsWith("/employee") && !isEmployeeLogin;
   const isProtected =
     pathname.startsWith("/admin") || pathname.startsWith("/billing");
+
+  if (isEmployeeArea && !authed) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/employee/login";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  if (isEmployeeLogin && authed) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/employee";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
 
   if (isProtected && !authed) {
     const url = request.nextUrl.clone();
@@ -29,5 +45,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/billing/:path*", "/login"],
+  matcher: ["/admin/:path*", "/billing/:path*", "/employee/:path*", "/login"],
 };

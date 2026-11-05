@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Barcode, ChartColumn, ClipboardList, FileSpreadsheet, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Trash2, Users } from "lucide-react";
+import { Barcode, CalendarCheck, CalendarDays, ChartColumn, ClipboardList, FileSpreadsheet, IdCard, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Trash2, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import { countPendingDeleteRequests } from "@/lib/deleteRequests";
+import { countPendingLeaves } from "@/lib/attendance";
 
 function pageTitle(pathname: string) {
   if (pathname.startsWith("/admin/products/new")) return "New product";
@@ -27,6 +28,9 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith("/admin/orders")) return "Orders";
   if (pathname.startsWith("/admin/delete-requests")) return "Delete requests";
   if (pathname.startsWith("/admin/sales-team")) return "Sales team";
+  if (pathname.startsWith("/admin/employees")) return "Employees";
+  if (pathname.startsWith("/admin/attendance")) return "Attendance";
+  if (pathname.startsWith("/admin/leave")) return "Leave requests";
   if (pathname.startsWith("/admin/reports/purchases")) return "Purchases report";
   if (pathname.startsWith("/admin/reports/margin")) return "Item margin report";
   if (pathname.startsWith("/admin/reports/gst")) return "GST report";
@@ -44,10 +48,12 @@ function NavLinks({
   pathname,
   onNavigate,
   pendingDeletes = 0,
+  pendingLeaves = 0,
 }: {
   pathname: string;
   onNavigate?: () => void;
   pendingDeletes?: number;
+  pendingLeaves?: number;
 }) {
   const catalogActive =
     pathname === "/admin" || pathname.startsWith("/admin/products");
@@ -167,6 +173,50 @@ function NavLinks({
         Sales team
       </Link>
       <Link
+        href="/admin/employees"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+          pathname.startsWith("/admin/employees")
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <IdCard className="size-4" />
+        Employees
+      </Link>
+      <Link
+        href="/admin/attendance"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+          pathname.startsWith("/admin/attendance")
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <CalendarCheck className="size-4" />
+        Attendance
+      </Link>
+      <Link
+        href="/admin/leave"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+          pathname.startsWith("/admin/leave")
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <CalendarDays className="size-4" />
+        Leave requests
+        {pendingLeaves > 0 ? (
+          <span className="ml-auto rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white">
+            {pendingLeaves}
+          </span>
+        ) : null}
+      </Link>
+      <Link
         href="/admin/delete-requests"
         onClick={onNavigate}
         className={cn(
@@ -192,12 +242,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingDeletes, setPendingDeletes] = useState(0);
+  const [pendingLeaves, setPendingLeaves] = useState(0);
   const title = pageTitle(pathname);
 
   useEffect(() => {
     let cancelled = false;
     countPendingDeleteRequests(supabase).then((count) => {
       if (!cancelled) setPendingDeletes(count);
+    });
+    countPendingLeaves(supabase).then((count) => {
+      if (!cancelled) setPendingLeaves(count);
     });
     return () => {
       cancelled = true;
@@ -223,7 +277,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </Link>
         </div>
         <div className="flex flex-1 flex-col justify-between p-3">
-          <NavLinks pathname={pathname} pendingDeletes={pendingDeletes} />
+          <NavLinks pathname={pathname} pendingDeletes={pendingDeletes} pendingLeaves={pendingLeaves} />
           <div className="space-y-1">
             <Link
               href="/billing"
@@ -264,6 +318,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   <NavLinks
                     pathname={pathname}
                     pendingDeletes={pendingDeletes}
+                    pendingLeaves={pendingLeaves}
                     onNavigate={() => setMenuOpen(false)}
                   />
                   <div className="space-y-1">
