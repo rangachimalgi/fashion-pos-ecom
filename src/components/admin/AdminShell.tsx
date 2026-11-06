@@ -20,32 +20,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { countPendingDeleteRequests } from "@/lib/deleteRequests";
 import { countPendingLeaves } from "@/lib/attendance";
 
-function pageTitle(pathname: string) {
-  if (pathname.startsWith("/admin/products/new")) return "New product";
-  if (pathname.includes("/edit")) return "Edit product";
-  if (pathname.startsWith("/admin/orders/") && pathname !== "/admin/orders") {
-    return "Order";
-  }
-  if (pathname.startsWith("/admin/orders")) return "Orders";
-  if (pathname.startsWith("/admin/delete-requests")) return "Delete requests";
-  if (pathname.startsWith("/admin/sales-team")) return "Sales team";
-  if (pathname.startsWith("/admin/targets")) return "Sales targets";
-  if (pathname.startsWith("/admin/employees")) return "Employees";
-  if (pathname.startsWith("/admin/attendance")) return "Attendance";
-  if (pathname.startsWith("/admin/leave")) return "Leave requests";
-  if (pathname.startsWith("/admin/reports/purchases")) return "Purchases report";
-  if (pathname.startsWith("/admin/reports/margin")) return "Item margin report";
-  if (pathname.startsWith("/admin/reports/gst")) return "GST report";
-  if (pathname.startsWith("/admin/reports")) return "Sales & profit";
-  if (pathname.startsWith("/admin/purchases/new")) return "New purchase";
-  if (pathname.startsWith("/admin/purchases/")) return "Purchase";
-  if (pathname.startsWith("/admin/purchases")) return "Purchases";
-  if (pathname.startsWith("/admin/categories")) return "Categories";
-  if (pathname.startsWith("/admin/import")) return "Import invoice";
-  if (pathname.startsWith("/admin/tags")) return "Hang tags";
-  return "Catalog";
-}
-
 type NavItem = {
   href: string;
   label: string;
@@ -158,7 +132,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingDeletes, setPendingDeletes] = useState(0);
   const [pendingLeaves, setPendingLeaves] = useState(0);
-  const title = pageTitle(pathname);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,7 +162,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
             />
             <div className={cn("min-w-0 leading-tight whitespace-nowrap", RAIL_TEXT)}>
               <p className="truncate text-sm font-semibold">Eshwari Vastra</p>
-              <p className="text-[11px] text-muted-foreground">Back office</p>
             </div>
           </Link>
         </div>
@@ -212,7 +184,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col print:block print:w-full">
-        <header className="sticky top-0 z-20 border-b border-border/80 bg-white print:hidden">
+        {/* Phones only: holds the menu button. On desktop the sidebar is the navigation and pages carry their own headings. */}
+        <header className="sticky top-0 z-20 border-b border-border/80 bg-white md:hidden print:hidden">
           <div className="flex h-14 items-center gap-3 px-4 md:px-6">
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
               <SheetTrigger
@@ -255,10 +228,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 </div>
               </SheetContent>
             </Sheet>
-            <div>
-              <p className="text-[11px] text-muted-foreground">Admin</p>
-              <h1 className="text-base font-semibold tracking-tight">{title}</h1>
-            </div>
           </div>
         </header>
         <div className="flex-1 print:m-0 print:p-0">{children}</div>
