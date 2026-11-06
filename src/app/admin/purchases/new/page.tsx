@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Copy, Plus, X } from "lucide-react";
@@ -107,6 +107,64 @@ function problemsFor(row: Row) {
 
 const cell = "h-8 px-1.5 text-sm";
 
+/**
+ * What to offer in an item-name box: names already typed on other rows of this
+ * purchase, nearest row first. An empty box offers the most recent name; a
+ * partly typed one offers the first name that starts with what is typed.
+ */
+function suggestItemName(value: string, others: string[]): string {
+  const typed = value.trim().toLowerCase();
+  if (!typed) return others[0] ?? "";
+  if (value !== value.trimStart()) return "";
+  return others.find((name) => name.toLowerCase().startsWith(typed) && name.length > value.length) ?? "";
+}
+
+/** Item-name box that shows the suggestion as grey text after the cursor; Tab accepts it. */
+function ItemNameInput({
+  rowId,
+  value,
+  suggestion,
+  onChange,
+}: {
+  rowId: number;
+  value: string;
+  suggestion: string;
+  onChange: (value: string) => void;
+}) {
+  const showing = suggestion !== "" && suggestion.toLowerCase().startsWith(value.toLowerCase()) && suggestion !== value;
+  return (
+    <div className="relative w-40">
+      {showing ? (
+        <div
+          aria-hidden
+          className={cn(
+            cell,
+            "pointer-events-none absolute inset-0 flex items-center overflow-hidden border border-transparent whitespace-pre"
+          )}
+        >
+          <span className="invisible">{value}</span>
+          <span className="text-muted-foreground/60">{suggestion.slice(value.length)}</span>
+        </div>
+      ) : null}
+      <Input
+        data-item-input={rowId}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Tab" && !event.shiftKey && showing) {
+            event.preventDefault();
+            onChange(suggestion);
+          }
+        }}
+        placeholder={showing ? "" : "e.g. TSHIRT"}
+        autoComplete="off"
+        className={cn(cell, "relative w-full")}
+        title={showing ? "Press Tab to use the suggestion" : undefined}
+      />
+    </div>
+  );
+}
+
 export default function NewPurchasePage() {
   const router = useRouter();
   const categoryRows = useStoreCategories();
@@ -161,6 +219,19 @@ export default function NewPurchasePage() {
   );
   const isNewSupplier = supplierInput.trim().length >= 2 && !matched;
 
+  // Names typed so far, most recent row first, each name once (case-insensitive).
+  const itemNamesNewestFirst = useMemo(() => {
+    const seen = new Set<string>();
+    const list: Array<{ rowId: number; name: string }> = [];
+    for (let i = rows.length - 1; i >= 0; i -= 1) {
+      const name = rows[i].item.trim();
+      if (!name || seen.has(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      list.push({ rowId: rows[i].id, name });
+    }
+    return list;
+  }, [rows]);
+
   const filled = rows.filter((row) => !isBlank(row));
   const computed = filled.map((row) => ({ row, c: compute(row) }));
   const totals = purchaseTotals(
@@ -184,10 +255,35 @@ export default function NewPurchasePage() {
       current.map((row) => (row.id === id ? { ...row, ...patch, ...(resetMrp ? { mrp: null } : {}) } : row))
     );
 
+  // After a row is added, the cursor goes straight to its item-name box.
+  const focusAfterRender = useRef<number | null>(null);
+
   const addRow = () => {
+    focusAfterRender.current = nextId;
     setRows((current) => [...current, blankRow(nextId, current[current.length - 1])]);
     setNextId((id) => id + 1);
   };
+
+  useEffect(() => {
+    const id = focusAfterRender.current;
+    if (id === null) return;
+    focusAfterRender.current = null;
+    document.querySelector<HTMLInputElement>(`[data-item-input="${id}"]`)?.focus();
+  }, [rows]);
+
+  // Ctrl+Enter (Cmd+Enter on a Mac) adds a row, from anywhere on the page.
+  useEffect(() => {
+    if (done || saving) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      event.preventDefault();
+      addRow();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // addRow only needs the latest nextId
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done, saving, nextId]);
 
   const cloneRow = (row: Row) => {
     setRows((current) => {
@@ -457,11 +553,14 @@ export default function NewPurchasePage() {
                 <tr key={row.id} className={cn("border-b border-border/60", flagged && "bg-destructive/5")}>
                   <td className="px-2 py-1 text-xs text-muted-foreground">{index + 1}</td>
                   <td className="px-1 py-1">
-                    <Input
+                    <ItemNameInput
+                      rowId={row.id}
                       value={row.item}
-                      onChange={(event) => update(row.id, { item: event.target.value })}
-                      placeholder="e.g. TSHIRT"
-                      className={cn(cell, "w-40")}
+                      suggestion={suggestItemName(
+                        row.item,
+                        itemNamesNewestFirst.filter((entry) => entry.rowId !== row.id).map((entry) => entry.name)
+                      )}
+                      onChange={(item) => update(row.id, { item })}
                     />
                   </td>
                   <td className="px-1 py-1">
@@ -631,6 +730,12 @@ export default function NewPurchasePage() {
             <Plus className="size-3.5" />
             Add row
           </Button>
+          <p className="text-[11px] text-muted-foreground">
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-sans text-[10px]">Ctrl</kbd>
+            {" + "}
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-sans text-[10px]">Enter</kbd>
+            {" "}(⌘ + Enter on a Mac) adds a row. On a new row, <b>Tab</b> accepts the suggested item name.
+          </p>
           <p className="text-[11px] text-muted-foreground">
             The same item name at a different cost rate becomes its own product with its own MRP and barcode.
             Sizes at the same cost stay together as one product.

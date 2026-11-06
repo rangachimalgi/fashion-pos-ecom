@@ -1,11 +1,28 @@
 import type { HangTag } from "@/lib/storeTag";
 
-export function chunkHangTagRows(tags: HangTag[]) {
-  const rows: Array<{ left: HangTag; right: HangTag | null }> = [];
-  for (let i = 0; i < tags.length; i += 2) {
-    rows.push({ left: tags[i], right: tags[i + 1] ?? null });
+/** A sticker position on the sheet: a tag, or null for a sticker that is left blank. */
+export type TagSlot = HangTag | null;
+
+export function chunkHangTagRows(slots: TagSlot[]) {
+  const rows: Array<{ left: TagSlot; right: TagSlot }> = [];
+  for (let i = 0; i < slots.length; i += 2) {
+    rows.push({ left: slots[i], right: slots[i + 1] ?? null });
   }
   return rows;
+}
+
+// Driver paper (USER) is 101.6 x 152.4 mm, two stickers per row.
+export const PAGE_HEIGHT_MM = 152; // a hair under 152.4 so a page never spills onto an extra sheet
+export const TAG_HEIGHT_MM = 24.6;
+
+/**
+ * How many sticker rows fit on one sheet. The last row needs no gap after it,
+ * so a sheet with 5 rows of stickers really holds 5 (not 4).
+ */
+export function rowsPerSheet(pitchMm: number, topMm: number) {
+  const pitch = Math.max(TAG_HEIGHT_MM + 0.5, pitchMm);
+  const room = PAGE_HEIGHT_MM - Math.max(0, topMm) - TAG_HEIGHT_MM;
+  return Math.max(1, Math.floor(room / pitch) + 1);
 }
 
 export function printHangTags() {

@@ -7,7 +7,7 @@ import { Printer, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 import { buildHangTag, type HangTag } from "@/lib/storeTag";
-import { chunkHangTagRows, printHangTags } from "@/lib/printHangTags";
+import { TAG_HEIGHT_MM, chunkHangTagRows, printHangTags, rowsPerSheet } from "@/lib/printHangTags";
 import { ProductHangTag } from "@/components/admin/ProductHangTag";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,21 +46,67 @@ function HangTagRows({
     <div className={className}>
       {rows.map((row, rowIndex) => (
         <div key={rowIndex} className="tag-print-row flex flex-nowrap gap-3">
-          <div className="tag-slot">
-            <ProductHangTag tag={row.left} />
-          </div>
-          <div className="tag-slot">
-            {row.right ? <ProductHangTag tag={row.right} /> : null}
-          </div>
+          {[row.left, row.right].map((slot, index) => (
+            <div key={index} className="tag-slot">
+              {slot ? (
+                <ProductHangTag tag={slot} />
+              ) : (
+                // A sticker you asked to leave blank (already used).
+                <div className="box-border h-[25mm] w-[45mm] rounded-sm border border-dashed border-border" />
+              )}
+            </div>
+          ))}
         </div>
       ))}
     </div>
   );
 }
 
-// Driver paper (USER) is 101.6 x 152.4 mm. Rows are stacked on it at the real sticker pitch.
-const PAGE_HEIGHT_MM = 152;
-const TAG_HEIGHT_MM = 24.6;
+// The alignment you tune for this printer is remembered in the browser (it used to reset on every reload).
+const ALIGN_STORAGE_KEY = "hangtag-alignment";
+const DEFAULT_ALIGN: Align = { pitch: 29, x: 0, y: 10.5 };
+const alignListeners = new Set<() => void>();
+let alignRaw: string | null | undefined;
+
+function readAlignRaw(): string | null {
+  if (alignRaw === undefined) {
+    try {
+      alignRaw = window.localStorage.getItem(ALIGN_STORAGE_KEY);
+    } catch {
+      alignRaw = null;
+    }
+  }
+  return alignRaw;
+}
+
+function subscribeAlign(listener: () => void) {
+  alignListeners.add(listener);
+  return () => {
+    alignListeners.delete(listener);
+  };
+}
+
+function saveAlign(next: Align) {
+  alignRaw = JSON.stringify(next);
+  try {
+    window.localStorage.setItem(ALIGN_STORAGE_KEY, alignRaw);
+  } catch {
+    /* storage blocked: the setting still applies until the page is closed */
+  }
+  alignListeners.forEach((listener) => listener());
+}
+
+function parseAlign(raw: string | null): Align {
+  try {
+    const saved = JSON.parse(raw ?? "null") as Partial<Align> | null;
+    if (saved && [saved.pitch, saved.x, saved.y].every((value) => typeof value === "number" && Number.isFinite(value))) {
+      return { pitch: saved.pitch!, x: saved.x!, y: saved.y! };
+    }
+  } catch {
+    /* fall through to the defaults */
+  }
+  return DEFAULT_ALIGN;
+}
 
 type Align = { pitch: number; x: number; y: number };
 
@@ -72,7 +118,7 @@ function HangTagPages({
   align: Align;
 }) {
   const pitch = Math.max(TAG_HEIGHT_MM + 0.5, align.pitch);
-  const perPage = Math.max(1, Math.floor((PAGE_HEIGHT_MM - align.y) / pitch));
+  const perPage = rowsPerSheet(align.pitch, align.y);
   const pages: Array<typeof rows> = [];
   for (let i = 0; i < rows.length; i += perPage) pages.push(rows.slice(i, i + perPage));
 
@@ -90,12 +136,8 @@ function HangTagPages({
               className="tag-print-row"
               style={{ marginBottom: `${pitch - TAG_HEIGHT_MM}mm` }}
             >
-              <div className="tag-slot">
-                <ProductHangTag tag={row.left} />
-              </div>
-              <div className="tag-slot">
-                {row.right ? <ProductHangTag tag={row.right} /> : null}
-              </div>
+              <div className="tag-slot">{row.left ? <ProductHangTag tag={row.left} /> : null}</div>
+              <div className="tag-slot">{row.right ? <ProductHangTag tag={row.right} /> : null}</div>
             </div>
           ))}
         </div>
@@ -106,7 +148,10 @@ function HangTagPages({
 
 function AdminTagsPageInner() {
   const searchParams = useSearchParams();
-  const [align, setAlign] = useState<Align>({ pitch: 29, x: 0, y: 10.5 });
+  const savedAlign = useSyncExternalStore(subscribeAlign, readAlignRaw, () => null);
+  const align = useMemo(() => parseAlign(savedAlign), [savedAlign]);
+  // Stickers already used at the top of a part-used sheet; printing starts after them.
+  const [skip, setSkip] = useState(0);
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -257,7 +302,12 @@ function AdminTagsPageInner() {
     printHangTags();
   };
 
-  const printRows = useMemo(() => chunkHangTagRows(previewTags), [previewTags]);
+  const stickersPerSheet = rowsPerSheet(align.pitch, align.y) * 2;
+  const skipped = Math.min(Math.max(0, skip), stickersPerSheet - 1);
+  const printRows = useMemo(
+    () => chunkHangTagRows([...Array<null>(skipped).fill(null), ...previewTags]),
+    [previewTags, skipped]
+  );
 
   return (
     <div className="px-4 py-6 md:px-6 print:m-0 print:p-0">
@@ -361,6 +411,29 @@ function AdminTagsPageInner() {
         </Table>
       </div>
 
+      <div className="no-print mb-3 flex flex-wrap items-end gap-4 rounded-xl border border-border bg-white p-3">
+        <label className="text-xs text-muted-foreground">
+          Stickers already used on this sheet
+          <Input
+            type="number"
+            min={0}
+            max={stickersPerSheet - 1}
+            step={1}
+            value={skip}
+            onChange={(event) => {
+              const value = Math.floor(event.target.valueAsNumber);
+              setSkip(Number.isFinite(value) ? Math.max(0, Math.min(stickersPerSheet - 1, value)) : 0);
+            }}
+            className="mt-1 h-8 w-24"
+          />
+        </label>
+        <p className="max-w-md text-xs text-muted-foreground">
+          Reusing a part-used sheet? Enter how many stickers are already used (reading left to right, top to
+          bottom) and printing starts on the next free one. Leave 0 for a fresh sheet.
+          {skipped > 0 ? ` Printing starts at sticker ${skipped + 1} of ${stickersPerSheet}.` : ""}
+        </p>
+      </div>
+
       <div className="no-print mb-6 flex flex-wrap items-end gap-4 rounded-xl border border-border bg-white p-3">
         <p className="w-full text-xs text-muted-foreground">
           Print alignment (mm) — only if tags land off the stickers. Row pitch = sticker height + gap.
@@ -378,12 +451,13 @@ function AdminTagsPageInner() {
               type="number"
               step={step}
               value={align[key]}
-              onChange={(event) =>
-                setAlign((current) => ({
-                  ...current,
+              onChange={(event) => {
+                const next = {
+                  ...align,
                   [key]: Number.isFinite(event.target.valueAsNumber) ? event.target.valueAsNumber : 0,
-                }))
-              }
+                };
+                saveAlign(next);
+              }}
               className="mt-1 h-8 w-24"
             />
           </label>
