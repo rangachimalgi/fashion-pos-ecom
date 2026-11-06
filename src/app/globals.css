@@ -157,18 +157,20 @@
     color: #000 !important;
   }
 
+  /* Receipt: an 80 mm roll only prints about 72 mm (the printer cannot print on the outer ~4 mm of each
+     edge), so the bill is 72 mm wide and centred on the page. At the full 80 mm the left edge was cut off. */
   .pos-print-root {
     position: static !important;
-    width: 80mm !important;
-    max-width: 80mm !important;
-    margin: 0 !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 auto !important;
   }
 
   html.print-receipt,
   html.print-receipt body {
     margin: 0 !important;
     padding: 0 !important;
-    width: 80mm !important;
+    width: 100% !important;
     min-height: 0 !important;
     height: auto !important;
   }
