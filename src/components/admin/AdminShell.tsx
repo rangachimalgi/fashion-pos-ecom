@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Barcode, CalendarCheck, CalendarDays, ChartColumn, ClipboardList, FileSpreadsheet, IdCard, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Trash2, Users } from "lucide-react";
+import { Barcode, CalendarCheck, CalendarDays, ChartColumn, ClipboardList, FileSpreadsheet, IdCard, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Target, Trash2, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +28,7 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith("/admin/orders")) return "Orders";
   if (pathname.startsWith("/admin/delete-requests")) return "Delete requests";
   if (pathname.startsWith("/admin/sales-team")) return "Sales team";
+  if (pathname.startsWith("/admin/targets")) return "Sales targets";
   if (pathname.startsWith("/admin/employees")) return "Employees";
   if (pathname.startsWith("/admin/attendance")) return "Attendance";
   if (pathname.startsWith("/admin/leave")) return "Leave requests";
@@ -171,6 +172,19 @@ function NavLinks({
       >
         <Users className="size-4" />
         Sales team
+      </Link>
+      <Link
+        href="/admin/targets"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+          pathname.startsWith("/admin/targets")
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <Target className="size-4" />
+        Sales targets
       </Link>
       <Link
         href="/admin/employees"

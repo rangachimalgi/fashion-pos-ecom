@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { AuthError, requireStaff } from "@/lib/serverAuth";
-import { checkEmployeeFields, checkPassword, employeeLoginEmail } from "@/lib/employeeValidation";
+import { SalesTeamError, retireSalesName, syncSalesTeam } from "@/lib/employeeSalesServer";
+import { checkEmployeeFields, checkPassword, checkSalesChoice, employeeLoginEmail } from "@/lib/employeeValidation";
 
-const COLUMNS = "id, user_id, name, phone, address, aadhaar, pan, active, created_at";
+const COLUMNS = "id, user_id, name, phone, address, aadhaar, pan, active, created_at, sales_person_id";
 /** About 100 years: Supabase's way of saying "cannot sign in". */
 const BANNED = "876000h";
 
@@ -23,6 +24,9 @@ export async function PATCH(request: Request, context: Context) {
     const fields = checkEmployeeFields(body);
     if (!fields.ok) return NextResponse.json({ error: fields.error }, { status: 400 });
 
+    const salesChoice = checkSalesChoice(body.sales_person_id);
+    if (!salesChoice.ok) return NextResponse.json({ error: salesChoice.error }, { status: 400 });
+
     const newPassword = typeof body.password === "string" && body.password !== "" ? body.password : null;
     if (newPassword) {
       const problem = checkPassword(newPassword);
@@ -41,22 +45,46 @@ export async function PATCH(request: Request, context: Context) {
     const { name, phone, address, aadhaar, pan } = fields.value;
     const active = body.active === false ? false : true;
 
+    // A request that does not mention the sales team leaves it as it is.
+    const sales = await syncSalesTeam(admin, {
+      choice: "sales_person_id" in body ? salesChoice.value : (before.sales_person_id ?? ""),
+      employeeName: name,
+      employeeActive: active,
+      employeeId: id,
+      currentSalesPersonId: (before.sales_person_id as string | null) ?? null,
+      currentEmployeeName: before.name as string,
+    });
+
     // Database first: it rejects a phone number that is already taken, before
     // anything about the login has changed.
     const { data: after, error: updateError } = await admin
       .from("employees")
-      .update({ name, phone, address, aadhaar, pan, active, updated_at: new Date().toISOString() })
+      .update({
+        name,
+        phone,
+        address,
+        aadhaar,
+        pan,
+        active,
+        sales_person_id: sales.salesPersonId,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", id)
       .select(COLUMNS)
       .single();
     if (updateError || !after) {
+      await sales.undo();
       if (updateError?.code === "23505") {
-        return NextResponse.json({ error: "Another employee already has this phone number." }, { status: 409 });
+        const message = /sales_person/.test(updateError.message)
+          ? "Another employee is already linked to that sales name."
+          : "Another employee already has this phone number.";
+        return NextResponse.json({ error: message }, { status: 409 });
       }
       throw updateError ?? new Error("Update failed");
     }
 
     const revert = async () => {
+      await sales.undo();
       await admin
         .from("employees")
         .update({
@@ -66,6 +94,7 @@ export async function PATCH(request: Request, context: Context) {
           aadhaar: before.aadhaar,
           pan: before.pan,
           active: before.active,
+          sales_person_id: before.sales_person_id,
         })
         .eq("id", id);
     };
@@ -123,7 +152,7 @@ export async function PATCH(request: Request, context: Context) {
 
     return NextResponse.json({ employee: after });
   } catch (err) {
-    if (err instanceof AuthError) {
+    if (err instanceof AuthError || err instanceof SalesTeamError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     console.error("[admin/employees PATCH] failed", err);
@@ -140,7 +169,7 @@ export async function DELETE(request: Request, context: Context) {
     const admin = getSupabaseAdmin();
     const { data: employee, error: readError } = await admin
       .from("employees")
-      .select("id, user_id")
+      .select("id, user_id, sales_person_id")
       .eq("id", id)
       .maybeSingle();
     if (readError) throw readError;
@@ -157,6 +186,9 @@ export async function DELETE(request: Request, context: Context) {
 
     const { error: deleteError } = await admin.from("employees").delete().eq("id", id);
     if (deleteError) throw deleteError;
+
+    // Their sales name goes too, unless it has bills (then it is only switched off).
+    if (employee.sales_person_id) await retireSalesName(admin, employee.sales_person_id as string);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

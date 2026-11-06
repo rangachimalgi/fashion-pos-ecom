@@ -13,6 +13,7 @@ import {
   type Employee,
   type EmployeeForm,
 } from "@/lib/employees";
+import { listSalesPeople, type SalesPerson } from "@/lib/salesPeople";
 import { checkEmployeeFields, checkPassword, maskAadhaar, MIN_PASSWORD_LENGTH } from "@/lib/employeeValidation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export default function EmployeesPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [salesPeople, setSalesPeople] = useState<SalesPerson[]>([]);
 
   const [target, setTarget] = useState<FormTarget>(null);
   const [form, setForm] = useState<EmployeeForm>(EMPTY_EMPLOYEE_FORM);
@@ -58,6 +60,13 @@ export default function EmployeesPage() {
     return () => {
       cancelled = true;
     };
+  }, [reloadKey]);
+
+  useEffect(() => {
+    // Only fills the "Sales name" list; the page works without it.
+    listSalesPeople(supabase)
+      .then(setSalesPeople)
+      .catch(() => setSalesPeople([]));
   }, [reloadKey]);
 
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
@@ -126,7 +135,11 @@ export default function EmployeesPage() {
   const handleDelete = async (employee: Employee) => {
     if (busy) return;
     const sure = window.confirm(
-      `Delete ${employee.name}?\n\nThis removes their login and ALL their attendance and leave records. It cannot be undone.\n\nTo stop someone signing in but keep their records, edit them and untick "Can sign in".`
+      `Delete ${employee.name}?\n\nThis removes their login and ALL their attendance and leave records. It cannot be undone.${
+        employee.sales_person_id
+          ? "\n\nThey are in the sales team: their sales name is removed too (or only switched off if it has bills)."
+          : ""
+      }\n\nTo stop someone signing in but keep their records, edit them and untick "Can sign in".`
     );
     if (!sure) return;
     setBusy(true);
@@ -231,6 +244,39 @@ export default function EmployeesPage() {
                 placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
               />
             </label>
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              Sales team
+              <select
+                value={form.sales_person_id}
+                onChange={(e) => setField("sales_person_id", e.target.value)}
+                className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground"
+              >
+                <option value="">Not in the sales team (helper, other staff)</option>
+                {editing?.sales_person_id ? (
+                  <option value={editing.sales_person_id}>
+                    In the sales team (
+                    {salesPeople.find((person) => person.id === editing.sales_person_id)?.name ?? "linked"})
+                  </option>
+                ) : (
+                  <option value="new">In the sales team (appears at the POS under their name)</option>
+                )}
+                {salesPeople
+                  .filter(
+                    (person) =>
+                      person.id !== editing?.sales_person_id &&
+                      !employees.some((other) => other.sales_person_id === person.id)
+                  )
+                  .map((person) => (
+                    <option key={person.id} value={person.id}>
+                      In the sales team, using the existing name “{person.name}”
+                    </option>
+                  ))}
+              </select>
+              <span>
+                Sales team members are picked as “Attended by” on POS bills and get targets and incentives. No
+                separate sales list to maintain.
+              </span>
+            </label>
             {target !== "new" ? (
               <label className="flex items-center gap-2 pt-5 text-sm">
                 <input
@@ -284,7 +330,18 @@ export default function EmployeesPage() {
             ) : (
               employees.map((employee) => (
                 <TableRow key={employee.id}>
-                  <TableCell className="font-medium whitespace-nowrap">{employee.name}</TableCell>
+                  <TableCell className="font-medium whitespace-nowrap">
+                    {employee.name}
+                    {employee.sales_person_id ? (
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        Sales team{" "}
+                        {(() => {
+                          const salesName = salesPeople.find((person) => person.id === employee.sales_person_id)?.name;
+                          return salesName && salesName.toLowerCase() !== employee.name.toLowerCase() ? `(${salesName})` : "";
+                        })()}
+                      </span>
+                    ) : null}
+                  </TableCell>
                   <TableCell className="whitespace-nowrap tabular-nums">{employee.phone}</TableCell>
                   <TableCell className="max-w-64 truncate" title={employee.address}>
                     {employee.address}

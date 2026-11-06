@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  addSalesPerson,
   deleteSalesPerson,
   listSalesPeople,
   renameSalesPerson,
@@ -45,11 +45,12 @@ export default function SalesTeamPage() {
   const [month, setMonth] = useState(currentMonthValue);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  /** sales name id -> the employee it belongs to. */
+  const [employeeBySales, setEmployeeBySales] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +75,19 @@ export default function SalesTeamPage() {
     };
   }, [range, month, reloadKey]);
 
+  useEffect(() => {
+    // Which names belong to an employee. If this fails the page still works.
+    supabase
+      .from("employees")
+      .select("name, sales_person_id")
+      .not("sales_person_id", "is", null)
+      .then(({ data }) => {
+        const map: Record<string, string> = {};
+        for (const row of data ?? []) map[String(row.sales_person_id)] = String(row.name);
+        setEmployeeBySales(map);
+      });
+  }, [reloadKey]);
+
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
   const run = async (action: () => Promise<void>) => {
@@ -88,18 +102,6 @@ export default function SalesTeamPage() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const handleAdd = (event: FormEvent) => {
-    event.preventDefault();
-    if (newName.trim().length < 2) {
-      setError("A name needs at least 2 characters.");
-      return;
-    }
-    run(async () => {
-      await addSalesPerson(supabase, newName);
-      setNewName("");
-    });
   };
 
   const sorted = useMemo(
@@ -210,7 +212,7 @@ export default function SalesTeamPage() {
               ) : sorted.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                    Add your salespeople below, then pick one on each bill at the POS.
+                    Add employees to the sales team, then pick one on each bill at the POS.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -262,26 +264,19 @@ export default function SalesTeamPage() {
       <section>
         <h2 className="text-lg font-semibold tracking-tight">Sales team</h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          These names appear in the “Attended by” list at the POS. Deactivate someone who has left:
-          their past bills stay, but they can’t be picked for new ones.
+          These names appear in the “Attended by” list at the POS. To add someone, create them under{" "}
+          <Link href="/admin/employees" className="font-medium text-foreground underline underline-offset-2">
+            Employees
+          </Link>{" "}
+          and choose “In the sales team”. Changes to an employee (name, sign-in off, delete) are applied here
+          automatically.
         </p>
-
-        <form onSubmit={handleAdd} className="mb-3 flex gap-2">
-          <Input
-            value={newName}
-            onChange={(event) => setNewName(event.target.value)}
-            placeholder="Add a salesperson, e.g. Ravi"
-            maxLength={60}
-            className="max-w-xs"
-          />
-          <Button type="submit" disabled={busy || newName.trim().length < 2}>
-            Add
-          </Button>
-        </form>
 
         <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-white">
           {people.length === 0 && !loading ? (
-            <p className="px-4 py-6 text-center text-sm text-muted-foreground">No salespeople yet.</p>
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+              No one is in the sales team yet. Open Employees, add or edit someone and choose “In the sales team”.
+            </p>
           ) : (
             people.map((person) => (
               <div key={person.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
@@ -318,6 +313,19 @@ export default function SalesTeamPage() {
                     <Badge variant={person.active ? "secondary" : "outline"}>
                       {person.active ? "Active" : "Inactive"}
                     </Badge>
+                    {employeeBySales[person.id] ? (
+                      <>
+                        <span className="text-xs text-muted-foreground">Employee</span>
+                        <Link
+                          href="/admin/employees"
+                          className="ml-auto text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                        >
+                          Manage under Employees
+                        </Link>
+                      </>
+                    ) : (
+                    <>
+                    <span className="text-xs text-muted-foreground">Not an employee</span>
                     <div className="ml-auto flex gap-1">
                       <Button
                         type="button"
@@ -354,6 +362,8 @@ export default function SalesTeamPage() {
                         Delete
                       </Button>
                     </div>
+                    </>
+                    )}
                   </>
                 )}
               </div>

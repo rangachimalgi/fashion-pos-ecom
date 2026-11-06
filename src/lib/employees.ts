@@ -11,6 +11,8 @@ export type Employee = {
   pan: string | null;
   active: boolean;
   created_at: string;
+  /** Sales name whose bills, target and incentive this employee sees. */
+  sales_person_id: string | null;
 };
 
 export type EmployeeForm = {
@@ -20,6 +22,8 @@ export type EmployeeForm = {
   aadhaar: string;
   pan: string;
   active: boolean;
+  /** "" = not linked. */
+  sales_person_id: string;
   /** Required when creating; when editing, empty means "keep the password". */
   password: string;
 };
@@ -31,6 +35,7 @@ export const EMPTY_EMPLOYEE_FORM: EmployeeForm = {
   aadhaar: "",
   pan: "",
   active: true,
+  sales_person_id: "",
   password: "",
 };
 
@@ -42,11 +47,15 @@ export function formFromEmployee(employee: Employee): EmployeeForm {
     aadhaar: employee.aadhaar ?? "",
     pan: employee.pan ?? "",
     active: employee.active,
+    sales_person_id: employee.sales_person_id ?? "",
     password: "",
   };
 }
 
 function friendlyRead(error: { code?: string; message: string }): Error {
+  if (error.code === "42703") {
+    return new Error("Run supabase/migrations/027_incentives_employee_target.sql in the SQL Editor.");
+  }
   if (error.code === "42P01" || error.code === "PGRST205") {
     return new Error("Employees are not set up yet. Run supabase/migrations/024 and 025 in the SQL Editor.");
   }
@@ -57,7 +66,7 @@ function friendlyRead(error: { code?: string; message: string }): Error {
 export async function listEmployees(supabase: SupabaseClient): Promise<Employee[]> {
   const { data, error } = await supabase
     .from("employees")
-    .select("id, user_id, name, phone, address, aadhaar, pan, active, created_at")
+    .select("id, user_id, name, phone, address, aadhaar, pan, active, created_at, sales_person_id")
     .order("name", { ascending: true });
   if (error) throw friendlyRead(error);
   return (data ?? []) as Employee[];

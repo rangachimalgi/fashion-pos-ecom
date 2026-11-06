@@ -25,6 +25,7 @@ import { monthStart, periodLabel, todayInShop } from "@/lib/salesReport";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MyTargetCard } from "@/components/employee/MyTargetCard";
 
 type Loaded = {
   employee: MyEmployee;
@@ -210,6 +211,8 @@ export default function EmployeePage() {
             </Button>
           </div>
         </section>
+
+        <MyTargetCard />
 
         <section className="rounded-xl border border-border bg-white p-4">
           <h2 className="mb-2 text-sm font-semibold">This month</h2>

@@ -98,6 +98,23 @@ export function checkEmployeeFields(raw: RawFields): EmployeeCheck {
   };
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Sales-team choice from the form: "" = not in the sales team, "new" = in the
+ * team under their own name, or the id of an existing sales name to use.
+ */
+export function checkSalesChoice(
+  value: unknown
+): { ok: true; value: "" | "new" | string } | { ok: false; error: string } {
+  if (value === undefined || value === null || value === "") return { ok: true, value: "" };
+  if (value === "new") return { ok: true, value: "new" };
+  if (typeof value !== "string" || !UUID.test(value)) {
+    return { ok: false, error: "Pick the sales team option from the list." };
+  }
+  return { ok: true, value: value.toLowerCase() };
+}
+
 /** null = fine. */
 export function checkPassword(value: unknown): string | null {
   const password = typeof value === "string" ? value : "";
