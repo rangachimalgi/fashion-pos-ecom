@@ -106,7 +106,7 @@ function NavLinks({
               <Icon className="size-4" />
               {rail && count > 0 ? (
                 // Closed sidebar: a dot instead of the number.
-                <span className="absolute -top-1 -right-1 size-2 rounded-full bg-amber-500 ring-2 ring-white group-hover/sidebar:hidden group-has-[:focus-visible]/sidebar:hidden" />
+                <span className="absolute -top-1 -right-1 size-2 rounded-full bg-amber-500 ring-2 ring-white group-hover/sidebar:hidden group-has-focus-visible/sidebar:hidden" />
               ) : null}
             </span>
             <span className={cn("truncate whitespace-nowrap", rail && RAIL_TEXT)}>{item.label}</span>
@@ -150,7 +150,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-[#fafafa] text-foreground print:block print:min-h-0 print:bg-white">
       {/* Keeps the page content clear of the icon strip. The sidebar itself floats above the page when opened. */}
       <div className="hidden w-14 shrink-0 md:block print:hidden" aria-hidden />
-      <aside className="group/sidebar fixed inset-y-0 left-0 z-30 hidden w-14 flex-col overflow-hidden border-r border-border/80 bg-white transition-[width,box-shadow] duration-200 ease-out hover:w-56 hover:shadow-xl has-[:focus-visible]:w-56 has-[:focus-visible]:shadow-xl md:flex print:hidden">
+      <aside className="group/sidebar fixed inset-y-0 left-0 z-30 hidden w-14 flex-col overflow-hidden border-r border-border/80 bg-white transition-[width,box-shadow] duration-200 ease-out hover:w-56 hover:shadow-xl has-focus-visible:w-56 has-focus-visible:shadow-xl md:flex print:hidden">
         <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border/80 px-3">
           <Link href="/admin" className="flex min-w-0 items-center gap-2" title="Eshwari Vastra">
             <Image
