@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy, Plus, X } from "lucide-react";
+import { Copy, Plus, RotateCcw, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { STORE_DEPARTMENTS } from "@/lib/categories";
 import { categoriesForDepartment, useStoreCategories } from "@/lib/storeCategories";
@@ -105,7 +105,34 @@ function problemsFor(row: Row) {
   return list;
 }
 
-const cell = "h-8 px-1.5 text-sm";
+// One look for every box in the items table: same height, padding and text size.
+const FIELD =
+  "h-9 w-full rounded-md border-input bg-white px-2 text-[13px] shadow-none placeholder:text-muted-foreground/60";
+const NUMBER_FIELD =
+  "text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+const SELECT_FIELD =
+  "h-9 w-full rounded-md border border-input bg-white px-1.5 text-[13px] text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+
+/** Column widths (px) of the items table, in order. */
+const COLUMNS = [40, 180, 110, 160, 100, 90, 72, 64, 96, 68, 68, 88, 108, 92, 80, 112, 68];
+const TABLE_WIDTH = COLUMNS.reduce((sum, width) => sum + width, 0);
+
+function Field({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
+  return (
+    <label className={cn("flex flex-col gap-1.5", className)}>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
+  return (
+    <th className={cn("px-2 py-2.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase", className)}>
+      {children}
+    </th>
+  );
+}
 
 /**
  * What to offer in an item-name box: names already typed on other rows of this
@@ -133,14 +160,11 @@ function ItemNameInput({
 }) {
   const showing = suggestion !== "" && suggestion.toLowerCase().startsWith(value.toLowerCase()) && suggestion !== value;
   return (
-    <div className="relative w-40">
+    <div className="relative w-full">
       {showing ? (
         <div
           aria-hidden
-          className={cn(
-            cell,
-            "pointer-events-none absolute inset-0 flex items-center overflow-hidden border border-transparent whitespace-pre"
-          )}
+          className="pointer-events-none absolute inset-0 flex h-9 items-center overflow-hidden border border-transparent px-2 text-[13px] whitespace-pre"
         >
           <span className="invisible">{value}</span>
           <span className="text-muted-foreground/60">{suggestion.slice(value.length)}</span>
@@ -158,7 +182,7 @@ function ItemNameInput({
         }}
         placeholder={showing ? "" : "e.g. TSHIRT"}
         autoComplete="off"
-        className={cn(cell, "relative w-full")}
+        className={cn(FIELD, "relative")}
         title={showing ? "Press Tab to use the suggestion" : undefined}
       />
     </div>
@@ -386,12 +410,26 @@ export default function NewPurchasePage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-6 md:px-6">
+    <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-5 px-4 pt-6 pb-0 md:px-6">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">New purchase</h2>
+        <p className="text-sm text-muted-foreground">
+          Enter the supplier&apos;s bill. Stock, cost and barcodes are created when you save, and the entry number is
+          assigned then.
+        </p>
+      </div>
+
+      {error ? (
+        <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm whitespace-pre-wrap text-destructive">
+          {error}
+        </p>
+      ) : null}
+
       {/* ---------- Supplier and invoice ---------- */}
-      <section className="rounded-xl border border-border bg-white p-4">
-        <div className="grid gap-3 md:grid-cols-4">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground md:col-span-2">
-            Supplier
+      <section className="rounded-xl border border-border bg-white p-5 shadow-xs">
+        <h3 className="mb-4 text-sm font-semibold">Supplier &amp; invoice</h3>
+        <div className="grid gap-4 md:grid-cols-12">
+          <Field label="Supplier" className="md:col-span-5">
             <Input
               list="supplier-list"
               value={supplierInput}
@@ -404,365 +442,375 @@ export default function NewPurchasePage() {
                 <option key={supplier.id} value={supplier.name} />
               ))}
             </datalist>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Supplier invoice no.
+          </Field>
+          <Field label="Supplier invoice no." className="md:col-span-3">
             <Input value={invoiceNo} onChange={(event) => setInvoiceNo(event.target.value)} className="h-9" />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Supplier invoice date
+          </Field>
+          <Field label="Supplier invoice date" className="md:col-span-2">
             <Input
               type="date"
               value={invoiceDate}
               onChange={(event) => setInvoiceDate(event.target.value)}
               className="h-9"
             />
-          </label>
+          </Field>
+          <Field label="Entry date" className="md:col-span-2">
+            <Input type="date" value={entryDate} onChange={(event) => setEntryDate(event.target.value)} className="h-9" />
+          </Field>
+        </div>
 
-          {matched ? (
-            <p className="text-xs text-muted-foreground md:col-span-2">
-              {[matched.address, matched.phone, matched.gstin].filter(Boolean).join(" · ") ||
-                "No address saved for this supplier."}
+        {matched ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            {[matched.address, matched.phone, matched.gstin].filter(Boolean).join(" · ") ||
+              "No address saved for this supplier."}
+          </p>
+        ) : isNewSupplier ? (
+          <div className="mt-4 rounded-lg bg-muted/40 p-3">
+            <p className="mb-2 text-xs text-muted-foreground">
+              New supplier. It will be saved with this purchase. These details are optional.
             </p>
-          ) : isNewSupplier ? (
-            <div className="grid gap-2 md:col-span-2 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-3">
               <Input
                 value={newAddress}
                 onChange={(event) => setNewAddress(event.target.value)}
-                placeholder="Address (optional)"
-                className="h-8"
+                placeholder="Address"
+                className="h-9 bg-white"
               />
               <Input
                 value={newPhone}
                 onChange={(event) => setNewPhone(event.target.value)}
-                placeholder="Phone (optional)"
-                className="h-8"
+                placeholder="Phone"
+                className="h-9 bg-white"
               />
               <Input
                 value={newGstin}
                 onChange={(event) => setNewGstin(event.target.value)}
-                placeholder="GSTIN (optional)"
-                className="h-8"
+                placeholder="GSTIN"
+                className="h-9 bg-white"
               />
-              <p className="text-[11px] text-muted-foreground md:col-span-3">
-                New supplier — it will be saved with this purchase.
-              </p>
             </div>
-          ) : (
-            <span className="md:col-span-2" />
-          )}
-
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Entry date
-            <Input type="date" value={entryDate} onChange={(event) => setEntryDate(event.target.value)} className="h-9" />
-          </label>
-          <p className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Entry no.
-            <span className="flex h-9 items-center text-sm text-foreground">Assigned when you save</span>
-          </p>
-        </div>
+          </div>
+        ) : null}
       </section>
-
-      {/* ---------- Apply to all ---------- */}
-      <section className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-white px-4 py-3">
-        <p className="mr-2 text-sm font-medium">Set for every row</p>
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          Supplier disc %
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            value={applyDisc}
-            onChange={(event) => setApplyDisc(event.target.value)}
-            className="h-8 w-24"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          GST %
-          <select
-            value={applyGst}
-            onChange={(event) => setApplyGst(event.target.value)}
-            className="h-8 w-24 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground"
-          >
-            {GST_PRESETS.map((gst) => (
-              <option key={gst} value={String(gst)}>
-                {gst}%
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          Profit % on cost
-          <select
-            value={applyMarkup}
-            onChange={(event) => setApplyMarkup(event.target.value)}
-            className="h-8 w-24 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground"
-          >
-            {MARKUP_PRESETS.map((markup) => (
-              <option key={markup} value={String(markup)}>
-                {markup}%
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button type="button" size="sm" variant="outline" onClick={applyToAll}>
-          Apply to all rows
-        </Button>
-        <p className="ml-auto max-w-sm text-[11px] text-muted-foreground">
-          MRP = cost after discount + GST, plus the profit %, rounded up to the next ₹{MRP_ROUND_STEP}. You can
-          type any MRP on a row.
-        </p>
-      </section>
-
-      {error ? (
-        <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm whitespace-pre-wrap text-destructive">
-          {error}
-        </p>
-      ) : null}
 
       {/* ---------- Items ---------- */}
-      <section className="overflow-x-auto rounded-xl border border-border bg-white">
-        <table className="w-full min-w-[1320px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/40 text-[11px] tracking-wide text-muted-foreground uppercase">
-              <th className="px-2 py-2">#</th>
-              <th className="px-1 py-2">Item name</th>
-              <th className="px-1 py-2">Brand</th>
-              <th className="px-1 py-2">Category</th>
-              <th className="px-1 py-2">Design</th>
-              <th className="px-1 py-2">Colour</th>
-              <th className="px-1 py-2">Size</th>
-              <th className="px-1 py-2">Qty</th>
-              <th className="px-1 py-2">Cost rate</th>
-              <th className="px-1 py-2">Disc %</th>
-              <th className="px-1 py-2">GST %</th>
-              <th className="px-1 py-2">HSN</th>
-              <th className="px-2 py-2 text-right">Value</th>
-              <th className="px-1 py-2">Profit %</th>
-              <th className="px-1 py-2">MRP</th>
-              <th className="px-1 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => {
-              const c = compute(row);
-              const list = !isBlank(row) ? problemsFor(row) : [];
-              const flagged = showProblems && list.length > 0;
-              const manualMrp = row.mrp !== null && c.auto > 0 && c.mrp !== c.auto;
-              return (
-                <tr key={row.id} className={cn("border-b border-border/60", flagged && "bg-destructive/5")}>
-                  <td className="px-2 py-1 text-xs text-muted-foreground">{index + 1}</td>
-                  <td className="px-1 py-1">
-                    <ItemNameInput
-                      rowId={row.id}
-                      value={row.item}
-                      suggestion={suggestItemName(
-                        row.item,
-                        itemNamesNewestFirst.filter((entry) => entry.rowId !== row.id).map((entry) => entry.name)
-                      )}
-                      onChange={(item) => update(row.id, { item })}
-                    />
-                  </td>
-                  <td className="px-1 py-1">
-                    <Input
-                      value={row.brand}
-                      onChange={(event) => update(row.id, { brand: event.target.value })}
-                      placeholder="optional"
-                      className={cn(cell, "w-24")}
-                    />
-                  </td>
-                  <td className="px-1 py-1">
-                    <select
-                      value={row.cat}
-                      onChange={(event) => update(row.id, { cat: event.target.value })}
-                      className={cn(cell, "w-36 rounded-lg border border-input bg-transparent")}
+      <section className="overflow-hidden rounded-xl border border-border bg-white shadow-xs">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-border px-5 py-3.5">
+          <div>
+            <h3 className="text-sm font-semibold">Items</h3>
+            <p className="text-xs text-muted-foreground">
+              {filled.length} {filled.length === 1 ? "row" : "rows"} filled
+            </p>
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="text-xs font-medium text-muted-foreground">Set for every row</span>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              Disc %
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={applyDisc}
+                onChange={(event) => setApplyDisc(event.target.value)}
+                className={cn(FIELD, NUMBER_FIELD, "w-20")}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              GST %
+              <select
+                value={applyGst}
+                onChange={(event) => setApplyGst(event.target.value)}
+                className={cn(SELECT_FIELD, "w-20")}
+              >
+                {GST_PRESETS.map((gst) => (
+                  <option key={gst} value={String(gst)}>
+                    {gst}%
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              Profit %
+              <select
+                value={applyMarkup}
+                onChange={(event) => setApplyMarkup(event.target.value)}
+                className={cn(SELECT_FIELD, "w-20")}
+              >
+                {MARKUP_PRESETS.map((markup) => (
+                  <option key={markup} value={String(markup)}>
+                    {markup}%
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button type="button" size="sm" variant="outline" onClick={applyToAll}>
+              Apply to all rows
+            </Button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="table-fixed border-collapse text-left text-[13px]" style={{ width: TABLE_WIDTH }}>
+            <colgroup>
+              {COLUMNS.map((width, index) => (
+                <col key={index} style={{ width }} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr className="border-b border-border bg-neutral-50">
+                <Th className="sticky left-0 z-10 bg-neutral-50 text-center">#</Th>
+                <Th className="sticky left-[40px] z-10 bg-neutral-50 shadow-[1px_0_0_var(--border)]">Item name</Th>
+                <Th>Brand</Th>
+                <Th>Category</Th>
+                <Th>Design</Th>
+                <Th>Colour</Th>
+                <Th>Size</Th>
+                <Th className="text-right">Qty</Th>
+                <Th className="text-right">Cost rate</Th>
+                <Th className="text-right">Disc %</Th>
+                <Th className="text-right">GST %</Th>
+                <Th>HSN</Th>
+                <Th className="text-right">Value</Th>
+                <Th className="text-right">Cost / pc</Th>
+                <Th>Profit %</Th>
+                <Th className="text-right">MRP</Th>
+                <Th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => {
+                const c = compute(row);
+                const list = !isBlank(row) ? problemsFor(row) : [];
+                const flagged = showProblems && list.length > 0;
+                const manualMrp = row.mrp !== null && c.auto > 0 && c.mrp !== c.auto;
+                const rowBg = flagged ? "bg-red-50" : "bg-white";
+                return (
+                  <tr key={row.id} className={cn("border-b border-border/70 align-middle", rowBg)}>
+                    <td
+                      className={cn("sticky left-0 z-10 px-2 py-1.5 text-center text-xs text-muted-foreground", rowBg)}
+                      title={flagged ? list.join("; ") : undefined}
                     >
-                      <option value="">Choose…</option>
-                      {categoryOptions.map((group) => (
-                        <optgroup key={group.department} label={group.department}>
-                          {group.items.map((category) => (
-                            <option key={category.id} value={`${group.department}|${category.id}`}>
-                              {category.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-1 py-1">
-                    <Input
-                      value={row.design}
-                      onChange={(event) => update(row.id, { design: event.target.value })}
-                      placeholder="auto"
-                      className={cn(cell, "w-24")}
-                    />
-                  </td>
-                  <td className="px-1 py-1">
-                    <Input
-                      value={row.color}
-                      onChange={(event) => update(row.id, { color: event.target.value })}
-                      className={cn(cell, "w-20")}
-                    />
-                  </td>
-                  <td className="px-1 py-1">
-                    <Input
-                      value={row.size}
-                      onChange={(event) => update(row.id, { size: event.target.value })}
-                      placeholder="OS"
-                      className={cn(cell, "w-16")}
-                    />
-                  </td>
-                  <td className="px-1 py-1">
-                    <Input
-                      type="number"
-                      min={1}
-                      value={row.qty}
-                      onChange={(event) => update(row.id, { qty: event.target.value })}
-                      className={cn(cell, "w-16")}
-                    />
-                  </td>
-                  <td className="px-1 py-1">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={row.rate}
-                      onChange={(event) => update(row.id, { rate: event.target.value }, true)}
-                      className={cn(cell, "w-24")}
-                    />
-                  </td>
-                  <td className="px-1 py-1">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="0.01"
-                      value={row.disc}
-                      onChange={(event) => update(row.id, { disc: event.target.value }, true)}
-                      className={cn(cell, "w-16")}
-                    />
-                  </td>
-                  <td className="px-1 py-1">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={40}
-                      step="0.01"
-                      value={row.gst}
-                      onChange={(event) => update(row.id, { gst: event.target.value }, true)}
-                      className={cn(cell, "w-16")}
-                    />
-                  </td>
-                  <td className="px-1 py-1">
-                    <Input
-                      value={row.hsn}
-                      onChange={(event) => update(row.id, { hsn: event.target.value })}
-                      className={cn(cell, "w-20")}
-                    />
-                  </td>
-                  <td className="px-2 py-1 text-right tabular-nums">
-                    {c.value > 0 ? money(c.value) : "—"}
-                    {c.cost > 0 ? (
-                      <span className="block text-[10px] text-muted-foreground">cost/pc {money(c.cost)}</span>
-                    ) : null}
-                  </td>
-                  <td className="px-1 py-1">
-                    <select
-                      value={row.markup}
-                      onChange={(event) => update(row.id, { markup: event.target.value }, true)}
-                      className={cn(cell, "w-20 rounded-lg border border-input bg-transparent")}
-                    >
-                      <option value="">—</option>
-                      {MARKUP_PRESETS.map((markup) => (
-                        <option key={markup} value={String(markup)}>
-                          {markup}%
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-1 py-1">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={row.mrp !== null ? row.mrp : c.auto > 0 ? String(c.auto) : ""}
-                      onChange={(event) => update(row.id, { mrp: event.target.value })}
-                      className={cn(cell, "w-24 font-semibold", manualMrp && "border-amber-400")}
-                    />
-                    {manualMrp ? (
-                      <button
-                        type="button"
-                        onClick={() => update(row.id, { mrp: null })}
-                        className="block text-[10px] text-amber-700 hover:underline"
-                        title={`Back to ${c.auto}`}
+                      {flagged ? <span className="font-semibold text-destructive">!</span> : index + 1}
+                    </td>
+                    <td className={cn("sticky left-[40px] z-10 px-2 py-1.5 shadow-[1px_0_0_var(--border)]", rowBg)}>
+                      <ItemNameInput
+                        rowId={row.id}
+                        value={row.item}
+                        suggestion={suggestItemName(
+                          row.item,
+                          itemNamesNewestFirst.filter((entry) => entry.rowId !== row.id).map((entry) => entry.name)
+                        )}
+                        onChange={(item) => update(row.id, { item })}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        value={row.brand}
+                        onChange={(event) => update(row.id, { brand: event.target.value })}
+                        placeholder="optional"
+                        className={FIELD}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <select
+                        value={row.cat}
+                        onChange={(event) => update(row.id, { cat: event.target.value })}
+                        className={SELECT_FIELD}
                       >
-                        typed · reset to {c.auto}
-                      </button>
-                    ) : null}
-                  </td>
-                  <td className="px-1 py-1">
-                    <div className="flex gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => cloneRow(row)}
-                        title="Duplicate this row"
-                        className="rounded p-1.5 text-muted-foreground hover:bg-muted"
+                        <option value="">Choose…</option>
+                        {categoryOptions.map((group) => (
+                          <optgroup key={group.department} label={group.department}>
+                            {group.items.map((category) => (
+                              <option key={category.id} value={`${group.department}|${category.id}`}>
+                                {category.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        value={row.design}
+                        onChange={(event) => update(row.id, { design: event.target.value })}
+                        placeholder="auto"
+                        className={FIELD}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        value={row.color}
+                        onChange={(event) => update(row.id, { color: event.target.value })}
+                        className={FIELD}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        value={row.size}
+                        onChange={(event) => update(row.id, { size: event.target.value })}
+                        placeholder="OS"
+                        className={FIELD}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={row.qty}
+                        onChange={(event) => update(row.id, { qty: event.target.value })}
+                        className={cn(FIELD, NUMBER_FIELD)}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={row.rate}
+                        onChange={(event) => update(row.id, { rate: event.target.value }, true)}
+                        className={cn(FIELD, NUMBER_FIELD)}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.01"
+                        value={row.disc}
+                        onChange={(event) => update(row.id, { disc: event.target.value }, true)}
+                        className={cn(FIELD, NUMBER_FIELD)}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={40}
+                        step="0.01"
+                        value={row.gst}
+                        onChange={(event) => update(row.id, { gst: event.target.value }, true)}
+                        className={cn(FIELD, NUMBER_FIELD)}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <Input
+                        value={row.hsn}
+                        onChange={(event) => update(row.id, { hsn: event.target.value })}
+                        className={FIELD}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-medium tabular-nums">
+                      {c.value > 0 ? money(c.value) : <span className="text-muted-foreground/60">—</span>}
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-muted-foreground tabular-nums">
+                      {c.cost > 0 ? money(c.cost) : <span className="text-muted-foreground/60">—</span>}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <select
+                        value={row.markup}
+                        onChange={(event) => update(row.id, { markup: event.target.value }, true)}
+                        className={SELECT_FIELD}
                       >
-                        <Copy className="size-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeRow(row.id)}
-                        title="Remove this row"
-                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive"
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        <div className="flex items-center gap-3 border-t border-border px-3 py-2">
+                        <option value="">—</option>
+                        {MARKUP_PRESETS.map((markup) => (
+                          <option key={markup} value={String(markup)}>
+                            {markup}%
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={row.mrp !== null ? row.mrp : c.auto > 0 ? String(c.auto) : ""}
+                          onChange={(event) => update(row.id, { mrp: event.target.value })}
+                          className={cn(FIELD, NUMBER_FIELD, "font-semibold", manualMrp && "border-amber-400 pr-7")}
+                        />
+                        {manualMrp ? (
+                          <button
+                            type="button"
+                            onClick={() => update(row.id, { mrp: null })}
+                            className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 text-amber-700 hover:bg-amber-100"
+                            title={`You typed this MRP. Click to go back to ${c.auto}`}
+                          >
+                            <RotateCcw className="size-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <div className="flex justify-end gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => cloneRow(row)}
+                          title="Duplicate this row"
+                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        >
+                          <Copy className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeRow(row.id)}
+                          title="Remove this row"
+                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-destructive"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border bg-muted/20 px-5 py-3">
           <Button type="button" size="sm" variant="outline" onClick={addRow} className="gap-1.5">
             <Plus className="size-3.5" />
             Add row
           </Button>
-          <p className="text-[11px] text-muted-foreground">
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-sans text-[10px]">Ctrl</kbd>
+          <span className="text-xs text-muted-foreground">
+            <kbd className="rounded border border-border bg-white px-1.5 py-0.5 font-sans text-[10px]">Ctrl</kbd>
             {" + "}
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-sans text-[10px]">Enter</kbd>
-            {" "}(⌘ + Enter on a Mac) adds a row. On a new row, <b>Tab</b> accepts the suggested item name.
+            <kbd className="rounded border border-border bg-white px-1.5 py-0.5 font-sans text-[10px]">Enter</kbd>
+            {" "}(⌘ + Enter on a Mac) adds a row. On a new row, <b className="font-medium">Tab</b> accepts the
+            suggested item name.
+          </span>
+        </div>
+        <div className="space-y-1 border-t border-border px-5 py-3 text-xs text-muted-foreground">
+          <p>
+            MRP = cost after discount + GST, plus the profit %, rounded up to the next ₹{MRP_ROUND_STEP}. You can type
+            any MRP on a row.
           </p>
-          <p className="text-[11px] text-muted-foreground">
-            The same item name at a different cost rate becomes its own product with its own MRP and barcode.
-            Sizes at the same cost stay together as one product.
+          <p>
+            The same item name at a different cost rate becomes its own product with its own MRP and barcode. Sizes at
+            the same cost stay together as one product.
           </p>
         </div>
       </section>
 
       {/* ---------- Totals ---------- */}
-      <section className="grid gap-4 rounded-xl border border-border bg-white p-4 md:grid-cols-2">
-        <div className="space-y-3">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Notes (optional)
+      <section className="grid gap-6 rounded-xl border border-border bg-white p-5 shadow-xs md:grid-cols-2">
+        <div className="space-y-4">
+          <Field label="Notes (optional)">
             <Input value={notes} onChange={(event) => setNotes(event.target.value)} className="h-9" />
-          </label>
-          <div className="flex flex-wrap gap-3">
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              Total on the supplier&apos;s bill (to check)
+          </Field>
+          <div className="flex flex-wrap gap-4">
+            <Field label="Total on the supplier's bill (to check)">
               <Input
                 type="number"
                 step="0.01"
                 value={declared}
                 onChange={(event) => setDeclared(event.target.value)}
-                className="h-9 w-48"
+                className="h-9 w-52"
               />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              Round off
+            </Field>
+            <Field label="Round off">
               <Input
                 type="number"
                 step="0.01"
@@ -770,7 +818,7 @@ export default function NewPurchasePage() {
                 onChange={(event) => setRoundOff(event.target.value)}
                 className="h-9 w-28"
               />
-            </label>
+            </Field>
           </div>
           {declaredValue != null && Math.abs(diff) > 0.005 ? (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -798,7 +846,7 @@ export default function NewPurchasePage() {
           ) : null}
         </div>
 
-        <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 text-sm tabular-nums">
+        <dl className="grid h-fit grid-cols-[1fr_auto] gap-x-8 gap-y-2 rounded-lg bg-muted/40 p-4 text-sm tabular-nums">
           <dt className="text-muted-foreground">Pieces</dt>
           <dd className="text-right">{totals.pieces}</dd>
           <dt className="text-muted-foreground">Value (qty × rate)</dt>
@@ -813,20 +861,28 @@ export default function NewPurchasePage() {
           <dd className="text-right">{money(totals.sgst)}</dd>
           <dt className="text-muted-foreground">Round off</dt>
           <dd className="text-right">{money(totals.roundOff)}</dd>
-          <dt className="border-t border-border pt-1.5 font-semibold">Net invoice</dt>
-          <dd className="border-t border-border pt-1.5 text-right text-lg font-bold">
+          <dt className="border-t border-border pt-2.5 font-semibold">Net invoice</dt>
+          <dd className="border-t border-border pt-2.5 text-right text-xl font-semibold">
             ₹{money(totals.netInvoice)}
           </dd>
         </dl>
       </section>
 
-      <div className="flex items-center justify-end gap-2">
-        <Link href="/admin/purchases" className={buttonVariants({ variant: "ghost" })}>
-          Cancel
-        </Link>
-        <Button type="button" onClick={handleSave} disabled={saving} className="min-w-40">
-          {saving ? "Saving…" : "Save purchase & add stock"}
-        </Button>
+      {/* Always in reach: the running total and the save button. */}
+      <div className="sticky bottom-0 z-20 -mx-4 mt-1 flex items-center gap-4 border-t border-border bg-white/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+        <div className="text-sm">
+          <span className="text-muted-foreground">Net invoice </span>
+          <span className="text-base font-semibold tabular-nums">₹{money(totals.netInvoice)}</span>
+          <span className="ml-3 text-muted-foreground tabular-nums">{totals.pieces} pcs</span>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Link href="/admin/purchases" className={buttonVariants({ variant: "ghost" })}>
+            Cancel
+          </Link>
+          <Button type="button" onClick={handleSave} disabled={saving} className="min-w-44">
+            {saving ? "Saving…" : "Save purchase & add stock"}
+          </Button>
+        </div>
       </div>
     </div>
   );
