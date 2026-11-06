@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import type { LucideIcon } from "lucide-react";
 import { Barcode, CalendarCheck, CalendarDays, ChartColumn, ClipboardList, FileSpreadsheet, IdCard, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Target, Trash2, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
@@ -45,209 +46,109 @@ function pageTitle(pathname: string) {
   return "Catalog";
 }
 
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  active: (pathname: string) => boolean;
+  badge?: "deletes" | "leaves";
+};
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    href: "/admin",
+    label: "Catalog",
+    icon: LayoutGrid,
+    active: (p) => p === "/admin" || p.startsWith("/admin/products"),
+  },
+  { href: "/admin/orders", label: "Orders", icon: Receipt, active: (p) => p.startsWith("/admin/orders") },
+  { href: "/admin/purchases", label: "Purchases", icon: ClipboardList, active: (p) => p.startsWith("/admin/purchases") },
+  { href: "/admin/categories", label: "Categories", icon: Tags, active: (p) => p.startsWith("/admin/categories") },
+  { href: "/admin/import", label: "Import", icon: FileSpreadsheet, active: (p) => p.startsWith("/admin/import") },
+  { href: "/admin/tags", label: "Hang tags", icon: Barcode, active: (p) => p.startsWith("/admin/tags") },
+  { href: "/admin/reports", label: "Reports", icon: ChartColumn, active: (p) => p.startsWith("/admin/reports") },
+  { href: "/admin/sales-team", label: "Sales team", icon: Users, active: (p) => p.startsWith("/admin/sales-team") },
+  { href: "/admin/targets", label: "Sales targets", icon: Target, active: (p) => p.startsWith("/admin/targets") },
+  { href: "/admin/employees", label: "Employees", icon: IdCard, active: (p) => p.startsWith("/admin/employees") },
+  { href: "/admin/attendance", label: "Attendance", icon: CalendarCheck, active: (p) => p.startsWith("/admin/attendance") },
+  {
+    href: "/admin/leave",
+    label: "Leave requests",
+    icon: CalendarDays,
+    active: (p) => p.startsWith("/admin/leave"),
+    badge: "leaves",
+  },
+  {
+    href: "/admin/delete-requests",
+    label: "Delete requests",
+    icon: Trash2,
+    active: (p) => p.startsWith("/admin/delete-requests"),
+    badge: "deletes",
+  },
+];
+
+/**
+ * Text that is only shown while the desktop sidebar is open (hovered, or
+ * reached with the keyboard; a mouse click must not keep it open). In the phone menu `rail` is false and text is always shown.
+ */
+const RAIL_TEXT =
+  "opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 group-has-[:focus-visible]/sidebar:opacity-100";
+
 function NavLinks({
   pathname,
   onNavigate,
   pendingDeletes = 0,
   pendingLeaves = 0,
+  rail = false,
 }: {
   pathname: string;
   onNavigate?: () => void;
   pendingDeletes?: number;
   pendingLeaves?: number;
+  /** Desktop sidebar: icons only until the sidebar is hovered. */
+  rail?: boolean;
 }) {
-  const catalogActive =
-    pathname === "/admin" || pathname.startsWith("/admin/products");
-  const ordersActive = pathname.startsWith("/admin/orders");
-  const categoriesActive = pathname.startsWith("/admin/categories");
-  const importActive = pathname.startsWith("/admin/import");
-  const tagsActive = pathname.startsWith("/admin/tags");
-  const deletesActive = pathname.startsWith("/admin/delete-requests");
-  const salesActive = pathname.startsWith("/admin/sales-team");
-  const reportsActive = pathname.startsWith("/admin/reports");
-  const purchasesActive = pathname.startsWith("/admin/purchases");
+  const counts = { deletes: pendingDeletes, leaves: pendingLeaves };
 
   return (
     <nav className="flex flex-col gap-1">
-      <Link
-        href="/admin"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          catalogActive
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <LayoutGrid className="size-4" />
-        Catalog
-      </Link>
-      <Link
-        href="/admin/orders"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          ordersActive
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <Receipt className="size-4" />
-        Orders
-      </Link>
-      <Link
-        href="/admin/purchases"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          purchasesActive
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <ClipboardList className="size-4" />
-        Purchases
-      </Link>
-      <Link
-        href="/admin/categories"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          categoriesActive
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <Tags className="size-4" />
-        Categories
-      </Link>
-      <Link
-        href="/admin/import"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          importActive
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <FileSpreadsheet className="size-4" />
-        Import
-      </Link>
-      <Link
-        href="/admin/tags"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          tagsActive
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <Barcode className="size-4" />
-        Hang tags
-      </Link>
-      <Link
-        href="/admin/reports"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          reportsActive
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <ChartColumn className="size-4" />
-        Reports
-      </Link>
-      <Link
-        href="/admin/sales-team"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          salesActive
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <Users className="size-4" />
-        Sales team
-      </Link>
-      <Link
-        href="/admin/targets"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          pathname.startsWith("/admin/targets")
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <Target className="size-4" />
-        Sales targets
-      </Link>
-      <Link
-        href="/admin/employees"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          pathname.startsWith("/admin/employees")
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <IdCard className="size-4" />
-        Employees
-      </Link>
-      <Link
-        href="/admin/attendance"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          pathname.startsWith("/admin/attendance")
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <CalendarCheck className="size-4" />
-        Attendance
-      </Link>
-      <Link
-        href="/admin/leave"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          pathname.startsWith("/admin/leave")
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <CalendarDays className="size-4" />
-        Leave requests
-        {pendingLeaves > 0 ? (
-          <span className="ml-auto rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white">
-            {pendingLeaves}
-          </span>
-        ) : null}
-      </Link>
-      <Link
-        href="/admin/delete-requests"
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
-          deletesActive
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <Trash2 className="size-4" />
-        Delete requests
-        {pendingDeletes > 0 ? (
-          <span className="ml-auto rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white">
-            {pendingDeletes}
-          </span>
-        ) : null}
-      </Link>
+      {NAV_ITEMS.map((item) => {
+        const Icon = item.icon;
+        const active = item.active(pathname);
+        const count = item.badge ? counts[item.badge] : 0;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+              active
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <span className="relative shrink-0">
+              <Icon className="size-4" />
+              {rail && count > 0 ? (
+                // Closed sidebar: a dot instead of the number.
+                <span className="absolute -top-1 -right-1 size-2 rounded-full bg-amber-500 ring-2 ring-white group-hover/sidebar:hidden group-has-[:focus-visible]/sidebar:hidden" />
+              ) : null}
+            </span>
+            <span className={cn("truncate whitespace-nowrap", rail && RAIL_TEXT)}>{item.label}</span>
+            {count > 0 ? (
+              <span
+                className={cn(
+                  "ml-auto rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white",
+                  rail && RAIL_TEXT
+                )}
+              >
+                {count}
+              </span>
+            ) : null}
+          </Link>
+        );
+      })}
     </nav>
   );
 }
@@ -274,33 +175,38 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-[#fafafa] text-foreground print:block print:min-h-0 print:bg-white">
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-border/80 bg-white md:flex print:hidden">
-        <div className="flex items-center gap-2.5 border-b border-border/80 px-4 py-4">
-          <Link href="/admin" className="flex min-w-0 items-center gap-2">
+      {/* Keeps the page content clear of the icon strip. The sidebar itself floats above the page when opened. */}
+      <div className="hidden w-14 shrink-0 md:block print:hidden" aria-hidden />
+      <aside className="group/sidebar fixed inset-y-0 left-0 z-30 hidden w-14 flex-col overflow-hidden border-r border-border/80 bg-white transition-[width,box-shadow] duration-200 ease-out hover:w-56 hover:shadow-xl has-[:focus-visible]:w-56 has-[:focus-visible]:shadow-xl md:flex print:hidden">
+        <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border/80 px-3">
+          <Link href="/admin" className="flex min-w-0 items-center gap-2" title="Eshwari Vastra">
             <Image
               src="/brand/logo.png"
               alt="Eshwari Vastra"
               width={36}
               height={24}
-              className="h-6 w-auto object-contain"
+              className="h-6 w-auto shrink-0 object-contain"
             />
-            <div className="min-w-0 leading-tight">
+            <div className={cn("min-w-0 leading-tight whitespace-nowrap", RAIL_TEXT)}>
               <p className="truncate text-sm font-semibold">Eshwari Vastra</p>
               <p className="text-[11px] text-muted-foreground">Back office</p>
             </div>
           </Link>
         </div>
-        <div className="flex flex-1 flex-col justify-between p-3">
-          <NavLinks pathname={pathname} pendingDeletes={pendingDeletes} pendingLeaves={pendingLeaves} />
+        <div className="flex flex-1 flex-col justify-between overflow-y-auto overflow-x-hidden p-2">
+          <NavLinks pathname={pathname} pendingDeletes={pendingDeletes} pendingLeaves={pendingLeaves} rail />
           <div className="space-y-1">
             <Link
               href="/billing"
               className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              <MonitorSmartphone className="size-4" />
-              Open POS
+              <MonitorSmartphone className="size-4 shrink-0" />
+              <span className={cn("whitespace-nowrap", RAIL_TEXT)}>Open POS</span>
             </Link>
-            <SignOutButton className="w-full text-muted-foreground" />
+            <SignOutButton
+              className="h-auto w-full px-2.5 py-2 text-sm font-medium text-muted-foreground"
+              labelClassName={cn("whitespace-nowrap", RAIL_TEXT)}
+            />
           </div>
         </div>
       </aside>

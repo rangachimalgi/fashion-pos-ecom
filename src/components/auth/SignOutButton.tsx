@@ -8,9 +8,12 @@ import { cn } from "@/lib/utils";
 
 export function SignOutButton({
   className,
+  labelClassName,
   variant = "ghost",
 }: {
   className?: string;
+  /** Lets the sidebar hide the text while it is collapsed. */
+  labelClassName?: string;
   variant?: "ghost" | "outline";
 }) {
   const router = useRouter();
@@ -27,8 +30,8 @@ export function SignOutButton({
         router.refresh();
       }}
     >
-      <LogOut className="size-4" />
-      Sign out
+      <LogOut className="size-4 shrink-0" />
+      <span className={labelClassName}>Sign out</span>
     </Button>
   );
 }
