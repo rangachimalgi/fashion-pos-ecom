@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MyTargetCard } from "@/components/employee/MyTargetCard";
+import { LiveElapsed } from "@/components/attendance/LiveElapsed";
 
 type Loaded = {
   employee: MyEmployee;
@@ -189,6 +190,22 @@ export default function EmployeePage() {
                 ? `Checked in ${formatClock(todayRow.check_in)}, checked out ${formatClock(todayRow.check_out)} (${formatHours(hoursWorked(todayRow))}).`
                 : `Checked in at ${formatClock(todayRow.check_in)}.`}
           </p>
+          {canCheckOut && todayRow ? (
+            <div className="mt-3 flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <span className="relative flex size-2.5 shrink-0">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-emerald-600" />
+              </span>
+              <div>
+                <p className="text-xs text-emerald-900/70">Time at work today</p>
+                <LiveElapsed
+                  since={todayRow.check_in}
+                  stopwatch
+                  className="text-2xl font-semibold tracking-tight text-emerald-900"
+                />
+              </div>
+            </div>
+          ) : null}
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Button
               type="button"

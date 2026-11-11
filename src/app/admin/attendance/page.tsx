@@ -19,6 +19,7 @@ import {
   type LeaveRequest,
 } from "@/lib/attendance";
 import { monthEnd, monthStart, periodLabel, todayInShop } from "@/lib/salesReport";
+import { LiveElapsed } from "@/components/attendance/LiveElapsed";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -327,7 +328,19 @@ export default function AttendancePage() {
                             {record ? (record.check_out ? formatClock(record.check_out) : isToday ? "still in" : "—") : "—"}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
-                            {record ? formatHours(hoursWorked(record)) : "—"}
+                            {record && !record.check_out && isToday ? (
+                              <span className="inline-flex items-center gap-1.5 font-medium text-emerald-700">
+                                <span className="relative flex size-2">
+                                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+                                  <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
+                                </span>
+                                <LiveElapsed since={record.check_in} />
+                              </span>
+                            ) : record ? (
+                              formatHours(hoursWorked(record))
+                            ) : (
+                              "—"
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap justify-end gap-1.5">
