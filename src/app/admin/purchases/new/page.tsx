@@ -559,7 +559,7 @@ export default function NewPurchasePage() {
             <thead>
               <tr className="border-b border-border bg-neutral-50">
                 <Th className="sticky left-0 z-10 bg-neutral-50 text-center">#</Th>
-                <Th className="sticky left-[40px] z-10 bg-neutral-50 shadow-[1px_0_0_var(--border)]">Item name</Th>
+                <Th className="sticky left-10 z-10 bg-neutral-50 shadow-[1px_0_0_var(--border)]">Item name</Th>
                 <Th>Brand</Th>
                 <Th>Category</Th>
                 <Th>Design</Th>
@@ -592,7 +592,7 @@ export default function NewPurchasePage() {
                     >
                       {flagged ? <span className="font-semibold text-destructive">!</span> : index + 1}
                     </td>
-                    <td className={cn("sticky left-[40px] z-10 px-2 py-1.5 shadow-[1px_0_0_var(--border)]", rowBg)}>
+                    <td className={cn("sticky left-10 z-10 px-2 py-1.5 shadow-[1px_0_0_var(--border)]", rowBg)}>
                       <ItemNameInput
                         rowId={row.id}
                         value={row.item}
