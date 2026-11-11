@@ -220,7 +220,7 @@ export function OrdersList({
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-border bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-180 text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
                 <th className="px-5 py-3 font-medium">Order</th>
