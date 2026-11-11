@@ -8,13 +8,16 @@ import {
   DEFAULT_INCENTIVE_PERCENT,
   DEFAULT_TARGET_PERCENT,
   clearTarget,
+  fetchPerformance,
   fetchTargetProgress,
   incentiveFor,
   saveTarget,
   targetFor,
   targetProgress,
+  type Performance,
   type TargetRow,
 } from "@/lib/salesTargets";
+import { PerformanceNote } from "@/components/targets/PerformanceBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,12 +57,14 @@ function ProgressLine({ achieved, target, reached }: { achieved: number; target:
 
 function PersonCard({
   row,
+  performance,
   pace,
   busy,
   onSave,
   onClear,
 }: {
   row: TargetRow;
+  performance: Performance | null;
   pace: { daysLeft: number } | null;
   busy: boolean;
   onSave: (salary: number, percent: number, incentive: number) => void;
@@ -121,6 +126,7 @@ function PersonCard({
 
       {hasTarget && !editing ? (
         <div className="mt-3 flex flex-col gap-2">
+          {performance && performance.standing !== "none" ? <PerformanceNote performance={performance} /> : null}
           <p className="text-xs text-muted-foreground">
             Salary {formatInr(row.monthly_salary ?? 0)} × {row.target_percent}% = target{" "}
             {formatInr(row.target_amount ?? 0)} · incentive {row.incentive_percent ?? DEFAULT_INCENTIVE_PERCENT}% of
@@ -248,6 +254,8 @@ export default function TargetsPage() {
   const today = todayInShop();
   const [month, setMonth] = useState(today.slice(0, 7));
   const [rows, setRows] = useState<TargetRow[]>([]);
+  // null = migration 029 not run yet
+  const [performance, setPerformance] = useState<Map<string, Performance> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -255,10 +263,11 @@ export default function TargetsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchTargetProgress(supabase, month)
-      .then((next) => {
+    Promise.all([fetchTargetProgress(supabase, month), fetchPerformance(supabase, month)])
+      .then(([next, colours]) => {
         if (cancelled) return;
         setRows(next);
+        setPerformance(colours);
         setError(null);
         setLoading(false);
       })
@@ -305,6 +314,17 @@ export default function TargetsPage() {
       ...targetProgress({ target_amount: target, achieved }),
     };
   }, [rows]);
+
+  const colourCounts = useMemo(() => {
+    const counts = { green: 0, yellow: 0, red: 0 };
+    if (!performance) return counts;
+    for (const row of rows) {
+      if (row.target_amount === null) continue;
+      const standing = performance.get(row.sales_person_id)?.standing;
+      if (standing === "green" || standing === "yellow" || standing === "red") counts[standing] += 1;
+    }
+    return counts;
+  }, [rows, performance]);
 
   const sorted = useMemo(
     () =>
@@ -398,6 +418,23 @@ export default function TargetsPage() {
               <span className="text-muted-foreground">Incentive earned by the team: </span>
               <span className="font-semibold tabular-nums">{formatInr(team.incentive)}</span>
             </p>
+            {performance ? (
+              <p className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-sm">
+                <span className="text-muted-foreground">Performance:</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-emerald-600" aria-hidden />
+                  <span className="font-semibold tabular-nums">{colourCounts.green}</span> on track
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-amber-500" aria-hidden />
+                  <span className="font-semibold tabular-nums">{colourCounts.yellow}</span> warning
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-red-600" aria-hidden />
+                  <span className="font-semibold tabular-nums">{colourCounts.red}</span> red
+                </span>
+              </p>
+            ) : null}
           </div>
         )}
       </section>
@@ -414,6 +451,7 @@ export default function TargetsPage() {
               // key includes the saved values so the form resets after a save
               key={`${row.sales_person_id}-${row.monthly_salary}-${row.target_percent}-${row.incentive_percent}`}
               row={row}
+              performance={performance?.get(row.sales_person_id) ?? null}
               pace={pace}
               busy={busy}
               onSave={(salary, percent, incentive) =>
@@ -425,8 +463,16 @@ export default function TargetsPage() {
         )}
       </section>
 
+      {performance === null && !loading && !error ? (
+        <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Run supabase/migrations/029_performance_standing.sql in the SQL Editor to see the performance colours.
+        </p>
+      ) : null}
+
       <p className="text-xs text-muted-foreground">
-        Past months are measured against the salary and percentage saved today. Only admins can see this page.
+        Colours: green = met the target last finished month, yellow = missed 1 month, red = missed 2 months in a row.
+        The running month is never judged, and a month only counts once it starts after the target was set and the
+        person was added. Past months are measured against the salary and percentage saved today. Only admins can see this page.
       </p>
     </div>
   );

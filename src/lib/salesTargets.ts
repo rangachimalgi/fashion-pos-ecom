@@ -141,3 +141,65 @@ export async function fetchMyTarget(supabase: SupabaseClient, month: string): Pr
     incentive_amount: num(row.incentive_amount),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Performance colour (migration 029)
+//   green  met the target in the last finished month
+//   yellow missed it 1 month
+//   red    missed it 2 months in a row
+//   none   no target yet, or no full month to judge
+// ---------------------------------------------------------------------------
+
+export type Standing = "green" | "yellow" | "red" | "none";
+
+export type Performance = {
+  standing: Standing;
+  missed_streak: number;
+  /** First day (YYYY-MM-DD) of the last finished month that was judged. */
+  judged_month: string;
+  last_result: "met" | "missed" | "skip";
+  previous_result: "met" | "missed" | "skip";
+};
+
+function toPerformance(row: Record<string, unknown>): Performance {
+  const standing = String(row.standing);
+  const result = (value: unknown) => (value === "met" || value === "missed" ? value : "skip");
+  return {
+    standing: standing === "green" || standing === "yellow" || standing === "red" ? standing : "none",
+    missed_streak: Number(row.missed_streak ?? 0),
+    judged_month: String(row.judged_month),
+    last_result: result(row.last_result),
+    previous_result: result(row.previous_result),
+  };
+}
+
+/**
+ * Admin: colour for every salesperson with a target, keyed by sales person id.
+ * Returns null when migration 029 has not been run yet (the page still works).
+ */
+export async function fetchPerformance(
+  supabase: SupabaseClient,
+  month: string
+): Promise<Map<string, Performance> | null> {
+  const { data, error } = await supabase.rpc("sales_performance", { p_month: `${month}-01` });
+  if (error) {
+    if (error.code === "PGRST202") return null;
+    throw new Error(error.message);
+  }
+  const out = new Map<string, Performance>();
+  for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+    out.set(String(row.sales_person_id), toPerformance(row));
+  }
+  return out;
+}
+
+/** The signed-in employee's own colour; null when migration 029 is missing. */
+export async function fetchMyPerformance(supabase: SupabaseClient, month: string): Promise<Performance | null> {
+  const { data, error } = await supabase.rpc("my_performance", { p_month: `${month}-01` });
+  if (error) {
+    if (error.code === "PGRST202") return null;
+    throw new Error(error.message);
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+  return row ? toPerformance(row) : null;
+}

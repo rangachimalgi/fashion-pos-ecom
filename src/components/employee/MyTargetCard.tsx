@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { formatInr } from "@/lib/formatOrder";
 import { monthStart, todayInShop } from "@/lib/salesReport";
-import { fetchMyTarget, targetProgress, type MyTarget } from "@/lib/salesTargets";
+import { fetchMyPerformance, fetchMyTarget, targetProgress, type MyTarget, type Performance } from "@/lib/salesTargets";
+import { PerformanceNote } from "@/components/targets/PerformanceBadge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -20,15 +21,17 @@ export function MyTargetCard() {
   const thisMonth = todayInShop().slice(0, 7);
   const [month, setMonth] = useState(thisMonth);
   const [data, setData] = useState<MyTarget | null>(null);
+  const [performance, setPerformance] = useState<Performance | null>(null);
   const [loadedMonth, setLoadedMonth] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetchMyTarget(supabase, month)
-      .then((next) => {
+    Promise.all([fetchMyTarget(supabase, month), fetchMyPerformance(supabase, month).catch(() => null)])
+      .then(([next, colour]) => {
         if (cancelled) return;
         setData(next);
+        setPerformance(colour);
         setLoadedMonth(month);
         setError(null);
       })
@@ -84,6 +87,7 @@ export function MyTargetCard() {
         </p>
       ) : (
         <div className="flex flex-col gap-3">
+          {performance && performance.standing !== "none" ? <PerformanceNote performance={performance} /> : null}
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg bg-muted/50 px-3 py-2">
               <p className="text-xs text-muted-foreground">Monthly salary</p>

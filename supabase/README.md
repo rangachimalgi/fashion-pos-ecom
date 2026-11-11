@@ -37,6 +37,7 @@ Never change schema only in the dashboard without a matching file here.
 | `026_sales_targets.sql` | Monthly salary and sales target per salesperson (target = salary x %), admin-only, with a month progress function | Run after 024 |
 | `027_incentives_employee_target.sql` | Incentive % on sales above target, link from an employee login to a sales name, and the employee's own target / salary / incentive view | Run after 026 |
 | `028_admin_attendance.sql` | Admin can check an employee in/out, add or correct any day, or remove it (marks who edited) | Run after 025 |
+| `029_performance_standing.sql` | Performance colour from targets: green met, yellow missed 1 month, red missed 2 in a row (finished months only) | Run after 027 |
 
 ## Security model (after 013)
 
