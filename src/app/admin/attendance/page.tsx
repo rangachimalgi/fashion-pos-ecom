@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { listEmployees, type Employee } from "@/lib/employees";
 import {
+  adminCheckIn,
+  adminCheckOut,
+  adminDeleteAttendance,
+  adminSetAttendance,
   approvedLeaveBetween,
   attendanceBetween,
+  clockInput,
   formatClock,
   formatHours,
   hoursWorked,
@@ -29,6 +34,8 @@ import { cn } from "@/lib/utils";
 
 type Tab = "day" | "month";
 
+type Editor = { employeeId: string; checkIn: string; checkOut: string };
+
 type Loaded = {
   from: string;
   to: string;
@@ -46,6 +53,11 @@ export default function AttendancePage() {
   const [data, setData] = useState<Loaded | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const range = useMemo(() => {
     if (tab === "day") return { from: date, to: date };
@@ -78,7 +90,33 @@ export default function AttendancePage() {
     return () => {
       cancelled = true;
     };
-  }, [range, valid]);
+  }, [range, valid, reloadKey]);
+
+  async function act(employeeId: string, success: string, run: () => Promise<void>) {
+    setBusy(employeeId);
+    setActionError(null);
+    setNotice(null);
+    try {
+      await run();
+      setNotice(success);
+      setEditor(null);
+      setReloadKey((key) => key + 1);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not save");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function openEditor(employeeId: string, record: AttendanceRow | null) {
+    setActionError(null);
+    setNotice(null);
+    setEditor({
+      employeeId,
+      checkIn: record ? clockInput(record.check_in) : "09:30",
+      checkOut: record ? clockInput(record.check_out) : "",
+    });
+  }
 
   const dayRows = useMemo(() => {
     if (!valid || !data || tab !== "day") return [];
@@ -168,6 +206,7 @@ export default function AttendancePage() {
               max={today}
               onChange={(event) => {
                 setLoading(true);
+                setEditor(null);
                 setDate(event.target.value);
               }}
               className="h-8 w-40"
@@ -201,6 +240,17 @@ export default function AttendancePage() {
         </p>
       ) : null}
 
+      {actionError ? (
+        <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm whitespace-pre-wrap text-destructive">
+          {actionError}
+        </p>
+      ) : null}
+      {notice ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {notice}
+        </p>
+      ) : null}
+
       {tab === "day" ? (
         <>
           <section className="grid grid-cols-3 gap-3">
@@ -225,48 +275,157 @@ export default function AttendancePage() {
                   <TableHead>Checked in</TableHead>
                   <TableHead>Checked out</TableHead>
                   <TableHead className="text-right">Hours</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {waiting ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
                       Loading…
                     </TableCell>
                   </TableRow>
                 ) : dayRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
                       No employees yet.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  dayRows.map(({ employee, record, status }) => (
-                    <TableRow key={employee.id}>
-                      <TableCell className="font-medium whitespace-nowrap">{employee.name}</TableCell>
-                      <TableCell>
-                        {status === "present" ? (
-                          <Badge variant="default">Present</Badge>
-                        ) : status === "leave" ? (
-                          <Badge variant="secondary">On leave</Badge>
-                        ) : status === "absent" ? (
-                          <Badge variant="destructive">Absent</Badge>
-                        ) : (
-                          <Badge variant="outline">—</Badge>
-                        )}
-                        {record && !record.check_out && date < today ? (
-                          <span className="ml-2 text-xs text-amber-700">no check-out</span>
+                  dayRows.map(({ employee, record, status }) => {
+                    const isBusy = busy === employee.id;
+                    const editing = editor?.employeeId === employee.id ? editor : null;
+                    const isToday = date === today;
+                    return (
+                      <Fragment key={employee.id}>
+                        <TableRow>
+                          <TableCell className="font-medium whitespace-nowrap">{employee.name}</TableCell>
+                          <TableCell>
+                            {status === "present" ? (
+                              <Badge variant="default">Present</Badge>
+                            ) : status === "leave" ? (
+                              <Badge variant="secondary">On leave</Badge>
+                            ) : status === "absent" ? (
+                              <Badge variant="destructive">Absent</Badge>
+                            ) : (
+                              <Badge variant="outline">—</Badge>
+                            )}
+                            {record && !record.check_out && date < today ? (
+                              <span className="ml-2 text-xs text-amber-700">no check-out</span>
+                            ) : null}
+                            {record && (record.source === "admin" || record.edited_by_email) ? (
+                              <span
+                                className="ml-2 text-xs text-muted-foreground"
+                                title={record.edited_by_email ? `By ${record.edited_by_email}` : undefined}
+                              >
+                                {record.source === "admin" ? "added by admin" : "edited by admin"}
+                              </span>
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="tabular-nums">{record ? formatClock(record.check_in) : "—"}</TableCell>
+                          <TableCell className="tabular-nums">
+                            {record ? (record.check_out ? formatClock(record.check_out) : isToday ? "still in" : "—") : "—"}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {record ? formatHours(hoursWorked(record)) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap justify-end gap-1.5">
+                              {isToday && !record ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={isBusy}
+                                  onClick={() => act(employee.id, `${employee.name} checked in.`, () => adminCheckIn(supabase, employee.id))}
+                                >
+                                  Check in
+                                </Button>
+                              ) : null}
+                              {isToday && record && !record.check_out ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={isBusy}
+                                  onClick={() => act(employee.id, `${employee.name} checked out.`, () => adminCheckOut(supabase, employee.id))}
+                                >
+                                  Check out
+                                </Button>
+                              ) : null}
+                              {date <= today ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isBusy}
+                                  onClick={() => (editing ? setEditor(null) : openEditor(employee.id, record))}
+                                >
+                                  {record ? "Edit" : "Set times"}
+                                </Button>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {editing ? (
+                          <TableRow className="bg-muted/40 hover:bg-muted/40">
+                            <TableCell colSpan={6}>
+                              <div className="flex flex-wrap items-end gap-3 py-1">
+                                <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                                  Check-in
+                                  <Input
+                                    type="time"
+                                    value={editing.checkIn}
+                                    onChange={(event) => setEditor({ ...editing, checkIn: event.target.value })}
+                                    className="h-8 w-32"
+                                  />
+                                </label>
+                                <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                                  Check-out (optional)
+                                  <Input
+                                    type="time"
+                                    value={editing.checkOut}
+                                    onChange={(event) => setEditor({ ...editing, checkOut: event.target.value })}
+                                    className="h-8 w-32"
+                                  />
+                                </label>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={isBusy || !editing.checkIn}
+                                  onClick={() =>
+                                    act(employee.id, `Saved ${employee.name}'s attendance.`, () =>
+                                      adminSetAttendance(supabase, employee.id, date, editing.checkIn, editing.checkOut)
+                                    )
+                                  }
+                                >
+                                  Save
+                                </Button>
+                                <Button type="button" size="sm" variant="ghost" disabled={isBusy} onClick={() => setEditor(null)}>
+                                  Cancel
+                                </Button>
+                                {record ? (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={isBusy}
+                                    className="ml-auto text-destructive hover:text-destructive"
+                                    onClick={() => {
+                                      if (!window.confirm(`Remove ${employee.name}'s attendance for this day?`)) return;
+                                      void act(employee.id, `Removed ${employee.name}'s attendance.`, () =>
+                                        adminDeleteAttendance(supabase, employee.id, date)
+                                      );
+                                    }}
+                                  >
+                                    Remove day
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                          </TableRow>
                         ) : null}
-                      </TableCell>
-                      <TableCell className="tabular-nums">{record ? formatClock(record.check_in) : "—"}</TableCell>
-                      <TableCell className="tabular-nums">
-                        {record ? (record.check_out ? formatClock(record.check_out) : date === today ? "still in" : "—") : "—"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {record ? formatHours(hoursWorked(record)) : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                      </Fragment>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -316,8 +475,9 @@ export default function AttendancePage() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Times are the shop clock when the employee tapped the button, not the phone&apos;s. A missed check-out means
-        the employee checked in on an earlier day and never checked out; those days add no hours.
+        Times are the shop clock when the button was tapped, not the phone&apos;s. Use Check in / Check out for today,
+        or Edit / Set times to add or correct any earlier day. A missed check-out means someone checked in on an
+        earlier day and never checked out; those days add no hours.
       </p>
     </div>
   );

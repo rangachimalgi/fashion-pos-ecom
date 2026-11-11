@@ -16,6 +16,10 @@ export type AttendanceRow = {
   work_date: string;
   check_in: string;
   check_out: string | null;
+  /** Who created the row. Older rows (before migration 028) count as "employee". */
+  source: "employee" | "admin";
+  /** Set when an admin created or changed the row (migration 028). */
+  edited_by_email: string | null;
 };
 
 export type LeaveRequest = {
@@ -135,6 +139,8 @@ function toAttendance(row: Record<string, unknown>): AttendanceRow {
     work_date: String(row.work_date),
     check_in: String(row.check_in),
     check_out: (row.check_out as string | null) ?? null,
+    source: row.source === "admin" ? "admin" : "employee",
+    edited_by_email: (row.edited_by_email as string | null) ?? null,
   };
 }
 
@@ -198,7 +204,8 @@ export async function attendanceBetween(supabase: SupabaseClient, from: string, 
   const rows = await fetchAll((start, end) =>
     supabase
       .from("attendance")
-      .select("id, employee_id, work_date, check_in, check_out")
+      // "*" so this keeps working before migration 028 adds the source columns.
+      .select("*")
       .gte("work_date", from)
       .lte("work_date", to)
       .order("work_date", { ascending: true })
@@ -248,6 +255,65 @@ export async function decideLeave(supabase: SupabaseClient, id: string, approve:
     p_note: note.trim() || null,
   });
   if (error) throw friendly(error);
+}
+
+function adminFriendly(error: { code?: string; message: string }): Error {
+  if (error.code === "PGRST202" || /could not find the function/i.test(error.message)) {
+    return new Error("Run supabase/migrations/028_admin_attendance.sql in the SQL Editor first.");
+  }
+  return friendly(error);
+}
+
+/** Admin: check an employee in right now (shop clock). */
+export async function adminCheckIn(supabase: SupabaseClient, employeeId: string) {
+  const { error } = await supabase.rpc("admin_check_in", { p_employee_id: employeeId });
+  if (error) throw adminFriendly(error);
+}
+
+/** Admin: check an employee out right now (shop clock). */
+export async function adminCheckOut(supabase: SupabaseClient, employeeId: string) {
+  const { error } = await supabase.rpc("admin_check_out", { p_employee_id: employeeId });
+  if (error) throw adminFriendly(error);
+}
+
+/** Admin: set a whole day by hand. Times are "HH:MM" shop time; check-out may be empty. */
+export async function adminSetAttendance(
+  supabase: SupabaseClient,
+  employeeId: string,
+  day: string,
+  checkIn: string,
+  checkOut: string
+) {
+  const { error } = await supabase.rpc("admin_set_attendance", {
+    p_employee_id: employeeId,
+    p_work_date: day,
+    p_check_in: checkIn,
+    p_check_out: checkOut.trim() || null,
+  });
+  if (error) throw adminFriendly(error);
+}
+
+/** Admin: remove one day's record. */
+export async function adminDeleteAttendance(supabase: SupabaseClient, employeeId: string, day: string) {
+  const { error } = await supabase.rpc("admin_delete_attendance", {
+    p_employee_id: employeeId,
+    p_work_date: day,
+  });
+  if (error) throw adminFriendly(error);
+}
+
+/** ISO time -> "HH:MM" (24h) in the shop's time zone, for <input type="time">. */
+export function clockInput(iso: string | null): string {
+  if (!iso) return "";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SHOP_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+  return `${hour}:${minute}`;
 }
 
 export async function countPendingLeaves(supabase: SupabaseClient): Promise<number> {

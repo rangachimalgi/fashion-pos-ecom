@@ -36,6 +36,7 @@ Never change schema only in the dashboard without a matching file here.
 | `025_employees_attendance_leave.sql` | Employees (login created by an admin), check in / check out, leave requests with approve / reject. Employees have no POS or admin access. Needs `SUPABASE_SECRET_KEY` on the server | Run after 024, with the matching app deploy |
 | `026_sales_targets.sql` | Monthly salary and sales target per salesperson (target = salary x %), admin-only, with a month progress function | Run after 024 |
 | `027_incentives_employee_target.sql` | Incentive % on sales above target, link from an employee login to a sales name, and the employee's own target / salary / incentive view | Run after 026 |
+| `028_admin_attendance.sql` | Admin can check an employee in/out, add or correct any day, or remove it (marks who edited) | Run after 025 |
 
 ## Security model (after 013)
 
