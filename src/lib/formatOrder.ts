@@ -4,6 +4,16 @@ export function formatInr(amount: number) {
   return `₹${Number(amount).toLocaleString("en-IN")}`;
 }
 
+/** Rupees with paise only when there are any: ₹1,299 or ₹1,536.50. */
+export function formatMoney(amount: number) {
+  const value = Number(amount);
+  const hasPaise = Math.abs(value * 100 - Math.round(value) * 100) > 0.5;
+  return `₹${value.toLocaleString("en-IN", {
+    minimumFractionDigits: hasPaise ? 2 : 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 export function formatOrderTime(value: string | null) {
   if (!value) return "—";
   const date = new Date(value);
