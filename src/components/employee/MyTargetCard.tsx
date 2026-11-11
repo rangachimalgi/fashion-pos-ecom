@@ -90,7 +90,7 @@ export function MyTargetCard() {
               <p className="font-semibold tabular-nums">{formatInr(data.monthly_salary ?? 0)}</p>
             </div>
             <div className="rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-xs text-muted-foreground">Target ({data.target_percent}% of salary)</p>
+              <p className="text-xs text-muted-foreground">Target </p>
               <p className="font-semibold tabular-nums">{formatInr(target)}</p>
             </div>
           </div>
@@ -138,7 +138,7 @@ export function MyTargetCard() {
             )}
           >
             <p className="text-xs text-muted-foreground">
-              Incentive · {data.incentive_percent}% of sales above your target
+              Incentive
             </p>
             <p className="text-lg font-semibold tabular-nums">{formatInr(data.incentive_amount ?? 0)}</p>
           </div>
