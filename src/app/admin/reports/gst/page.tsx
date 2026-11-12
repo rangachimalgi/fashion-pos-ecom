@@ -25,6 +25,7 @@ import {
 } from "@/lib/salesReport";
 import { STORE_RECEIPT } from "@/lib/storeReceipt";
 import { ReportTabs } from "@/components/admin/ReportTabs";
+import { HomeBackLink } from "@/components/admin/home/HomeBackLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -146,6 +147,7 @@ export default function GstReportPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 md:px-6">
+      <HomeBackLink />
       <ReportTabs active="gst" />
 
       {/* ---------- Filters ---------- */}

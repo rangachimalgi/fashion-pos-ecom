@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { Barcode, ChartColumn, ClipboardList, FileSpreadsheet, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Trash2, Users } from "lucide-react";
+import { Barcode, ClipboardList, FileSpreadsheet, Home, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Trash2, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +30,12 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   {
+    href: "/admin/home",
+    label: "Home",
+    icon: Home,
+    active: (p) => p.startsWith("/admin/home") || p.startsWith("/admin/reports"),
+  },
+  {
     href: "/admin",
     label: "Catalog",
     icon: LayoutGrid,
@@ -40,7 +46,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/categories", label: "Categories", icon: Tags, active: (p) => p.startsWith("/admin/categories") },
   { href: "/admin/import", label: "Import", icon: FileSpreadsheet, active: (p) => p.startsWith("/admin/import") },
   { href: "/admin/tags", label: "Hang tags", icon: Barcode, active: (p) => p.startsWith("/admin/tags") },
-  { href: "/admin/reports", label: "Reports", icon: ChartColumn, active: (p) => p.startsWith("/admin/reports") },
   {
     href: "/admin/team",
     label: "Team",
