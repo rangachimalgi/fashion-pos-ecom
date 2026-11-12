@@ -20,6 +20,7 @@ import {
 } from "@/lib/attendance";
 import { monthEnd, monthStart, periodLabel, todayInShop } from "@/lib/salesReport";
 import { LiveElapsed } from "@/components/attendance/LiveElapsed";
+import { LocationSettings } from "@/components/admin/attendance/LocationSettings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -235,6 +236,8 @@ export default function AttendancePage() {
         </p>
       </div>
 
+      {tab === "day" ? <LocationSettings /> : null}
+
       {error ? (
         <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm whitespace-pre-wrap text-destructive">
           {error}
@@ -323,7 +326,17 @@ export default function AttendancePage() {
                               </span>
                             ) : null}
                           </TableCell>
-                          <TableCell className="tabular-nums">{record ? formatClock(record.check_in) : "—"}</TableCell>
+                          <TableCell className="tabular-nums">
+                            {record ? formatClock(record.check_in) : "—"}
+                            {record?.check_in_distance_m != null ? (
+                              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                                {record.check_in_distance_m} m from shop
+                                {record.check_in_accuracy_m != null
+                                  ? ` · ±${Math.round(record.check_in_accuracy_m)} m`
+                                  : ""}
+                              </span>
+                            ) : null}
+                          </TableCell>
                           <TableCell className="tabular-nums">
                             {record ? (record.check_out ? formatClock(record.check_out) : isToday ? "still in" : "—") : "—"}
                           </TableCell>

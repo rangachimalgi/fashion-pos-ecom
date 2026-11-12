@@ -17,6 +17,8 @@ import {
   myEmployee,
   myLeaves,
   requestLeave,
+  attendanceLocationRules,
+  type AttendanceLocationRules,
   type AttendanceRow,
   type LeaveRequest,
   type MyEmployee,
@@ -27,12 +29,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MyTargetCard } from "@/components/employee/MyTargetCard";
 import { LiveElapsed } from "@/components/attendance/LiveElapsed";
+import { getPhonePosition } from "@/lib/geo";
 
 type Loaded = {
   employee: MyEmployee;
   attendance: AttendanceRow[];
   leaves: LeaveRequest[];
   today: string;
+  location: AttendanceLocationRules | null;
 };
 
 function leaveDates(item: { from_date: string; to_date: string }) {
@@ -70,12 +74,13 @@ export default function EmployeePage() {
           return;
         }
         const today = todayInShop();
-        const [attendance, leaves] = await Promise.all([
+        const [attendance, leaves, location] = await Promise.all([
           myAttendance(supabase, monthStart(today), today),
           myLeaves(supabase),
+          attendanceLocationRules(supabase),
         ]);
         if (cancelled) return;
-        setData({ employee, attendance, leaves, today });
+        setData({ employee, attendance, leaves, today, location });
         setNotEmployee(false);
         setError(null);
         setLoading(false);
@@ -149,10 +154,28 @@ export default function EmployeePage() {
     );
   }
 
-  const { employee, attendance, leaves, today } = data;
+  const { employee, attendance, leaves, today, location } = data;
   const todayRow = attendance.find((row) => row.work_date === today) ?? null;
   const canCheckIn = !todayRow;
   const canCheckOut = Boolean(todayRow && !todayRow.check_out);
+  const locationOn = Boolean(location?.enabled);
+
+  const doCheckIn = async () => {
+    await run(async () => {
+      if (locationOn) {
+        const position = await getPhonePosition();
+        await checkIn(supabase, position);
+      } else {
+        // Still send the phone position when we can, so the admin can see it later.
+        try {
+          const position = await getPhonePosition();
+          await checkIn(supabase, position);
+        } catch {
+          await checkIn(supabase, null);
+        }
+      }
+    }, "You are checked in.");
+  };
 
   return (
     <div className="min-h-screen bg-[#fafafa] pb-10">
@@ -190,6 +213,12 @@ export default function EmployeePage() {
                 ? `Checked in ${formatClock(todayRow.check_in)}, checked out ${formatClock(todayRow.check_out)} (${formatHours(hoursWorked(todayRow))}).`
                 : `Checked in at ${formatClock(todayRow.check_in)}.`}
           </p>
+          {canCheckIn && locationOn ? (
+            <p className="mt-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+              Check-in only works within about {location?.radius_m ?? 50} m of the shop. Your phone will ask for
+              location when you tap the button.
+            </p>
+          ) : null}
           {canCheckOut && todayRow ? (
             <div className="mt-3 flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
               <span className="relative flex size-2.5 shrink-0">
@@ -211,7 +240,7 @@ export default function EmployeePage() {
               type="button"
               size="lg"
               disabled={busy || !canCheckIn}
-              onClick={() => run(() => checkIn(supabase), "You are checked in.")}
+              onClick={() => void doCheckIn()}
             >
               <LogIn className="size-4" />
               Check in
