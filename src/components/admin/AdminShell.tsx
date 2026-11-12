@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { Barcode, CalendarCheck, CalendarDays, ChartColumn, ClipboardList, FileSpreadsheet, IdCard, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Target, Trash2, Users } from "lucide-react";
+import { Barcode, ChartColumn, ClipboardList, FileSpreadsheet, LayoutGrid, Menu, MonitorSmartphone, Receipt, Tags, Trash2, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,15 +41,17 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/import", label: "Import", icon: FileSpreadsheet, active: (p) => p.startsWith("/admin/import") },
   { href: "/admin/tags", label: "Hang tags", icon: Barcode, active: (p) => p.startsWith("/admin/tags") },
   { href: "/admin/reports", label: "Reports", icon: ChartColumn, active: (p) => p.startsWith("/admin/reports") },
-  { href: "/admin/sales-team", label: "Sales team", icon: Users, active: (p) => p.startsWith("/admin/sales-team") },
-  { href: "/admin/targets", label: "Sales targets", icon: Target, active: (p) => p.startsWith("/admin/targets") },
-  { href: "/admin/employees", label: "Employees", icon: IdCard, active: (p) => p.startsWith("/admin/employees") },
-  { href: "/admin/attendance", label: "Attendance", icon: CalendarCheck, active: (p) => p.startsWith("/admin/attendance") },
   {
-    href: "/admin/leave",
-    label: "Leave requests",
-    icon: CalendarDays,
-    active: (p) => p.startsWith("/admin/leave"),
+    href: "/admin/team",
+    label: "Team",
+    icon: Users,
+    active: (p) =>
+      p.startsWith("/admin/team") ||
+      p.startsWith("/admin/employees") ||
+      p.startsWith("/admin/attendance") ||
+      p.startsWith("/admin/leave") ||
+      p.startsWith("/admin/targets") ||
+      p.startsWith("/admin/sales-team"),
     badge: "leaves",
   },
   {

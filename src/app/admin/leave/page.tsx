@@ -12,6 +12,8 @@ import {
   type LeaveWithEmployee,
 } from "@/lib/attendance";
 import { periodLabel } from "@/lib/salesReport";
+import { TeamPageHeader } from "@/components/admin/team/TeamPageHeader";
+import { EmployeeLink } from "@/components/admin/team/EmployeeLink";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,6 +97,7 @@ export default function LeaveRequestsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 md:px-6">
+      <TeamPageHeader title="Leave" description="Approve or reject leave requests." />
       {error ? (
         <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm whitespace-pre-wrap text-destructive">
           {error}
@@ -118,7 +121,7 @@ export default function LeaveRequestsPage() {
             {pending.map((item) => (
               <div key={item.id} className="rounded-xl border border-border bg-white p-4">
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <p className="font-medium">{item.employee_name}</p>
+                  <p className="font-medium"><EmployeeLink id={item.employee_id} name={item.employee_name} /></p>
                   <p className="text-sm text-muted-foreground">{dates(item)}</p>
                 </div>
                 <p className="mt-1 text-sm whitespace-pre-wrap">{item.reason}</p>
@@ -190,7 +193,7 @@ export default function LeaveRequestsPage() {
               ) : (
                 decided.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium whitespace-nowrap">{item.employee_name}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap"><EmployeeLink id={item.employee_id} name={item.employee_name} /></TableCell>
                     <TableCell className="whitespace-nowrap">{dates(item)}</TableCell>
                     <TableCell className="max-w-64 truncate" title={item.reason}>
                       {item.reason}

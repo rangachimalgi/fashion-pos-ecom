@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { listEmployees, type Employee } from "@/lib/employees";
 import {
@@ -21,6 +22,8 @@ import {
 import { monthEnd, monthStart, periodLabel, todayInShop } from "@/lib/salesReport";
 import { LiveElapsed } from "@/components/attendance/LiveElapsed";
 import { LocationSettings } from "@/components/admin/attendance/LocationSettings";
+import { TeamBackLink } from "@/components/admin/team/TeamBackLink";
+import { EmployeeLink } from "@/components/admin/team/EmployeeLink";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,8 +51,12 @@ type Loaded = {
 
 export default function AttendancePage() {
   const today = todayInShop();
+  const searchParams = useSearchParams();
+  const dateParam = searchParams.get("date");
   const [tab, setTab] = useState<Tab>("day");
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(() =>
+    dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && dateParam <= today ? dateParam : today
+  );
   const [month, setMonth] = useState(today.slice(0, 7));
 
   const [data, setData] = useState<Loaded | null>(null);
@@ -173,6 +180,7 @@ export default function AttendancePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 md:px-6">
+      <TeamBackLink />
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-white p-4">
         <div className="flex gap-1.5">
           <Button
@@ -303,7 +311,7 @@ export default function AttendancePage() {
                     return (
                       <Fragment key={employee.id}>
                         <TableRow>
-                          <TableCell className="font-medium whitespace-nowrap">{employee.name}</TableCell>
+                          <TableCell className="font-medium whitespace-nowrap"><EmployeeLink id={employee.id} name={employee.name} /></TableCell>
                           <TableCell>
                             {status === "present" ? (
                               <Badge variant="default">Present</Badge>
@@ -485,7 +493,7 @@ export default function AttendancePage() {
               ) : (
                 monthRows.map(({ employee, days, hours, missed, leaveDays }) => (
                   <TableRow key={employee.id}>
-                    <TableCell className="font-medium whitespace-nowrap">{employee.name}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap"><EmployeeLink id={employee.id} name={employee.name} /></TableCell>
                     <TableCell className="text-right tabular-nums">{days}</TableCell>
                     <TableCell className="text-right tabular-nums">{leaveDays}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatHours(hours)}</TableCell>

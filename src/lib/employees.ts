@@ -72,6 +72,17 @@ export async function listEmployees(supabase: SupabaseClient): Promise<Employee[
   return (data ?? []) as Employee[];
 }
 
+/** Admin only. null when the id does not exist. */
+export async function getEmployee(supabase: SupabaseClient, id: string): Promise<Employee | null> {
+  const { data, error } = await supabase
+    .from("employees")
+    .select("id, user_id, name, phone, address, aadhaar, pan, active, created_at, sales_person_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw friendlyRead(error);
+  return (data as Employee | null) ?? null;
+}
+
 async function call(url: string, method: string, body?: unknown): Promise<Record<string, unknown>> {
   // Send the signed-in admin's token explicitly. The browser client keeps it fresh;
   // relying on the cookie alone fails once the access token has expired.

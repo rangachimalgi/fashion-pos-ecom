@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -18,6 +19,8 @@ import { checkEmployeeFields, checkPassword, maskAadhaar, MIN_PASSWORD_LENGTH } 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TeamPageHeader } from "@/components/admin/team/TeamPageHeader";
+import { EmployeeLink } from "@/components/admin/team/EmployeeLink";
 import {
   Table,
   TableBody,
@@ -42,6 +45,8 @@ export default function EmployeesPage() {
   const [form, setForm] = useState<EmployeeForm>(EMPTY_EMPLOYEE_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const searchParams = useSearchParams();
+  const editParam = searchParams.get("edit");
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +56,14 @@ export default function EmployeesPage() {
         setEmployees(rows);
         setError(null);
         setLoading(false);
+        if (editParam) {
+          const match = rows.find((row) => row.id === editParam);
+          if (match) {
+            setForm(formFromEmployee(match));
+            setFormError(null);
+            setTarget(match.id);
+          }
+        }
       })
       .catch((err) => {
         if (cancelled) return;
@@ -60,7 +73,7 @@ export default function EmployeesPage() {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, editParam]);
 
   useEffect(() => {
     // Only fills the "Sales name" list; the page works without it.
@@ -161,19 +174,16 @@ export default function EmployeesPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 md:px-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div>
-          <h2 className="text-base font-semibold">Employees</h2>
-          <p className="text-xs text-muted-foreground">
-            Each employee signs in at <span className="font-medium text-foreground">/employee/login</span> with their
-            phone number and the password you set. They can only check in / out and ask for leave.
-          </p>
-        </div>
-        <Button type="button" size="sm" className="ml-auto" onClick={openNew} disabled={target === "new"}>
-          <Plus className="size-4" />
-          Add employee
-        </Button>
-      </div>
+      <TeamPageHeader
+        title="People"
+        description="Each person signs in at /employee/login with their phone and the password you set."
+        actions={
+          <Button type="button" size="sm" onClick={openNew} disabled={target === "new"}>
+            <Plus className="size-4" />
+            Add employee
+          </Button>
+        }
+      />
 
       {notice ? (
         <p className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
@@ -331,7 +341,7 @@ export default function EmployeesPage() {
               employees.map((employee) => (
                 <TableRow key={employee.id}>
                   <TableCell className="font-medium whitespace-nowrap">
-                    {employee.name}
+                    <EmployeeLink id={employee.id} name={employee.name} />
                     {employee.sales_person_id ? (
                       <span className="block text-xs font-normal text-muted-foreground">
                         Sales team{" "}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { formatInr } from "@/lib/formatOrder";
 import { monthEnd, monthStart, todayInShop } from "@/lib/salesReport";
@@ -22,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { TeamBackLink } from "@/components/admin/team/TeamBackLink";
 
 function monthLabel(month: string) {
   const [year, m] = month.split("-").map(Number);
@@ -57,6 +59,7 @@ function ProgressLine({ achieved, target, reached }: { achieved: number; target:
 
 function PersonCard({
   row,
+  employeeId,
   performance,
   pace,
   busy,
@@ -64,6 +67,7 @@ function PersonCard({
   onClear,
 }: {
   row: TargetRow;
+  employeeId: string | null;
   performance: Performance | null;
   pace: { daysLeft: number } | null;
   busy: boolean;
@@ -101,7 +105,15 @@ function PersonCard({
   return (
     <div className="rounded-xl border border-border bg-white px-4 py-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="font-semibold">{row.name}</h3>
+        <h3 className="font-semibold">
+          {employeeId ? (
+            <Link href={`/admin/team/${employeeId}`} className="hover:underline underline-offset-2">
+              {row.name}
+            </Link>
+          ) : (
+            row.name
+          )}
+        </h3>
         {!row.active ? <Badge variant="outline">Inactive</Badge> : null}
         {hasTarget && !editing ? (
           <div className="ml-auto flex gap-1">
@@ -260,6 +272,19 @@ export default function TargetsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [employeeBySales, setEmployeeBySales] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    supabase
+      .from("employees")
+      .select("id, sales_person_id")
+      .not("sales_person_id", "is", null)
+      .then(({ data }) => {
+        const map: Record<string, string> = {};
+        for (const row of data ?? []) map[String(row.sales_person_id)] = String(row.id);
+        setEmployeeBySales(map);
+      });
+  }, [reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -344,7 +369,8 @@ export default function TargetsPage() {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:px-6">
       <div className="flex flex-wrap items-center gap-2">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Sales targets</h2>
+          <TeamBackLink />
+          <h2 className="mt-2 text-lg font-semibold tracking-tight">Sales targets</h2>
           <p className="text-sm text-muted-foreground">
             Target = salary × target %. Sales above the target earn an incentive. Sales are POS bills each person attended in the month.
           </p>
@@ -451,6 +477,7 @@ export default function TargetsPage() {
               // key includes the saved values so the form resets after a save
               key={`${row.sales_person_id}-${row.monthly_salary}-${row.target_percent}-${row.incentive_percent}`}
               row={row}
+              employeeId={employeeBySales[row.sales_person_id] ?? null}
               performance={performance?.get(row.sales_person_id) ?? null}
               pace={pace}
               busy={busy}

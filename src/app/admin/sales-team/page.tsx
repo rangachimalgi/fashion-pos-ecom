@@ -13,6 +13,7 @@ import {
   type SalesRow,
 } from "@/lib/salesPeople";
 import { formatInr } from "@/lib/formatOrder";
+import { TeamBackLink } from "@/components/admin/team/TeamBackLink";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,8 +50,8 @@ export default function SalesTeamPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  /** sales name id -> the employee it belongs to. */
-  const [employeeBySales, setEmployeeBySales] = useState<Record<string, string>>({});
+  /** sales name id -> employee id / name. */
+  const [employeeBySales, setEmployeeBySales] = useState<Record<string, { id: string; name: string }>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -79,11 +80,13 @@ export default function SalesTeamPage() {
     // Which names belong to an employee. If this fails the page still works.
     supabase
       .from("employees")
-      .select("name, sales_person_id")
+      .select("id, name, sales_person_id")
       .not("sales_person_id", "is", null)
       .then(({ data }) => {
-        const map: Record<string, string> = {};
-        for (const row of data ?? []) map[String(row.sales_person_id)] = String(row.name);
+        const map: Record<string, { id: string; name: string }> = {};
+        for (const row of data ?? []) {
+          map[String(row.sales_person_id)] = { id: String(row.id), name: String(row.name) };
+        }
         setEmployeeBySales(map);
       });
   }, [reloadKey]);
@@ -134,9 +137,10 @@ export default function SalesTeamPage() {
       <section>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">Sales by salesperson</h2>
+            <TeamBackLink />
+            <h2 className="mt-2 text-lg font-semibold tracking-tight">Sales names</h2>
             <p className="text-sm text-muted-foreground">
-              POS bills only. Deleted bills are not counted.
+              POS “Attended by” names. Prefer linking them when you add an employee.
             </p>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -266,7 +270,7 @@ export default function SalesTeamPage() {
         <p className="mb-3 text-sm text-muted-foreground">
           These names appear in the “Attended by” list at the POS. To add someone, create them under{" "}
           <Link href="/admin/employees" className="font-medium text-foreground underline underline-offset-2">
-            Employees
+            People
           </Link>{" "}
           and choose “In the sales team”. Changes to an employee (name, sign-in off, delete) are applied here
           automatically.
@@ -317,10 +321,10 @@ export default function SalesTeamPage() {
                       <>
                         <span className="text-xs text-muted-foreground">Employee</span>
                         <Link
-                          href="/admin/employees"
+                          href={`/admin/team/${employeeBySales[person.id].id}`}
                           className="ml-auto text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
                         >
-                          Manage under Employees
+                          Open {employeeBySales[person.id].name}
                         </Link>
                       </>
                     ) : (
