@@ -40,7 +40,7 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
         <p className="mt-1 text-[9px] tracking-wide">
           GSTIN {STORE_RECEIPT.gstin} <span className="mx-0.5">·</span> Ph {STORE_RECEIPT.phone}
         </p>
-        <p className="mt-2.5 inline-block border border-black px-3 py-[3px] text-[9px] tracking-[0.35em] pl-[calc(0.75rem+0.35em)] uppercase">
+        <p className="mt-2.5 inline-block border border-black px-3 py-0.75 text-[9px] tracking-[0.35em] pl-[calc(0.75rem+0.35em)] uppercase">
           Tax Invoice
         </p>
       </header>
@@ -124,7 +124,7 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
       </p>
 
       {/* ---------- Tax ---------- */}
-      <div className="mt-2 text-[9px] leading-[1.5]">
+      <div className="mt-2 text-[9px] leading-normal">
         <Caption className="mb-1">Tax included</Caption>
         <p className="flex justify-between">
           <span>
@@ -143,7 +143,7 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
       {/* ---------- Terms & thanks ---------- */}
       <div className="mt-3 border-t border-dotted border-black pt-2">
         <Caption className="mb-1">Terms</Caption>
-        <ul className="text-[8.5px] leading-[1.5]">
+        <ul className="text-[8.5px] leading-normal">
           {STORE_RECEIPT.terms.map((term) => (
             <li key={term} className="flex gap-1.5">
               <span aria-hidden>·</span>
