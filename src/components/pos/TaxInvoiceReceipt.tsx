@@ -27,7 +27,7 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
         </p>
         <div className="mx-auto mt-2 flex items-center gap-1.5">
           <span className="h-px flex-1 bg-black" />
-          <span className="size-[3px] rotate-45 bg-black" />
+          <span className="size-0.75 rotate-45 bg-black" />
           <span className="h-px flex-1 bg-black" />
         </div>
         <p className="mt-2 text-[9px] leading-[1.45]">
@@ -108,7 +108,7 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
         </p>
       </div>
 
-      <div className="mt-2 border-y border-black py-[3px]">
+      <div className="mt-2 border-y border-black py-0.75">
         <div className="flex items-baseline justify-between border-y border-black px-0 py-2">
           <span className="text-[9px] tracking-[0.3em] uppercase">Net amount</span>
           <span className="text-[17px] leading-none font-bold tabular-nums">
@@ -156,7 +156,7 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
       <footer className="mt-3 text-center">
         <div className="mx-auto mb-2 flex items-center justify-center gap-1.5">
           <span className="h-px w-8 bg-black" />
-          <span className="size-[3px] rotate-45 bg-black" />
+          <span className="size-0.75 rotate-45 bg-black" />
           <span className="h-px w-8 bg-black" />
         </div>
         <p className={`${SERIF} text-[12px] italic tracking-wide`}>
