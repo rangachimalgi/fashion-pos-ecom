@@ -186,7 +186,7 @@ export default function HomePage() {
       >
         <ShoppingBag className="size-4" />
         Open POS
-      </Link> */}
+      </Link>` */}
     </div>
   );
 }
