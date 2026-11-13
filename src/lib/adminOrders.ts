@@ -37,6 +37,7 @@ type OrderRow = {
   pincode?: string | null;
   sales_person_id?: string | null;
   attended_by_name?: string | null;
+  exchange_of?: string | null;
   order_items?: LineRow[] | null;
 };
 
@@ -197,6 +198,7 @@ function toAdminOrder(order: OrderRow, items: OrderLineItem[]): AdminOrder {
     shipping: shippingFromRow(order),
     sales_person_id: order.sales_person_id ?? null,
     attended_by: order.attended_by_name ?? null,
+    exchange_of: order.exchange_of ?? null,
   };
 }
 

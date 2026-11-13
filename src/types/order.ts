@@ -61,4 +61,6 @@ export interface AdminOrder {
   /** POS bills: the salesperson who attended, as named when the bill was made. */
   sales_person_id: string | null;
   attended_by: string | null;
+  /** When set, this POS bill was made as an exchange of that earlier bill. */
+  exchange_of: string | null;
 }

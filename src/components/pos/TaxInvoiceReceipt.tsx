@@ -97,6 +97,12 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
       </div>
 
       {/* ---------- Totals ---------- */}
+      {receipt.exchangeOfBillNo ? (
+        <p className="mt-2 text-center text-[9px] tracking-[0.18em] uppercase">
+          Exchange of bill {receipt.exchangeOfBillNo}
+        </p>
+      ) : null}
+
       <div className="border-t border-black pt-1.5">
         <p className="flex justify-between py-px">
           <span>Subtotal · {receipt.itemCount} {receipt.itemCount === 1 ? "piece" : "pieces"}</span>
@@ -106,14 +112,22 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
           <span>Discount</span>
           <span className="tabular-nums">{receipt.discount > 0 ? `− ${inr(receipt.discount)}` : inr(0)}</span>
         </p>
+        {receipt.exchangeCredit != null && receipt.exchangeCredit > 0 ? (
+          <p className="flex justify-between py-px">
+            <span>Exchange credit</span>
+            <span className="tabular-nums">− {inr(receipt.exchangeCredit)}</span>
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-2 border-y border-black py-0.75">
         <div className="flex items-baseline justify-between border-y border-black px-0 py-2">
-          <span className="text-[9px] tracking-[0.3em] uppercase">Net amount</span>
+          <span className="text-[9px] tracking-[0.3em] uppercase">
+            {receipt.exchangeOfBillNo ? "Amount due" : "Net amount"}
+          </span>
           <span className="text-[17px] leading-none font-bold tabular-nums">
             <span className="mr-1 text-[10px] font-normal">Rs</span>
-            {inr(receipt.netAmount)}
+            {inr(receipt.amountDue ?? receipt.netAmount)}
           </span>
         </div>
       </div>

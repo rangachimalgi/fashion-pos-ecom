@@ -7,6 +7,8 @@ import { listAdminOrders } from "@/lib/adminOrders";
 import { formatInr, formatOrderTime, shortOrderId } from "@/lib/formatOrder";
 import { buildPosReceiptFromOrder } from "@/lib/posReceipt";
 import { deletePosOrder } from "@/lib/posOrderMutations";
+import { canExchangeOrder } from "@/lib/posExchange";
+import { todayInShop } from "@/lib/salesReport";
 import { listDeleteRequests, requestPosOrderDelete, type DeleteRequest } from "@/lib/deleteRequests";
 import { canDeleteDirectly } from "@/lib/staffRoles";
 import type { StaffRole } from "@/lib/staffAuth";
@@ -23,6 +25,7 @@ export function PosHistoryPanel({
   role,
   onReprint,
   onEdit,
+  onExchange,
   onRequestsChanged,
 }: {
   attendedBy: string;
@@ -30,6 +33,7 @@ export function PosHistoryPanel({
   onRequestsChanged?: () => void;
   onReprint: (receipt: PosReceipt) => void;
   onEdit: (order: AdminOrder) => void | Promise<void>;
+  onExchange: (order: AdminOrder) => void | Promise<void>;
 }) {
   const [range, setRange] = useState<"month" | "all">("month");
   const [month, setMonth] = useState(currentMonthValue);
@@ -203,6 +207,15 @@ export function PosHistoryPanel({
                         </span>
                       ) : (
                         <>
+                          {canExchangeOrder(order, todayInShop()).ok ? (
+                            <button
+                              type="button"
+                              onClick={() => onExchange(order)}
+                              className="rounded-md border border-emerald-500/50 px-2 py-1 text-[11px] font-black tracking-wider text-emerald-300 hover:bg-emerald-500/10"
+                            >
+                              EXCHANGE
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => onEdit(order)}

@@ -12,7 +12,16 @@ import {
   ticketFromOrder,
   updatePosOrder,
 } from '@/lib/posOrderMutations';
+import {
+  EXCHANGE_WINDOW_DAYS,
+  canExchangeOrder,
+  exchangeCredit,
+  exchangePosOrder,
+  fetchExchangeAvailability,
+  type ExchangeAvailability,
+} from '@/lib/posExchange';
 import { formatInr, shortOrderId } from '@/lib/formatOrder';
+import { todayInShop } from '@/lib/salesReport';
 import { getStaffProfile, signOutStaff, type StaffRole } from '@/lib/staffAuth';
 import { DISCOUNT_CAP_PERCENT, ROLE_LABEL } from '@/lib/staffRoles';
 import { countPendingDeleteRequests } from '@/lib/deleteRequests';
@@ -67,11 +76,21 @@ export default function BillingTerminal() {
   const [denominations, setDenominations] = useState<number[]>(DEFAULT_DENOMINATIONS);
   const [drawerTotal, setDrawerTotal] = useState<number | null>(null);
   const [drawerError, setDrawerError] = useState<string | null>(null);
+  const [exchangingOrder, setExchangingOrder] = useState<AdminOrder | null>(null);
+  const [exchangeAvailability, setExchangeAvailability] = useState<ExchangeAvailability[]>([]);
+  const [exchangeReturns, setExchangeReturns] = useState<Record<string, number>>({});
   const eanRef = useRef<HTMLInputElement>(null);
 
+  const returnLines = Object.entries(exchangeReturns)
+    .map(([variant_id, quantity]) => ({ variant_id, quantity }))
+    .filter((line) => line.quantity > 0);
+  const credit = exchangingOrder ? exchangeCredit(returnLines, exchangeAvailability) : 0;
+  const newTotal = getGrandTotal();
+  const amountDue = Math.max(0, Math.round((newTotal - credit) * 100) / 100);
+
   // Cash side of the bill: what the customer handed over and the change given.
-  // Cash due is the bill to the nearest rupee (the database uses the same rule).
-  const cashDue = cashDueFor(getGrandTotal());
+  // Cash due is the amount the customer pays (full bill, or the exchange difference).
+  const cashDue = cashDueFor(exchangingOrder ? amountDue : newTotal);
   const tender = useCashTender(cashDue, denominations);
 
   const refreshDrawerTotal = () => {
@@ -271,21 +290,30 @@ export default function BillingTerminal() {
   // recorded; anything else paid in cash needs the notes/coins entered.
   const cashUnchanged =
     Boolean(editingOrder) &&
+    !exchangingOrder &&
     editingOrder?.payment_method === 'CASH' &&
     cashDueFor(Number(editingOrder?.total_amount ?? 0)) === cashDue;
-  const needsCashEntry = paymentMode === 'CASH' && !cashUnchanged;
+  // Even exchange (due ₹0) needs no cash counts.
+  const needsCashEntry = paymentMode === 'CASH' && !cashUnchanged && cashDue > 0;
 
   const receiptAt = editingOrder?.created_at
     ? new Date(editingOrder.created_at)
     : undefined;
 
-  const openReceipt = (orderId: string, posted: boolean) => {
+  const openReceipt = (orderId: string, posted: boolean, extras?: {
+    exchangeOfBillNo?: string | null;
+    exchangeCredit?: number | null;
+    amountDue?: number | null;
+  }) => {
     setReceipt(
       buildPosReceipt(ticket, {
         orderId,
         payment: paymentMode,
         attendedBy: attendedName,
         at: receiptAt,
+        exchangeOfBillNo: extras?.exchangeOfBillNo,
+        exchangeCredit: extras?.exchangeCredit,
+        amountDue: extras?.amountDue,
       })
     );
     setReceiptPosted(posted);
@@ -296,11 +324,14 @@ export default function BillingTerminal() {
     setStatus(null);
     try {
       const nextTicket = await ticketFromOrder(supabase, order);
-      if (!editingOrder && ticket.length > 0) {
+      if (!editingOrder && !exchangingOrder && ticket.length > 0) {
         setStashedSale({ ticket, payment: paymentMode });
       }
       replaceTicket(nextTicket);
       setEditingOrder(order);
+      setExchangingOrder(null);
+      setExchangeAvailability([]);
+      setExchangeReturns({});
       setPickedSalesPersonId('');
       tender.reset();
       setPaymentMode(order.payment_method === 'UPI' ? 'UPI' : 'CASH');
@@ -309,6 +340,39 @@ export default function BillingTerminal() {
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Could not open that bill');
       setDeskView('sale');
+    }
+  };
+
+  const beginExchange = async (order: AdminOrder) => {
+    setLookupError(null);
+    setStatus(null);
+    const gate = canExchangeOrder(order, todayInShop());
+    if (!gate.ok) {
+      setStatus(gate.reason);
+      return;
+    }
+    try {
+      const availability = await fetchExchangeAvailability(supabase, order.id);
+      const open = availability.filter((row) => row.available > 0);
+      if (!open.length) {
+        setStatus('Nothing left to exchange on this bill — it was already fully exchanged.');
+        return;
+      }
+      if (!editingOrder && !exchangingOrder && ticket.length > 0) {
+        setStashedSale({ ticket, payment: paymentMode });
+      }
+      replaceTicket([]);
+      setEditingOrder(null);
+      setExchangingOrder(order);
+      setExchangeAvailability(availability);
+      setExchangeReturns({});
+      setPickedSalesPersonId('');
+      tender.reset();
+      setPaymentMode('CASH');
+      setDeskView('sale');
+      setStatus(`Exchange of bill ${shortOrderId(order.id)} — pick pieces coming back, then scan the new ones.`);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Could not start the exchange');
     }
   };
 
@@ -321,6 +385,9 @@ export default function BillingTerminal() {
       replaceTicket([]);
     }
     setEditingOrder(null);
+    setExchangingOrder(null);
+    setExchangeAvailability([]);
+    setExchangeReturns({});
     setPickedSalesPersonId('');
     tender.reset();
     setStatus(null);
@@ -329,7 +396,11 @@ export default function BillingTerminal() {
 
   const handlePreviewBill = () => {
     if (ticket.length === 0) return;
-    openReceipt(editingOrder?.id ?? `preview-${Date.now()}`, false);
+    openReceipt(editingOrder?.id ?? exchangingOrder?.id ?? 'preview', false, exchangingOrder ? {
+      exchangeOfBillNo: shortOrderId(exchangingOrder.id),
+      exchangeCredit: credit,
+      amountDue,
+    } : undefined);
   };
 
   const handleCloseInvoice = async () => {
@@ -338,6 +409,17 @@ export default function BillingTerminal() {
     if (activeSalesPeople.length > 0 && !salesPersonId) {
       setStatus('Choose who attended this customer.');
       return;
+    }
+
+    if (exchangingOrder) {
+      if (!returnLines.length) {
+        setStatus('Pick at least one piece coming back from the original bill.');
+        return;
+      }
+      if (newTotal + 0.001 < credit) {
+        setStatus(`No cash refund on exchange. New items ₹${newTotal} must cover credit ₹${credit}.`);
+        return;
+      }
     }
 
     if (needsCashEntry && !tender.valid) {
@@ -362,7 +444,41 @@ export default function BillingTerminal() {
       }));
 
       let orderId: string;
-      if (editingOrder) {
+      let postedCredit: number | null = null;
+      let postedDue: number | null = null;
+      let exchangeOfBillNo: string | null = null;
+
+      if (exchangingOrder) {
+        if (!returnLines.length) {
+          setStatus('Pick at least one piece coming back from the original bill.');
+          setSubmitting(false);
+          return;
+        }
+        if (amountDue < 0 || newTotal + 0.001 < credit) {
+          setStatus(
+            `No cash refund on exchange. New items ₹${newTotal} must cover credit ₹${credit}.`
+          );
+          setSubmitting(false);
+          return;
+        }
+        const result = await exchangePosOrder(supabase, {
+          originalOrderId: exchangingOrder.id,
+          returns: returnLines,
+          newItems: items,
+          payment_method: paymentMode,
+          sales_person_id: salesPersonId || null,
+          ...cash,
+        });
+        orderId = result.order_id;
+        postedCredit = result.credit;
+        postedDue = result.due;
+        exchangeOfBillNo = shortOrderId(exchangingOrder.id);
+        setStatus(
+          result.due > 0
+            ? `Exchange posted · customer pays ₹${result.due} via ${paymentMode}`
+            : `Exchange posted · even swap, nothing to pay`
+        );
+      } else if (editingOrder) {
         await updatePosOrder(supabase, editingOrder, {
           payment_method: paymentMode,
           items,
@@ -389,15 +505,22 @@ export default function BillingTerminal() {
           payment: paymentMode,
           attendedBy: attended,
           at: editingOrder?.created_at ? new Date(editingOrder.created_at) : undefined,
+          exchangeOfBillNo,
+          exchangeCredit: postedCredit,
+          amountDue: postedDue,
         })
       );
       setReceiptPosted(true);
       setPickedSalesPersonId('');
       tender.reset();
       setStashedSale(null);
+      const goHistory = Boolean(editingOrder || exchangingOrder);
       clearTicket();
+      setExchangingOrder(null);
+      setExchangeAvailability([]);
+      setExchangeReturns({});
       refreshDrawerTotal();
-      if (editingOrder) setDeskView('history');
+      if (goHistory) setDeskView('history');
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Checkout failed');
     } finally {
@@ -514,6 +637,7 @@ export default function BillingTerminal() {
               setReceiptPosted(true);
             }}
             onEdit={beginEdit}
+            onExchange={beginExchange}
           />
         ) : (
           <>
@@ -579,6 +703,72 @@ export default function BillingTerminal() {
             >
               CANCEL EDIT
             </button>
+          </div>
+        ) : null}
+        {exchangingOrder ? (
+          <div className="mb-4 space-y-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-sans text-xs text-emerald-100">
+                Exchange of bill {shortOrderId(exchangingOrder.id)} · within {EXCHANGE_WINDOW_DAYS} days · no cash refund — new items must cover the credit.
+              </p>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="shrink-0 rounded-md border border-emerald-500/50 px-2 py-1 text-[11px] font-black tracking-wider text-emerald-100 hover:bg-emerald-500/20"
+              >
+                CANCEL EXCHANGE
+              </button>
+            </div>
+            <div className="overflow-x-auto rounded-md border border-emerald-500/20 bg-slate-900/40">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-700 text-slate-400">
+                    <th className="px-2 py-1.5 font-medium">Coming back</th>
+                    <th className="px-2 py-1.5 font-medium">Size</th>
+                    <th className="px-2 py-1.5 text-right font-medium">Paid</th>
+                    <th className="px-2 py-1.5 text-right font-medium">Left</th>
+                    <th className="px-2 py-1.5 text-right font-medium">Return qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exchangeAvailability
+                    .filter((row) => row.available > 0)
+                    .map((row) => {
+                      const line = exchangingOrder.items.find((item) => item.variant_id === row.variant_id);
+                      const qty = exchangeReturns[row.variant_id] ?? 0;
+                      return (
+                        <tr key={row.variant_id} className="border-b border-slate-800">
+                          <td className="px-2 py-1.5 font-sans text-slate-200">
+                            {line?.product_name || 'Item'}
+                            {line?.brand ? <span className="text-slate-500"> · {line.brand}</span> : null}
+                          </td>
+                          <td className="px-2 py-1.5 text-slate-300">{line?.size || '—'}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums text-slate-300">
+                            {formatInr(row.price_at_purchase)}
+                          </td>
+                          <td className="px-2 py-1.5 text-right tabular-nums text-slate-400">{row.available}</td>
+                          <td className="px-2 py-1.5 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              max={row.available}
+                              value={qty}
+                              onChange={(event) => {
+                                const next = Math.max(0, Math.min(row.available, Math.floor(Number(event.target.value) || 0)));
+                                setExchangeReturns((current) => ({ ...current, [row.variant_id]: next }));
+                              }}
+                              className="h-8 w-16 rounded border border-slate-600 bg-slate-900 px-2 text-right text-white outline-none focus:border-emerald-400"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+            <p className="font-sans text-[11px] text-emerald-200/80">
+              Credit so far {formatInr(credit)} · scan the new items below.
+            </p>
           </div>
         ) : null}
 
@@ -795,6 +985,10 @@ export default function BillingTerminal() {
             {paymentMode === 'CASH' ? (
               needsCashEntry ? (
                 <CashTender due={cashDue} denominations={denominations} tender={tender} />
+              ) : exchangingOrder && cashDue === 0 ? (
+                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 font-sans text-xs text-emerald-200">
+                  Even exchange — nothing to collect, the cash drawer stays as it is.
+                </p>
               ) : (
                 <p className="rounded-lg border border-slate-600 bg-slate-900/40 px-3 py-2 font-sans text-xs text-slate-400">
                   This bill was already paid in cash for ₹{cashDue}. Its cash record stays as it is. Change the
@@ -808,9 +1002,26 @@ export default function BillingTerminal() {
         {/* FINANCIAL SUMMARY COUNTER */}
         <div className="border-t border-slate-700 pt-6">
           <div className="mb-6 space-y-2">
+            {exchangingOrder ? (
+              <div className="mb-3 space-y-1 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 font-sans text-xs text-slate-300">
+                <div className="flex justify-between"><span>New items</span><span className="tabular-nums">{formatInr(newTotal)}</span></div>
+                <div className="flex justify-between"><span>Exchange credit</span><span className="tabular-nums">− {formatInr(credit)}</span></div>
+                <div className="flex justify-between border-t border-emerald-500/20 pt-1 text-sm font-semibold text-emerald-300">
+                  <span>Customer pays</span>
+                  <span className="tabular-nums">{formatInr(amountDue)}</span>
+                </div>
+                {amountDue <= 0 && credit > 0 && newTotal + 0.001 < credit ? (
+                  <p className="pt-1 text-amber-300">New items are short of the credit — add more or pick a higher MRP.</p>
+                ) : null}
+              </div>
+            ) : null}
             <div className="flex justify-between items-baseline">
-              <span className="text-slate-400 text-sm font-sans">NET RUNNING TOTAL:</span>
-              <span className="text-4xl font-black text-emerald-400">₹{getGrandTotal()}</span>
+              <span className="text-slate-400 text-sm font-sans">
+                {exchangingOrder ? 'AMOUNT DUE:' : 'NET RUNNING TOTAL:'}
+              </span>
+              <span className="text-4xl font-black text-emerald-400">
+                ₹{exchangingOrder ? amountDue : getGrandTotal()}
+              </span>
             </div>
             <div className="flex justify-between text-xs text-slate-500 font-sans">
               <span>COST (RATE)</span>
@@ -837,17 +1048,25 @@ export default function BillingTerminal() {
               PREVIEW BILL
             </button>
             <button 
-              disabled={ticket.length === 0 || submitting}
+              disabled={
+                ticket.length === 0 ||
+                submitting ||
+                (Boolean(exchangingOrder) && (returnLines.length === 0 || newTotal + 0.001 < credit))
+              }
               onClick={handleCloseInvoice}
               className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-black py-4 rounded-lg text-lg tracking-wider transition transform active:scale-95 shadow-md"
             >
               {submitting
-                ? editingOrder
-                  ? 'SAVING BILL...'
-                  : 'POSTING INVOICE...'
-                : editingOrder
-                  ? 'SAVE & PRINT INVOICE'
-                  : 'CLOSE & PRINT INVOICE'}
+                ? exchangingOrder
+                  ? 'POSTING EXCHANGE...'
+                  : editingOrder
+                    ? 'SAVING BILL...'
+                    : 'POSTING INVOICE...'
+                : exchangingOrder
+                  ? 'COMPLETE EXCHANGE & PRINT'
+                  : editingOrder
+                    ? 'SAVE & PRINT INVOICE'
+                    : 'CLOSE & PRINT INVOICE'}
             </button>
           </div>
         </div>

@@ -27,6 +27,11 @@ export type PosReceipt = {
   taxable: number;
   cgst: number;
   sgst: number;
+  /** Set when this bill is an exchange. */
+  exchangeOfBillNo?: string | null;
+  exchangeCredit?: number | null;
+  /** What the customer pays after credit (same as net when not an exchange). */
+  amountDue?: number | null;
 };
 
 function money(n: number) {
@@ -45,6 +50,9 @@ export function buildPosReceipt(
     payment: string;
     attendedBy: string;
     at?: Date;
+    exchangeOfBillNo?: string | null;
+    exchangeCredit?: number | null;
+    amountDue?: number | null;
   }
 ): PosReceipt {
   const at = options.at ?? new Date();
@@ -90,6 +98,9 @@ export function buildPosReceipt(
     taxable,
     cgst,
     sgst,
+    exchangeOfBillNo: options.exchangeOfBillNo ?? null,
+    exchangeCredit: options.exchangeCredit ?? null,
+    amountDue: options.amountDue ?? null,
   };
 }
 
@@ -146,5 +157,8 @@ export function buildPosReceiptFromOrder(
     taxable,
     cgst,
     sgst,
+    exchangeOfBillNo: order.exchange_of ? formatReceiptBillNo(order.exchange_of, at) : null,
+    exchangeCredit: null,
+    amountDue: null,
   };
 }
