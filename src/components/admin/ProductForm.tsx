@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { SIZE_FIELD_HINT, SIZE_FIELD_PLACEHOLDER, SIZE_SUGGESTIONS } from "@/lib/sizes";
 import type { CompleteProduct } from "@/types/product";
 import {
   STORE_DEPARTMENTS,
@@ -558,7 +559,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
               <div>
                 <h3 className="text-sm font-medium">Variants</h3>
                 <p className="text-xs text-muted-foreground">
-                  Size can be S–XXL or 039. EAN is the scan code from the invoice.
+                  {SIZE_FIELD_HINT}. EAN is the scan code from the invoice.
                 </p>
               </div>
               <Button
@@ -570,6 +571,11 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                 Add row
               </Button>
             </div>
+            <datalist id="product-size-suggestions">
+              {SIZE_SUGGESTIONS.map((size) => (
+                <option key={size} value={size} />
+              ))}
+            </datalist>
             <div className="space-y-2">
               {variants.map((variant, index) => (
                 <div
@@ -581,7 +587,8 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                     <Input
                       required
                       value={variant.size}
-                      placeholder="039"
+                      placeholder={SIZE_FIELD_PLACEHOLDER}
+                      list="product-size-suggestions"
                       onChange={(event) => {
                         const next = [...variants];
                         next[index] = { ...variant, size: event.target.value };

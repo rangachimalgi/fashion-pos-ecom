@@ -8,6 +8,7 @@ import { useCartStore } from "@/store/useCartStore";
 import { useWishlistStore } from "@/store/useWishlistStore";
 import { getProductPrimaryImage } from "@/lib/productImages";
 import { cn } from "@/lib/utils";
+import { compareSizes } from "@/lib/sizes";
 import {
   Dialog,
   DialogContent,
@@ -15,8 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-const SIZE_ORDER = ["S", "M", "L", "XL", "XXL"] as const;
 
 type WishlistItemProps = {
   product: CompleteProduct;
@@ -43,16 +42,7 @@ export function WishlistItem({ product }: WishlistItemProps) {
         )
       : product.variants;
 
-    return [...pool].sort((a, b) => {
-      const ia = SIZE_ORDER.indexOf(a.size as (typeof SIZE_ORDER)[number]);
-      const ib = SIZE_ORDER.indexOf(b.size as (typeof SIZE_ORDER)[number]);
-      if (ia === -1 && ib === -1) {
-        return a.size.localeCompare(b.size, undefined, { numeric: true });
-      }
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-      return ia - ib;
-    });
+    return [...pool].sort((a, b) => compareSizes(a.size, b.size));
   }, [product.variants, selectedColor]);
 
   const openPicker = () => {

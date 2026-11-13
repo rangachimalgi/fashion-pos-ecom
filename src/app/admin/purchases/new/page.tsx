@@ -26,6 +26,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { SIZE_FIELD_PLACEHOLDER, SIZE_SUGGESTIONS } from "@/lib/sizes";
 
 type Row = {
   id: number;
@@ -437,6 +438,11 @@ export default function NewPurchasePage() {
               placeholder="Pick a supplier, or type a new name"
               className="h-9"
             />
+            <datalist id="purchase-size-suggestions">
+              {SIZE_SUGGESTIONS.map((size) => (
+                <option key={size} value={size} />
+              ))}
+            </datalist>
             <datalist id="supplier-list">
               {suppliers.map((supplier) => (
                 <option key={supplier.id} value={supplier.name} />
@@ -648,7 +654,8 @@ export default function NewPurchasePage() {
                       <Input
                         value={row.size}
                         onChange={(event) => update(row.id, { size: event.target.value })}
-                        placeholder="OS"
+                        placeholder={SIZE_FIELD_PLACEHOLDER}
+                        list="purchase-size-suggestions"
                         className={FIELD}
                       />
                     </td>
