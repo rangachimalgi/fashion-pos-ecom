@@ -48,6 +48,8 @@ export default function BillingTerminal() {
     decrementItem,
     removeItemFromTicket,
     setLineDiscount,
+    setDefaultDiscount,
+    defaultDiscountPercent,
     getGrandTotal,
     clearTicket,
     replaceTicket,
@@ -160,15 +162,17 @@ export default function BillingTerminal() {
     countPendingDeleteRequests(supabase).then(setPendingCount);
   }, [deskView]);
 
-  // Biggest discount for a line: the role's cap, and never so deep that the
-  // price drops below cost + 5%. (The database enforces both.)
+  // Biggest discount for a line: the role's cap. Managers/staff also cannot go
+  // below cost + 5%. Admins have no margin floor (only the 100% role cap).
   // When editing an existing bill, keep whatever discount it already has.
   const lineDiscountLimit = (
     variantId: string,
     mrp: number,
     cost: number | null | undefined
   ) => {
-    const base = Math.min(maxDiscount, maxDiscountForMargin(mrp, cost));
+    const base = isAdmin
+      ? maxDiscount
+      : Math.min(maxDiscount, maxDiscountForMargin(mrp, cost));
     if (!editingOrder || !mrp) return base;
     const line = editingOrder.items.find((entry) => entry.variant_id === variantId);
     if (!line) return base;
@@ -176,9 +180,13 @@ export default function BillingTerminal() {
     return Math.max(base, original);
   };
 
-  // A saved ticket from another login must not carry a bigger discount over.
+  // Keep the bill preset and any open lines inside this role's limit.
   useEffect(() => {
     if (!role) return;
+    if (defaultDiscountPercent > maxDiscount) {
+      setDefaultDiscount(maxDiscount, true);
+      return;
+    }
     for (const item of ticket) {
       const limit = lineDiscountLimit(
         item.variant.id,
@@ -188,7 +196,7 @@ export default function BillingTerminal() {
       if ((item.discountPercent ?? 0) > limit) setLineDiscount(item.variant.id, limit);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, ticket, editingOrder]);
+  }, [role, ticket, editingOrder, maxDiscount]);
 
   useEffect(() => {
     eanRef.current?.focus();
@@ -628,7 +636,8 @@ export default function BillingTerminal() {
           <div className="flex items-center gap-3">
             {role ? (
               <span className="font-sans text-[11px] text-slate-400">
-                {ROLE_LABEL[role]} · max discount {maxDiscount}%
+                {ROLE_LABEL[role]} · max {maxDiscount}%
+                {isAdmin ? " · no margin floor" : ""}
               </span>
             ) : null}
             {isAdmin ? (
@@ -695,6 +704,49 @@ export default function BillingTerminal() {
               editingOrder={editingOrder}
               onPick={handlePick}
             />
+          </div>
+          <div className="flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-900 px-2 py-1">
+            <label
+              htmlFor="bill-discount"
+              className="whitespace-nowrap font-sans text-[10px] font-medium uppercase tracking-wider text-slate-500"
+            >
+              Disc
+            </label>
+            <input
+              id="bill-discount"
+              type="number"
+              min={0}
+              max={maxDiscount}
+              step={1}
+              value={defaultDiscountPercent}
+              title="Preset discount for this bill — applied to new scans and the lines already on the ticket"
+              onChange={(event) =>
+                setDefaultDiscount(
+                  Math.min(maxDiscount, Math.max(0, parseFloat(event.target.value) || 0)),
+                  true
+                )
+              }
+              className="h-8 w-12 rounded border border-slate-600 bg-slate-950 px-1 text-center font-sans text-sm tabular-nums text-white outline-none focus:border-emerald-400"
+            />
+            <span className="text-xs text-slate-500">%</span>
+            <div className="ml-0.5 hidden gap-0.5 sm:flex">
+              {[0, 5, 10, 15, 20]
+                .filter((pct) => pct <= maxDiscount)
+                .map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => setDefaultDiscount(pct, true)}
+                    className={`rounded px-1.5 py-1 font-sans text-[10px] font-semibold tabular-nums ${
+                      defaultDiscountPercent === pct
+                        ? "bg-emerald-500 text-slate-950"
+                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    {pct}
+                  </button>
+                ))}
+            </div>
           </div>
           <button
             type="submit"
@@ -886,7 +938,8 @@ export default function BillingTerminal() {
                       />
                       <span className="text-xs text-slate-500">%</span>
                     </div>
-                    {lineDiscountLimit(
+                    {!isAdmin &&
+                    lineDiscountLimit(
                       item.variant.id,
                       item.product.base_price,
                       item.product.cost_price

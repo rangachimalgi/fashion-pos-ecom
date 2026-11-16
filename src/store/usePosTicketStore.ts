@@ -5,14 +5,21 @@ import type { CompleteProduct, ProductVariant } from '../types/product';
 import type { AdminOrder } from '@/types/order';
 import { clampDiscountPercent, posLineTotal } from '@/lib/posPricing';
 
+/** Default % off applied to newly scanned POS lines (cashiers set this in advance). */
+export const DEFAULT_POS_DISCOUNT_PERCENT = 10;
+
 interface PosTicketState {
     ticket: CartItem[];
     editingOrder: AdminOrder | null;
+    /** Applied to every newly added line. */
+    defaultDiscountPercent: number;
     addItemToTicket: (product: CompleteProduct, variant: ProductVariant) => void;
     incrementItem: (variantId: string) => void;
     decrementItem: (variantId: string) => void;
     removeItemFromTicket: (variantId: string) => void;
     setLineDiscount: (variantId: string, percent: number) => void;
+    /** Sets the preset and optionally pushes it onto every line already on the bill. */
+    setDefaultDiscount: (percent: number, applyToTicket?: boolean) => void;
     clearTicket: () => void;
     replaceTicket: (ticket: CartItem[]) => void;
     setEditingOrder: (order: AdminOrder | null) => void;
@@ -28,6 +35,7 @@ export const usePosTicketStore = create<PosTicketState>()(
         (set, get) => ({
             ticket: [],
             editingOrder: null,
+            defaultDiscountPercent: DEFAULT_POS_DISCOUNT_PERCENT,
 
             addItemToTicket: (product, variant) => {
                 set((state) => {
@@ -62,7 +70,9 @@ export const usePosTicketStore = create<PosTicketState>()(
                                 product: parentProductDetails,
                                 variant,
                                 quantity: 1,
-                                discountPercent: 0,
+                                discountPercent: clampDiscountPercent(
+                                    state.defaultDiscountPercent
+                                ),
                             },
                         ],
                     };
@@ -107,6 +117,19 @@ export const usePosTicketStore = create<PosTicketState>()(
                 }));
             },
 
+            setDefaultDiscount: (percent, applyToTicket = true) => {
+                const next = clampDiscountPercent(percent);
+                set((state) => ({
+                    defaultDiscountPercent: next,
+                    ticket: applyToTicket
+                        ? state.ticket.map((item) => ({
+                              ...item,
+                              discountPercent: next,
+                          }))
+                        : state.ticket,
+                }));
+            },
+
             clearTicket: () => set({ ticket: [], editingOrder: null }),
             replaceTicket: (ticket) => set({ ticket }),
             setEditingOrder: (order) => set({ editingOrder: order }),
@@ -139,6 +162,7 @@ export const usePosTicketStore = create<PosTicketState>()(
             partialize: (state) => ({
                 ticket: state.ticket,
                 editingOrder: state.editingOrder,
+                defaultDiscountPercent: state.defaultDiscountPercent,
             }),
         }
     )
