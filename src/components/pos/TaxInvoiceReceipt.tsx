@@ -13,12 +13,29 @@ function Caption({ children, className = "" }: { children: React.ReactNode; clas
 }
 
 /**
- * 80mm thermal receipt (prints about 72mm wide). Black on white only, regular weight for
- * almost everything, bold reserved for the amount to pay, hairline rules instead of fills.
+ * 80mm thermal receipt (prints about 72mm wide). Body type stays black; a soft
+ * upright brand watermark sits behind the content. Bold reserved for the amount to pay.
  */
 export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
   return (
-    <div className="pos-receipt mx-auto w-[72mm] overflow-hidden bg-white px-[3mm] pt-[3mm] pb-[3.5mm] font-[Arial,Helvetica,sans-serif] text-[11px] leading-[1.35] text-black">
+    <div className="pos-receipt relative mx-auto w-[72mm] overflow-hidden bg-white px-[3mm] pt-[3mm] pb-[3.5mm] font-[Arial,Helvetica,sans-serif] text-[11px] leading-[1.35] text-black">
+      {/* Background watermark — logo only, upright, soft */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- plain img prints reliably on the receipt */}
+        <img
+          src="/brand/logo.png"
+          alt=""
+          width={128}
+          height={86}
+          className="h-[26mm] w-auto object-contain"
+          style={{ opacity: 0.18 }}
+        />
+      </div>
+
+      <div className="relative z-10">
       {/* ---------- Letterhead ---------- */}
       <header className="text-center">
         <p className="text-[9.5px] tracking-[0.3em] uppercase">{STORE_RECEIPT.name}</p>
@@ -191,6 +208,7 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
           {STORE_RECEIPT.footer.charAt(0) + STORE_RECEIPT.footer.slice(1).toLowerCase()}
         </p>
       </footer>
+      </div>
     </div>
   );
 }
