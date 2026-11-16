@@ -167,17 +167,19 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
       </div>
 
       {/* ---------- Terms & thanks ---------- */}
-      <div className="mt-3 border-t border-dotted border-black pt-2">
-        <Caption className="mb-1">Terms</Caption>
-        <ul className="text-[8.5px] leading-normal">
-          {STORE_RECEIPT.terms.map((term) => (
-            <li key={term} className="flex gap-1.5">
-              <span aria-hidden>·</span>
-              <span>{term}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {(receipt.terms ?? STORE_RECEIPT.terms).length > 0 ? (
+        <div className="mt-3 border-t border-dotted border-black pt-2">
+          <Caption className="mb-1">Terms</Caption>
+          <ul className="text-[8.5px] leading-normal">
+            {(receipt.terms ?? STORE_RECEIPT.terms).map((term) => (
+              <li key={term} className="flex gap-1.5">
+                <span aria-hidden>·</span>
+                <span>{term}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <footer className="mt-3 text-center">
         <div className="mx-auto mb-2 flex items-center justify-center gap-1.5">

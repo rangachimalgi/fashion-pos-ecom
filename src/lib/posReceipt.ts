@@ -29,6 +29,8 @@ export type PosReceipt = {
   taxable: number;
   cgst: number;
   sgst: number;
+  /** Receipt T&Cs; when omitted the printer loads the current admin-saved list. */
+  terms?: string[] | null;
   /** Set when this bill is an exchange. */
   exchangeOfBillNo?: string | null;
   exchangeCredit?: number | null;

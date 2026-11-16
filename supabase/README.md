@@ -41,6 +41,7 @@ Never change schema only in the dashboard without a matching file here.
 | `030_checkin_location.sql` | Employee check-in only within a radius of the shop pin (admin sets location; distance checked in the database) | Run after 025 |
 | `031_pos_exchange.sql` | POS exchange: return pieces from a bill within 2 days, take new ones, pay only the difference (no cash refund) | Run after 018 |
 | `032_pos_customer.sql` | POS bills require customer name + phone (saved on the order; edit/exchange too) | Run after 031 |
+| `033_receipt_terms.sql` | Admin-editable POS receipt terms & conditions (printed on tax invoices) | Run after 024 |
 
 ## Security model (after 013)
 

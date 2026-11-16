@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { TaxInvoiceReceipt } from "@/components/pos/TaxInvoiceReceipt";
 import type { PosReceipt } from "@/lib/posReceipt";
+import { getReceiptTerms, DEFAULT_RECEIPT_TERMS } from "@/lib/receiptSettings";
+import { supabase } from "@/lib/supabaseClient";
 
 export function PosReceiptPreview({
   receipt,
@@ -13,6 +15,10 @@ export function PosReceiptPreview({
   posted: boolean;
   onClose: () => void;
 }) {
+  const [terms, setTerms] = useState<string[]>(
+    receipt.terms?.length ? receipt.terms : DEFAULT_RECEIPT_TERMS
+  );
+
   useEffect(() => {
     const style = document.createElement("style");
     style.setAttribute("data-receipt-print", "true");
@@ -30,6 +36,24 @@ export function PosReceiptPreview({
       done();
     };
   }, []);
+
+  useEffect(() => {
+    if (receipt.terms && receipt.terms.length > 0) {
+      setTerms(receipt.terms);
+      return;
+    }
+    let cancelled = false;
+    getReceiptTerms(supabase)
+      .then((next) => {
+        if (!cancelled) setTerms(next);
+      })
+      .catch(() => {
+        if (!cancelled) setTerms(DEFAULT_RECEIPT_TERMS);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [receipt.terms]);
 
   const printReceipt = () => {
     const previousTitle = document.title;
@@ -64,7 +88,7 @@ export function PosReceiptPreview({
           </p>
         )}
         <div className="pos-print-root overflow-hidden rounded-2xl shadow-2xl print:rounded-none print:shadow-none">
-          <TaxInvoiceReceipt receipt={receipt} />
+          <TaxInvoiceReceipt receipt={{ ...receipt, terms }} />
         </div>
       </div>
     </div>

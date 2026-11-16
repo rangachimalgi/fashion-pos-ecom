@@ -10,6 +10,7 @@ export const STORE_RECEIPT = {
   phone: "9739749756",
   cgstRate: 2.5,
   sgstRate: 2.5,
+  /** Defaults only — live copy is edited in Admin → Receipt terms (033). */
   terms: [
     "First Wash Dry Wash",
     "No Guarantee on Fancy Fabrics",
