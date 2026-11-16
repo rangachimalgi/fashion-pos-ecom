@@ -6,6 +6,7 @@ import { ChevronRight, Download } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   PRESET_LABELS,
+  exportReportPdf,
   exportReportXlsx,
   fetchSalesReport,
   marginPercent,
@@ -64,7 +65,7 @@ export default function ReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
 
   const rangeInvalid = Boolean(from && to && from > to);
   const gstPercent = splitGst ? GST_PERCENT : 0;
@@ -127,16 +128,24 @@ export default function ReportsPage() {
     return `/admin/orders?${params.toString()}`;
   };
 
-  const handleExport = async (bucket: "day" | "month") => {
-    const exportRows = bucket === "day" ? data?.daily : data?.monthly;
-    if (!exportRows || exporting) return;
-    setExporting(true);
+  const handleExport = async (kind: "xlsx" | "pdf") => {
+    const exportRows = tab === "day" ? data?.daily : data?.monthly;
+    if (!exportRows?.length || exporting) return;
+    setExporting(kind);
     try {
-      await exportReportXlsx({ rows: exportRows, bucket, filters });
+      const args = { rows: exportRows, bucket: tab, filters };
+      if (kind === "xlsx") await exportReportXlsx(args);
+      else await exportReportPdf(args);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create the Excel file");
+      setError(
+        err instanceof Error
+          ? err.message
+          : kind === "xlsx"
+            ? "Could not create the Excel file"
+            : "Could not create the PDF"
+      );
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -311,21 +320,31 @@ export default function ReportsPage() {
               type="button"
               size="sm"
               variant="outline"
-              disabled={loading || exporting || rangeInvalid || !data?.daily.length}
-              onClick={() => handleExport("day")}
+              disabled={
+                loading ||
+                exporting !== null ||
+                rangeInvalid ||
+                !(tab === "day" ? data?.daily.length : data?.monthly.length)
+              }
+              onClick={() => handleExport("xlsx")}
             >
               <Download className="size-4" />
-              Export daily
+              {exporting === "xlsx" ? "Making Excel…" : "Export Excel"}
             </Button>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              disabled={loading || exporting || rangeInvalid || !data?.monthly.length}
-              onClick={() => handleExport("month")}
+              disabled={
+                loading ||
+                exporting !== null ||
+                rangeInvalid ||
+                !(tab === "day" ? data?.daily.length : data?.monthly.length)
+              }
+              onClick={() => handleExport("pdf")}
             >
               <Download className="size-4" />
-              Export monthly
+              {exporting === "pdf" ? "Making PDF…" : "Export PDF"}
             </Button>
           </div>
         </div>

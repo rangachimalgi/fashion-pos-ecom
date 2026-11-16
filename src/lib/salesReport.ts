@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { toCheckoutError } from "@/lib/placeOrder";
+import { exportTablePdf } from "@/lib/reportPdf";
+import type { Cell, CellKind, TableSpec } from "@/lib/purchaseReport";
 
 /** All report dates are shop-local days; the database buckets in this zone too. */
 export const SHOP_TIMEZONE = "Asia/Kolkata";
@@ -306,4 +308,103 @@ export async function exportReportXlsx(args: {
 
   const span = !filters.from && !filters.to ? "all-time" : `${filters.from || "start"}_to_${filters.to || "today"}`;
   XLSX.writeFile(book, `${bucket === "day" ? "daily" : "monthly"}-sales_${span}.xlsx`);
+}
+
+function fileSpan(filters: ReportFilters) {
+  if (!filters.from && !filters.to) return "all-time";
+  return `${filters.from || "start"}_to_${filters.to || "today"}`;
+}
+
+function buildSalesTable(rows: ReportRow[], bucket: ReportBucket, filters: ReportFilters): TableSpec {
+  const gstOn = filters.gstPercent > 0;
+  const totals = sumRows(rows);
+  const cols: TableSpec["cols"] = [
+    { header: bucket === "day" ? "Date" : "Month", kind: "text" },
+    { header: "Bills", kind: "int" },
+    { header: "Pieces", kind: "int" },
+    { header: gstOn ? "Sales incl. GST" : "Sales", kind: "money" },
+    ...(gstOn
+      ? ([
+          { header: "GST", kind: "money" },
+          { header: "Net sales", kind: "money" },
+        ] as const)
+      : []),
+    { header: "Cost", kind: "money" },
+    { header: "Profit", kind: "money" },
+    { header: "Margin %", kind: "pct" },
+  ];
+
+  const toCells = (label: string, row: ReportTotals): Cell[] => {
+    const rowMargin = marginPercent(row);
+    return [
+      label,
+      row.bills,
+      row.pieces,
+      round2(row.gross),
+      ...(gstOn ? [round2(row.gst), round2(row.net)] : []),
+      round2(row.cost),
+      round2(row.profit),
+      rowMargin === null ? "" : round2(rowMargin),
+    ];
+  };
+
+  return {
+    cols: [...cols],
+    rows: rows.map((row) =>
+      toCells(row.period.slice(0, bucket === "day" ? 10 : 7), row)
+    ),
+    foot: toCells("TOTAL", totals),
+  };
+}
+
+function salesSummary(
+  rows: ReportRow[],
+  bucket: ReportBucket,
+  filters: ReportFilters
+): Array<[string, Cell, CellKind]> {
+  const gstOn = filters.gstPercent > 0;
+  const totals = sumRows(rows);
+  const margin = marginPercent(totals);
+  return [
+    ["Period", rangeLabel(filters.from, filters.to), "text"],
+    ["Grouped by", bucket === "day" ? "Day" : "Month", "text"],
+    ["Channel", sourceLabel(filters.source), "text"],
+    [
+      "GST",
+      gstOn ? `${filters.gstPercent}% included in bill totals` : "Not separated",
+      "text",
+    ],
+    ["Bills", totals.bills, "int"],
+    ["Pieces sold", totals.pieces, "int"],
+    [gstOn ? "Sales incl. GST" : "Sales", round2(totals.gross), "money"],
+    ...(gstOn
+      ? ([
+          ["GST", round2(totals.gst), "money"],
+          ["Net sales (excl. GST)", round2(totals.net), "money"],
+        ] as Array<[string, Cell, CellKind]>)
+      : []),
+    ["Cost of goods", round2(totals.cost), "money"],
+    ["Profit", round2(totals.profit), "money"],
+    ["Margin %", margin === null ? "" : round2(margin), "pct"],
+    ["Sales with no cost (not in profit)", round2(totals.netWithoutCost), "money"],
+  ];
+}
+
+/** Landscape PDF of the daily or monthly sales table (same figures as Excel). */
+export async function exportReportPdf(args: {
+  rows: ReportRow[];
+  bucket: ReportBucket;
+  filters: ReportFilters;
+}) {
+  const { rows, bucket, filters } = args;
+  await exportTablePdf({
+    title: "Sales and profit report",
+    subtitle: `${rangeLabel(filters.from, filters.to)}  |  ${sourceLabel(filters.source)}  |  By ${
+      bucket === "day" ? "day" : "month"
+    }`,
+    summary: salesSummary(rows, bucket, filters),
+    heading: bucket === "day" ? "Daily sales" : "Monthly sales",
+    table: buildSalesTable(rows, bucket, filters),
+    fileName: `${bucket === "day" ? "daily" : "monthly"}-sales_${fileSpan(filters)}.pdf`,
+  });
 }
