@@ -25,7 +25,15 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function OrderDetailView({ order }: { order: AdminOrder }) {
+export function OrderDetailView({
+  order,
+  backHref = "/admin/orders",
+  backLabel = "Orders",
+}: {
+  order: AdminOrder;
+  backHref?: string;
+  backLabel?: string;
+}) {
   const shipping = order.shipping;
   const addressLines = shipping
     ? [
@@ -40,11 +48,11 @@ export function OrderDetailView({ order }: { order: AdminOrder }) {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 md:px-6">
       <div>
         <Link
-          href="/admin/orders"
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
-          Orders
+          {backLabel}
         </Link>
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h2 className="font-mono text-xl font-semibold tracking-tight">#{shortOrderId(order.id)}</h2>

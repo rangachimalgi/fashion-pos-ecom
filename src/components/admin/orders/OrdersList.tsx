@@ -1,12 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
 import type { AdminOrder, OrderSource, PaymentMethod } from "@/types/order";
 import { formatMoney, shortOrderId } from "@/lib/formatOrder";
-import { SHOP_TIMEZONE, addDays, todayInShop } from "@/lib/salesReport";
+import {
+  SHOP_TIMEZONE,
+  addDays,
+  periodLabel,
+  rangeLabel,
+  todayInShop,
+} from "@/lib/salesReport";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/admin/Segmented";
@@ -66,33 +72,76 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
+function isYmd(value: string | null | undefined): value is string {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
+
+export type OrdersListFocus = {
+  /** Inclusive YYYY-MM-DD from the sales report (or deep link). */
+  from?: string | null;
+  to?: string | null;
+  source?: OrderSource | "all" | null;
+  /** Came from Sales & profit — show a back link. */
+  fromReport?: boolean;
+};
+
 export function OrdersList({
   orders,
   loading,
   error,
   onRefresh,
+  focus = null,
 }: {
   orders: AdminOrder[];
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
+  focus?: OrdersListFocus | null;
 }) {
   const router = useRouter();
+  const focusedFrom = isYmd(focus?.from) ? focus!.from! : "";
+  const focusedTo = isYmd(focus?.to) ? focus!.to! : focusedFrom;
+  const focusedRange = Boolean(focusedFrom);
+  const focusedSource =
+    focus?.source === "POS" || focus?.source === "ONLINE" || focus?.source === "all"
+      ? focus.source
+      : "all";
+
   const [query, setQuery] = useState("");
-  const [source, setSource] = useState<OrderSource | "all">("all");
+  const [source, setSource] = useState<OrderSource | "all">(focusedSource);
   const [payment, setPayment] = useState<PaymentMethod | "all">("all");
   const [when, setWhen] = useState<When>("all");
   const [page, setPage] = useState(0);
 
+  useEffect(() => {
+    setSource(focusedSource);
+    setWhen("all");
+    setPage(0);
+  }, [focusedFrom, focusedTo, focusedSource]);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const today = todayInShop();
-    const since = when === "today" ? today : when === "7d" ? addDays(today, -6) : when === "30d" ? addDays(today, -29) : null;
+    const since =
+      focusedRange
+        ? null
+        : when === "today"
+          ? today
+          : when === "7d"
+            ? addDays(today, -6)
+            : when === "30d"
+              ? addDays(today, -29)
+              : null;
 
     return orders.filter((order) => {
       if (source !== "all" && order.source !== source) return false;
       if (payment !== "all" && order.payment_method !== payment) return false;
-      if (since && shopDay(order.created_at) < since) return false;
+      const day = shopDay(order.created_at);
+      if (focusedRange) {
+        if (day < focusedFrom || day > focusedTo) return false;
+      } else if (since && day < since) {
+        return false;
+      }
       if (!needle) return true;
       const haystack = [
         shortOrderId(order.id),
@@ -107,7 +156,7 @@ export function OrdersList({
         .toLowerCase();
       return haystack.includes(needle);
     });
-  }, [orders, query, source, payment, when]);
+  }, [orders, query, source, payment, when, focusedRange, focusedFrom, focusedTo]);
 
   const totals = useMemo(() => {
     const revenue = filtered.reduce((sum, order) => sum + order.total_amount, 0);
@@ -122,18 +171,74 @@ export function OrdersList({
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, pageCount - 1);
   const visible = filtered.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE);
-  const filtering = query.trim() !== "" || source !== "all" || payment !== "all" || when !== "all";
+  const filtering =
+    query.trim() !== "" ||
+    source !== "all" ||
+    payment !== "all" ||
+    when !== "all" ||
+    focusedRange;
+
+  const listQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (focusedFrom) params.set("from", focusedFrom);
+    if (focusedTo && focusedTo !== focusedFrom) params.set("to", focusedTo);
+    if (source !== "all") params.set("source", source);
+    if (focus?.fromReport) params.set("fromReport", "1");
+    const qs = params.toString();
+    return qs ? `/admin/orders?${qs}` : "/admin/orders";
+  }, [focusedFrom, focusedTo, source, focus?.fromReport]);
+
+  const openOrder = (orderId: string) => {
+    const back = encodeURIComponent(listQuery);
+    router.push(`/admin/orders/${orderId}?back=${back}`);
+  };
 
   const reset = () => {
     setQuery("");
-    setSource("all");
+    setSource(focusedRange ? focusedSource : "all");
     setPayment("all");
     setWhen("all");
     setPage(0);
   };
 
+  const focusTitle = focusedRange
+    ? focusedFrom === focusedTo
+      ? periodLabel(focusedFrom, "day", true)
+      : rangeLabel(focusedFrom, focusedTo)
+    : null;
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 md:px-6">
+      {focusedRange || focus?.fromReport ? (
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            {focus?.fromReport ? (
+              <Link
+                href="/admin/reports"
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ArrowLeft className="size-4" />
+                Sales &amp; profit
+              </Link>
+            ) : null}
+            <h2 className={cn("text-lg font-semibold tracking-tight", focus?.fromReport && "mt-2")}>
+              {focusTitle ? `Bills · ${focusTitle}` : "Orders"}
+            </h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Open a bill for the full order. Channel filter matches the report when you came from there.
+            </p>
+          </div>
+          {!focus?.fromReport && focusedRange ? (
+            <Link
+              href="/admin/orders"
+              className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Clear date focus
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full sm:w-72">
@@ -149,20 +254,26 @@ export function OrdersList({
             className="h-9 bg-white pl-8"
           />
         </div>
-        <Segmented
-          label="Date"
-          value={when}
-          onChange={(next) => {
-            setWhen(next);
-            setPage(0);
-          }}
-          options={[
-            { value: "all", label: "All time" },
-            { value: "today", label: "Today" },
-            { value: "7d", label: "7 days" },
-            { value: "30d", label: "30 days" },
-          ]}
-        />
+        {focusedRange ? (
+          <span className="inline-flex h-9 items-center rounded-lg border border-border bg-muted/40 px-3 text-xs font-medium text-muted-foreground">
+            {focusTitle}
+          </span>
+        ) : (
+          <Segmented
+            label="Date"
+            value={when}
+            onChange={(next) => {
+              setWhen(next);
+              setPage(0);
+            }}
+            options={[
+              { value: "all", label: "All time" },
+              { value: "today", label: "Today" },
+              { value: "7d", label: "7 days" },
+              { value: "30d", label: "30 days" },
+            ]}
+          />
+        )}
         <Segmented
           label="Channel"
           value={source}
@@ -250,7 +361,7 @@ export function OrdersList({
                         ? "Try a different search or clear the filters."
                         : "Close an invoice on POS or complete a bag checkout, then refresh."}
                     </p>
-                    {filtering ? (
+                    {filtering && !focusedRange ? (
                       <Button type="button" variant="outline" size="sm" className="mt-4" onClick={reset}>
                         Clear filters
                       </Button>
@@ -262,15 +373,15 @@ export function OrdersList({
                   <tr
                     key={order.id}
                     tabIndex={0}
-                    onClick={() => router.push(`/admin/orders/${order.id}`)}
+                    onClick={() => openOrder(order.id)}
                     onKeyDown={(event) => {
-                      if (event.key === "Enter") router.push(`/admin/orders/${order.id}`);
+                      if (event.key === "Enter") openOrder(order.id);
                     }}
                     className="group cursor-pointer outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
                   >
                     <td className="px-5 py-3">
                       <Link
-                        href={`/admin/orders/${order.id}`}
+                        href={`/admin/orders/${order.id}?back=${encodeURIComponent(listQuery)}`}
                         onClick={(event) => event.stopPropagation()}
                         className="font-mono text-[13px] font-medium tracking-tight hover:underline"
                       >

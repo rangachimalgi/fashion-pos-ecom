@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronRight, Download } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   PRESET_LABELS,
   exportReportXlsx,
   fetchSalesReport,
   marginPercent,
+  monthEnd,
   periodLabel,
   presetRange,
   rangeLabel,
@@ -51,6 +53,7 @@ function percent(value: number | null) {
 type ReportData = { daily: ReportRow[]; monthly: ReportRow[] };
 
 export default function ReportsPage() {
+  const router = useRouter();
   const [preset, setPreset] = useState<ReportPreset>("thisMonth");
   const [from, setFrom] = useState(() => presetRange("thisMonth").from);
   const [to, setTo] = useState(() => presetRange("thisMonth").to);
@@ -110,6 +113,18 @@ export default function ReportsPage() {
     setPreset("custom");
     if (which === "from") setFrom(value);
     else setTo(value);
+  };
+
+  const billsHref = (row: ReportRow) => {
+    const from = row.period.slice(0, 10);
+    const to = tab === "month" ? monthEnd(from) : from;
+    const params = new URLSearchParams({
+      from,
+      to,
+      fromReport: "1",
+    });
+    if (source !== "ALL") params.set("source", source);
+    return `/admin/orders?${params.toString()}`;
   };
 
   const handleExport = async (bucket: "day" | "month") => {
@@ -354,25 +369,34 @@ export default function ReportsPage() {
                 <TableHead className="text-right">Cost</TableHead>
                 <TableHead className="text-right">Profit</TableHead>
                 <TableHead className="text-right">Margin</TableHead>
+                <TableHead className="w-8" aria-hidden />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={splitGst ? 8 : 7} className="py-6 text-center text-muted-foreground">
+                  <TableCell colSpan={splitGst ? 9 : 8} className="py-6 text-center text-muted-foreground">
                     Loading…
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={splitGst ? 8 : 7} className="py-6 text-center text-muted-foreground">
+                  <TableCell colSpan={splitGst ? 9 : 8} className="py-6 text-center text-muted-foreground">
                     No sales in this period.
                   </TableCell>
                 </TableRow>
               ) : (
                 [...rows].reverse().map((row) => (
-                  <TableRow key={row.period}>
-                    <TableCell className="font-medium whitespace-nowrap">
+                  <TableRow
+                    key={row.period}
+                    tabIndex={0}
+                    onClick={() => router.push(billsHref(row))}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") router.push(billsHref(row));
+                    }}
+                    className="group cursor-pointer outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+                  >
+                    <TableCell className="font-medium whitespace-nowrap group-hover:underline">
                       {periodLabel(row.period, tab, true)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{row.bills}</TableCell>
@@ -392,6 +416,9 @@ export default function ReportsPage() {
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground tabular-nums">
                       {percent(marginPercent(row))}
+                    </TableCell>
+                    <TableCell className="pr-3 text-right">
+                      <ChevronRight className="inline size-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
                     </TableCell>
                   </TableRow>
                 ))
@@ -415,6 +442,7 @@ export default function ReportsPage() {
                       <TableCell className="text-right font-semibold tabular-nums">
                         {percent(marginPercent(sum))}
                       </TableCell>
+                      <TableCell />
                     </TableRow>
                   );
                 })()}
@@ -424,6 +452,7 @@ export default function ReportsPage() {
         </div>
 
         <p className="mt-3 text-xs text-muted-foreground">
+          Click a {tab === "day" ? "day" : "month"} to open its bills, then open a bill for the full order.
           Profit = sales{splitGst ? " (without GST)" : ""} minus the cost price recorded when each piece was
           sold, so later changes to a cost price do not change old profit. Bills made before this report
           existed use the cost price as it was when the report was set up.
