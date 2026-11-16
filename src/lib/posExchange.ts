@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { toCheckoutError } from "@/lib/placeOrder";
+import { posCustomerShipping, validatePosCustomer } from "@/lib/shipping";
 import type { AdminOrder, PaymentMethod } from "@/types/order";
 
 /** Matches the printed receipt: “Exchange Period : 2 days”. */
@@ -121,11 +122,17 @@ export async function exchangePosOrder(
     sales_person_id?: string | null;
     cash_received?: Record<string, number> | null;
     cash_change?: Record<string, number> | null;
+    customer_name: string;
+    customer_phone: string;
   }
 ): Promise<ExchangeResult> {
   const returns = args.returns.filter((line) => line.quantity > 0);
   if (!returns.length) throw new Error("Pick at least one piece to bring back.");
   if (!args.newItems.length) throw new Error("Scan the new items the customer is taking.");
+
+  const customerError = validatePosCustomer(args.customer_name, args.customer_phone);
+  if (customerError) throw new Error(customerError);
+  const shipping = posCustomerShipping(args.customer_name, args.customer_phone);
 
   const { data, error } = await supabase.rpc("exchange_pos_order", {
     p_original_order_id: args.originalOrderId,
@@ -140,6 +147,7 @@ export async function exchangePosOrder(
     p_cash_received: args.payment_method === "CASH" ? (args.cash_received ?? null) : null,
     p_cash_change: args.payment_method === "CASH" ? (args.cash_change ?? null) : null,
     p_window_days: EXCHANGE_WINDOW_DAYS,
+    p_shipping: shipping,
   });
   if (error) throw friendly(error);
 

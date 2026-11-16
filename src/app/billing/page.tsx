@@ -27,6 +27,7 @@ import { DISCOUNT_CAP_PERCENT, ROLE_LABEL } from '@/lib/staffRoles';
 import { countPendingDeleteRequests } from '@/lib/deleteRequests';
 import { listSalesPeople, type SalesPerson } from '@/lib/salesPeople';
 import { cashDueFor, DEFAULT_DENOMINATIONS, fetchDrawerTotal, listCashDenominations } from '@/lib/cashLedger';
+import { normalizePhone, posCustomerShipping, validatePosCustomer } from '@/lib/shipping';
 import { CashLedgerPanel } from '@/components/pos/CashLedgerPanel';
 import { CashTender, useCashTender } from '@/components/pos/CashTender';
 import { DeleteRequestsPanel } from '@/components/pos/DeleteRequestsPanel';
@@ -55,9 +56,13 @@ export default function BillingTerminal() {
     patchTicketProduct,
   } = usePosTicketStore();
   const [paymentMode, setPaymentMode] = useState<PaymentMethod>('CASH');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [stashedSale, setStashedSale] = useState<{
     ticket: CartItem[];
     payment: PaymentMethod;
+    customerName: string;
+    customerPhone: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -310,6 +315,8 @@ export default function BillingTerminal() {
         orderId,
         payment: paymentMode,
         attendedBy: attendedName,
+        customerName,
+        customerPhone: normalizePhone(customerPhone) || null,
         at: receiptAt,
         exchangeOfBillNo: extras?.exchangeOfBillNo,
         exchangeCredit: extras?.exchangeCredit,
@@ -325,7 +332,7 @@ export default function BillingTerminal() {
     try {
       const nextTicket = await ticketFromOrder(supabase, order);
       if (!editingOrder && !exchangingOrder && ticket.length > 0) {
-        setStashedSale({ ticket, payment: paymentMode });
+        setStashedSale({ ticket, payment: paymentMode, customerName, customerPhone });
       }
       replaceTicket(nextTicket);
       setEditingOrder(order);
@@ -333,6 +340,8 @@ export default function BillingTerminal() {
       setExchangeAvailability([]);
       setExchangeReturns({});
       setPickedSalesPersonId('');
+      setCustomerName(order.shipping?.customer_name ?? '');
+      setCustomerPhone(order.shipping?.customer_phone ?? '');
       tender.reset();
       setPaymentMode(order.payment_method === 'UPI' ? 'UPI' : 'CASH');
       setDeskView('sale');
@@ -359,7 +368,7 @@ export default function BillingTerminal() {
         return;
       }
       if (!editingOrder && !exchangingOrder && ticket.length > 0) {
-        setStashedSale({ ticket, payment: paymentMode });
+        setStashedSale({ ticket, payment: paymentMode, customerName, customerPhone });
       }
       replaceTicket([]);
       setEditingOrder(null);
@@ -367,6 +376,8 @@ export default function BillingTerminal() {
       setExchangeAvailability(availability);
       setExchangeReturns({});
       setPickedSalesPersonId('');
+      setCustomerName(order.shipping?.customer_name ?? '');
+      setCustomerPhone(order.shipping?.customer_phone ?? '');
       tender.reset();
       setPaymentMode('CASH');
       setDeskView('sale');
@@ -380,9 +391,13 @@ export default function BillingTerminal() {
     if (stashedSale) {
       replaceTicket(stashedSale.ticket);
       setPaymentMode(stashedSale.payment);
+      setCustomerName(stashedSale.customerName);
+      setCustomerPhone(stashedSale.customerPhone);
       setStashedSale(null);
     } else {
       replaceTicket([]);
+      setCustomerName('');
+      setCustomerPhone('');
     }
     setEditingOrder(null);
     setExchangingOrder(null);
@@ -406,6 +421,12 @@ export default function BillingTerminal() {
   const handleCloseInvoice = async () => {
     if (ticket.length === 0 || submitting) return;
 
+    const customerError = validatePosCustomer(customerName, customerPhone);
+    if (customerError) {
+      setStatus(customerError);
+      return;
+    }
+
     if (activeSalesPeople.length > 0 && !salesPersonId) {
       setStatus('Choose who attended this customer.');
       return;
@@ -427,6 +448,7 @@ export default function BillingTerminal() {
       return;
     }
     const cash = needsCashEntry ? tender.payload() : {};
+    const shipping = posCustomerShipping(customerName, customerPhone);
 
     setSubmitting(true);
     setStatus(null);
@@ -467,6 +489,8 @@ export default function BillingTerminal() {
           newItems: items,
           payment_method: paymentMode,
           sales_person_id: salesPersonId || null,
+          customer_name: shipping.customer_name,
+          customer_phone: shipping.customer_phone,
           ...cash,
         });
         orderId = result.order_id;
@@ -483,6 +507,7 @@ export default function BillingTerminal() {
           payment_method: paymentMode,
           items,
           sales_person_id: salesPersonId || null,
+          shipping,
           ...cash,
         });
         orderId = editingOrder.id;
@@ -492,6 +517,7 @@ export default function BillingTerminal() {
           payment_method: paymentMode,
           source: 'POS',
           items,
+          shipping,
           sales_person_id: salesPersonId || null,
           ...cash,
         });
@@ -504,6 +530,8 @@ export default function BillingTerminal() {
           orderId,
           payment: paymentMode,
           attendedBy: attended,
+          customerName: shipping.customer_name,
+          customerPhone: shipping.customer_phone,
           at: editingOrder?.created_at ? new Date(editingOrder.created_at) : undefined,
           exchangeOfBillNo,
           exchangeCredit: postedCredit,
@@ -512,6 +540,8 @@ export default function BillingTerminal() {
       );
       setReceiptPosted(true);
       setPickedSalesPersonId('');
+      setCustomerName('');
+      setCustomerPhone('');
       tender.reset();
       setStashedSale(null);
       const goHistory = Boolean(editingOrder || exchangingOrder);
@@ -905,172 +935,208 @@ export default function BillingTerminal() {
         )}
       </div>
 
-      {/* RIGHT WINDOW: PAYMENT TRANSACTION SUMMARY */}
-      <div className={`flex w-96 flex-col justify-between rounded-xl border border-slate-700 bg-slate-800 p-6 print:hidden ${deskView !== "sale" ? "hidden" : ""}`}>
-        <div className="min-h-0 overflow-y-auto pr-1">
-          <h3 className="text-md font-bold text-slate-400 border-b border-slate-700 pb-2 uppercase tracking-wide">
-            Checkout Panel
-          </h3>
-          
-          <div className="mt-6 space-y-6">
-            <div>
-              <label htmlFor="attended-by" className="text-xs text-slate-400 tracking-wider">
-                ATTENDED BY
-              </label>
-              <select
-                id="attended-by"
-                value={salesPersonId}
-                onChange={(event) => setPickedSalesPersonId(event.target.value)}
-                disabled={selectableSalesPeople.length === 0}
-                className="mt-2 h-11 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 font-sans text-sm text-white outline-none scheme-dark focus:border-emerald-400 disabled:text-slate-500"
-              >
-                <option value="">
-                  {activeSalesPeople.length > 0 ? 'Select salesperson…' : 'No salespeople added yet'}
-                </option>
-                {selectableSalesPeople.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                    {person.active ? '' : ' (inactive)'}
-                  </option>
-                ))}
-              </select>
-              {activeSalesPeople.length === 0 && isAdmin ? (
-                <Link
-                  href="/admin/sales-team"
-                  className="mt-1.5 inline-block font-sans text-[11px] text-emerald-300 hover:underline"
-                >
-                  Add your sales team in the admin panel
-                </Link>
-              ) : null}
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 tracking-wider">SELECT PAYMENT INSTRUMENT</label>
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <div>
-                <button 
-                  onClick={() => setPaymentMode('CASH')}
-                  className={`w-full py-3 rounded-lg font-bold border transition duration-200 ${
-                    paymentMode === 'CASH' 
-                      ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg shadow-emerald-900/30' 
-                      : 'bg-slate-700 border-slate-600 text-slate-400 hover:bg-slate-600'
-                  }`}
-                >
-                  💵 CASH DESK
-                </button>
-                <p className="mt-1.5 text-center font-sans text-xs text-slate-400">
-                  In counter{' '}
-                  <span
-                    title={drawerError ?? undefined}
-                    className={`font-black ${
-                      drawerError ? 'text-amber-300' : drawerTotal != null && drawerTotal < 0 ? 'text-rose-300' : 'text-emerald-300'
-                    }`}
-                  >
-                    {drawerError ? 'unavailable' : drawerTotal == null ? '…' : formatInr(drawerTotal)}
-                  </span>
-                </p>
-                </div>
-                <button 
-                  onClick={() => setPaymentMode('UPI')}
-                  className={`py-3 rounded-lg font-bold border transition duration-200 ${
-                    paymentMode === 'UPI' 
-                      ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg shadow-emerald-900/30' 
-                      : 'bg-slate-700 border-slate-600 text-slate-400 hover:bg-slate-600'
-                  }`}
-                >
-                  📱 UPI QR
-                </button>
+      {/* RIGHT: compact checkout */}
+      <div
+        className={`flex w-76 shrink-0 flex-col justify-between rounded-xl border border-slate-700/80 bg-slate-800/90 p-3.5 print:hidden ${
+          deskView !== "sale" ? "hidden" : ""
+        }`}
+      >
+        <div className="min-h-0 space-y-3 overflow-y-auto pr-0.5">
+          <div>
+            <p className="font-sans text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500">
+              Customer
+            </p>
+            <div className="mt-1.5 space-y-1.5">
+              <input
+                type="text"
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value)}
+                placeholder="Name"
+                autoComplete="name"
+                className="h-9 w-full rounded-md border border-slate-600 bg-slate-950 px-2.5 font-sans text-sm text-white outline-none placeholder:text-slate-600 focus:border-emerald-500/50"
+              />
+              <div className="relative">
+                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 font-sans text-xs text-slate-500">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={customerPhone}
+                  onChange={(event) =>
+                    setCustomerPhone(event.target.value.replace(/\D/g, "").slice(0, 10))
+                  }
+                  placeholder="Mobile"
+                  autoComplete="tel"
+                  className="h-9 w-full rounded-md border border-slate-600 bg-slate-950 pl-10 pr-2.5 font-sans text-sm tabular-nums text-white outline-none placeholder:text-slate-600 focus:border-emerald-500/50"
+                />
               </div>
             </div>
+          </div>
 
-            {paymentMode === 'CASH' ? (
-              needsCashEntry ? (
-                <CashTender due={cashDue} denominations={denominations} tender={tender} />
-              ) : exchangingOrder && cashDue === 0 ? (
-                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 font-sans text-xs text-emerald-200">
-                  Even exchange — nothing to collect, the cash drawer stays as it is.
-                </p>
-              ) : (
-                <p className="rounded-lg border border-slate-600 bg-slate-900/40 px-3 py-2 font-sans text-xs text-slate-400">
-                  This bill was already paid in cash for ₹{cashDue}. Its cash record stays as it is. Change the
-                  items or amount and you will be asked for the notes and coins again.
-                </p>
-              )
+          <div>
+            <label
+              htmlFor="attended-by"
+              className="font-sans text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500"
+            >
+              Attended by
+            </label>
+            <select
+              id="attended-by"
+              value={salesPersonId}
+              onChange={(event) => setPickedSalesPersonId(event.target.value)}
+              disabled={selectableSalesPeople.length === 0}
+              className="mt-1.5 h-9 w-full rounded-md border border-slate-600 bg-slate-950 px-2.5 font-sans text-sm text-white outline-none scheme-dark focus:border-emerald-500/50 disabled:text-slate-500"
+            >
+              <option value="">
+                {activeSalesPeople.length > 0 ? "Select…" : "No salespeople yet"}
+              </option>
+              {selectableSalesPeople.map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.name}
+                  {person.active ? "" : " (inactive)"}
+                </option>
+              ))}
+            </select>
+            {activeSalesPeople.length === 0 && isAdmin ? (
+              <Link
+                href="/admin/sales-team"
+                className="mt-1 inline-block font-sans text-[11px] text-emerald-300/90 hover:underline"
+              >
+                Add sales team
+              </Link>
             ) : null}
           </div>
+
+          <div>
+            <p className="font-sans text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500">
+              Pay with
+            </p>
+            <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-lg bg-slate-950/70 p-1">
+              <button
+                type="button"
+                onClick={() => setPaymentMode("CASH")}
+                className={`rounded-md py-2 font-sans text-xs font-semibold transition ${
+                  paymentMode === "CASH"
+                    ? "bg-emerald-500 text-slate-950"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Cash
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMode("UPI")}
+                className={`rounded-md py-2 font-sans text-xs font-semibold transition ${
+                  paymentMode === "UPI"
+                    ? "bg-emerald-500 text-slate-950"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                UPI
+              </button>
+            </div>
+            {paymentMode === "CASH" ? (
+              <p className="mt-1 text-center font-sans text-[10px] text-slate-500">
+                Drawer{" "}
+                <span
+                  title={drawerError ?? undefined}
+                  className={`tabular-nums ${
+                    drawerError
+                      ? "text-amber-300"
+                      : drawerTotal != null && drawerTotal < 0
+                        ? "text-rose-300"
+                        : "text-slate-300"
+                  }`}
+                >
+                  {drawerError
+                    ? "—"
+                    : drawerTotal == null
+                      ? "…"
+                      : formatInr(drawerTotal)}
+                </span>
+              </p>
+            ) : null}
+          </div>
+
+          {paymentMode === "CASH" ? (
+            needsCashEntry ? (
+              <CashTender due={cashDue} denominations={denominations} tender={tender} />
+            ) : exchangingOrder && cashDue === 0 ? (
+              <p className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2 font-sans text-[11px] text-emerald-200/90">
+                Even exchange — nothing to collect.
+              </p>
+            ) : (
+              <p className="rounded-md border border-slate-700 bg-slate-900/40 px-2.5 py-2 font-sans text-[11px] text-slate-400">
+                Cash already recorded for ₹{cashDue}. Change the total to re-enter notes.
+              </p>
+            )
+          ) : null}
         </div>
 
-        {/* FINANCIAL SUMMARY COUNTER */}
-        <div className="border-t border-slate-700 pt-6">
-          <div className="mb-6 space-y-2">
-            {exchangingOrder ? (
-              <div className="mb-3 space-y-1 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 font-sans text-xs text-slate-300">
-                <div className="flex justify-between"><span>New items</span><span className="tabular-nums">{formatInr(newTotal)}</span></div>
-                <div className="flex justify-between"><span>Exchange credit</span><span className="tabular-nums">− {formatInr(credit)}</span></div>
-                <div className="flex justify-between border-t border-emerald-500/20 pt-1 text-sm font-semibold text-emerald-300">
-                  <span>Customer pays</span>
-                  <span className="tabular-nums">{formatInr(amountDue)}</span>
-                </div>
-                {amountDue <= 0 && credit > 0 && newTotal + 0.001 < credit ? (
-                  <p className="pt-1 text-amber-300">New items are short of the credit — add more or pick a higher MRP.</p>
-                ) : null}
+        <div className="mt-3 border-t border-slate-700/80 pt-3">
+          {exchangingOrder ? (
+            <div className="mb-2 space-y-0.5 font-sans text-[11px] text-slate-400">
+              <div className="flex justify-between">
+                <span>New</span>
+                <span className="tabular-nums text-slate-200">{formatInr(newTotal)}</span>
               </div>
-            ) : null}
-            <div className="flex justify-between items-baseline">
-              <span className="text-slate-400 text-sm font-sans">
-                {exchangingOrder ? 'AMOUNT DUE:' : 'NET RUNNING TOTAL:'}
-              </span>
-              <span className="text-4xl font-black text-emerald-400">
-                ₹{exchangingOrder ? amountDue : getGrandTotal()}
-              </span>
+              <div className="flex justify-between">
+                <span>Credit</span>
+                <span className="tabular-nums">− {formatInr(credit)}</span>
+              </div>
+              {amountDue <= 0 && credit > 0 && newTotal + 0.001 < credit ? (
+                <p className="pt-1 text-amber-300">New items short of credit.</p>
+              ) : null}
             </div>
-            <div className="flex justify-between text-xs text-slate-500 font-sans">
-              <span>COST (RATE)</span>
-              <span>
-                ₹
-                {ticket.reduce(
-                  (sum, item) => sum + Number(item.product.cost_price ?? 0) * item.quantity,
-                  0
-                )}
-              </span>
-            </div>
+          ) : null}
+
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-sans text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">
+              {exchangingOrder ? "Due" : "Total"}
+            </span>
+            <span className="font-sans text-2xl font-semibold tabular-nums tracking-tight text-emerald-400">
+              ₹{exchangingOrder ? amountDue : getGrandTotal()}
+            </span>
           </div>
-          
-          <div className="space-y-2">
-            {status && (
-              <p className="text-xs text-center text-emerald-300 font-sans">{status}</p>
-            )}
+
+          <div className="mt-3 space-y-1.5">
+            {status ? (
+              <p className="text-center font-sans text-[11px] text-emerald-300/90">{status}</p>
+            ) : null}
             <button
               type="button"
               disabled={ticket.length === 0}
               onClick={handlePreviewBill}
-              className="w-full rounded-lg border border-slate-500 py-3 text-sm font-black tracking-wider text-slate-200 hover:bg-slate-700 disabled:border-slate-700 disabled:text-slate-500"
+              className="w-full rounded-md border border-slate-600 py-2 font-sans text-xs font-semibold tracking-wide text-slate-300 hover:bg-slate-700/60 disabled:border-slate-800 disabled:text-slate-600"
             >
-              PREVIEW BILL
+              Preview
             </button>
-            <button 
+            <button
+              type="button"
               disabled={
                 ticket.length === 0 ||
                 submitting ||
-                (Boolean(exchangingOrder) && (returnLines.length === 0 || newTotal + 0.001 < credit))
+                (Boolean(exchangingOrder) &&
+                  (returnLines.length === 0 || newTotal + 0.001 < credit))
               }
               onClick={handleCloseInvoice}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-black py-4 rounded-lg text-lg tracking-wider transition transform active:scale-95 shadow-md"
+              className="w-full rounded-md bg-emerald-500 py-2.5 font-sans text-sm font-semibold tracking-wide text-slate-950 transition hover:bg-emerald-400 active:scale-[0.99] disabled:bg-slate-700 disabled:text-slate-500"
             >
               {submitting
                 ? exchangingOrder
-                  ? 'POSTING EXCHANGE...'
+                  ? "Posting…"
                   : editingOrder
-                    ? 'SAVING BILL...'
-                    : 'POSTING INVOICE...'
+                    ? "Saving…"
+                    : "Posting…"
                 : exchangingOrder
-                  ? 'COMPLETE EXCHANGE & PRINT'
+                  ? "Complete & print"
                   : editingOrder
-                    ? 'SAVE & PRINT INVOICE'
-                    : 'CLOSE & PRINT INVOICE'}
+                    ? "Save & print"
+                    : "Close & print"}
             </button>
           </div>
         </div>
-
       </div>
 
       {receipt ? (

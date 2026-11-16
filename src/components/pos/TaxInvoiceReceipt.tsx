@@ -61,6 +61,18 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
         </div>
       </div>
 
+      {receipt.customerName || receipt.customerPhone ? (
+        <div className="mt-2 border-b border-dotted border-black/70 pb-1.5 text-[10px]">
+          <Caption className="mb-1">Customer</Caption>
+          {receipt.customerName ? (
+            <p className="leading-[1.3] tracking-[0.02em] uppercase">{receipt.customerName}</p>
+          ) : null}
+          {receipt.customerPhone ? (
+            <p className="mt-0.5 tabular-nums tracking-wide">+91 {receipt.customerPhone}</p>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* ---------- Items ---------- */}
       <div className="mt-2">
         <div className="grid grid-cols-[1fr_auto_auto] gap-x-2 pb-1">

@@ -2,7 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CartItem } from "@/store/useCartStore";
 import { clampDiscountPercent } from "@/lib/posPricing";
 import { toCheckoutError } from "@/lib/placeOrder";
-import type { AdminOrder, PaymentMethod } from "@/types/order";
+import { posCustomerShipping, validatePosCustomer } from "@/lib/shipping";
+import type { AdminOrder, PaymentMethod, ShippingDetails } from "@/types/order";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 
 // Stock + order changes happen inside Postgres functions (see
@@ -39,6 +40,8 @@ export async function updatePosOrder(
      */
     cash_received?: Record<string, number> | null;
     cash_change?: Record<string, number> | null;
+    /** Customer name + phone for the bill. */
+    shipping?: Pick<ShippingDetails, "customer_name" | "customer_phone"> | null;
   }
 ) {
   if (order.source !== "POS") throw new Error("Only POS bills can be edited here.");
@@ -54,6 +57,16 @@ export async function updatePosOrder(
     throw new Error("Each line needs a quantity of 1+ and a valid price.");
   }
 
+  let shipping: ShippingDetails | null = null;
+  if (next.shipping) {
+    const customerError = validatePosCustomer(
+      next.shipping.customer_name,
+      next.shipping.customer_phone
+    );
+    if (customerError) throw new Error(customerError);
+    shipping = posCustomerShipping(next.shipping.customer_name, next.shipping.customer_phone);
+  }
+
   const { error } = await supabase.rpc("update_pos_order", {
     p_order_id: order.id,
     p_payment_method: next.payment_method,
@@ -61,6 +74,7 @@ export async function updatePosOrder(
     p_sales_person_id: next.sales_person_id ?? null,
     p_cash_received: next.payment_method === "CASH" ? (next.cash_received ?? null) : null,
     p_cash_change: next.payment_method === "CASH" ? (next.cash_change ?? null) : null,
+    p_shipping: shipping,
   });
   if (error) throw toCheckoutError(error);
 }

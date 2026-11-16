@@ -18,6 +18,8 @@ export type PosReceipt = {
   dateLabel: string;
   timeLabel: string;
   attendedBy: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
   payment: string;
   lines: ReceiptLine[];
   itemCount: number;
@@ -49,6 +51,8 @@ export function buildPosReceipt(
     orderId: string;
     payment: string;
     attendedBy: string;
+    customerName?: string | null;
+    customerPhone?: string | null;
     at?: Date;
     exchangeOfBillNo?: string | null;
     exchangeCredit?: number | null;
@@ -89,6 +93,8 @@ export function buildPosReceipt(
     dateLabel: `${dd}/${mm}/${yy}`,
     timeLabel: `${hh}:${min}`,
     attendedBy: options.attendedBy,
+    customerName: options.customerName?.trim() || null,
+    customerPhone: options.customerPhone?.trim() || null,
     payment: options.payment,
     lines,
     itemCount: lines.reduce((sum, line) => sum + line.qty, 0),
@@ -148,6 +154,8 @@ export function buildPosReceiptFromOrder(
     dateLabel: `${dd}/${mm}/${yy}`,
     timeLabel: `${hh}:${min}`,
     attendedBy,
+    customerName: order.shipping?.customer_name?.trim() || null,
+    customerPhone: order.shipping?.customer_phone?.trim() || null,
     payment: String(order.payment_method),
     lines,
     itemCount: lines.reduce((sum, line) => sum + line.qty, 0),

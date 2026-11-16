@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CheckoutRequest, CheckoutResponse, PaymentMethod, OrderSource } from "@/types/order";
-import { normalizedShipping, validateShipping } from "@/lib/shipping";
+import {
+  normalizedShipping,
+  posCustomerShipping,
+  validatePosCustomer,
+  validateShipping,
+} from "@/lib/shipping";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "UPI"];
 const ORDER_SOURCES: OrderSource[] = ["ONLINE", "POS"];
@@ -40,7 +45,7 @@ export function toCheckoutError(error: { code?: string; message: string }) {
     error.code === "PGRST202" ||
     (lower.includes("function") && lower.includes("could not find"));
   const hint = missingFn
-    ? "\n\nRun the latest supabase/migrations (013 to 018, in order) in the Supabase SQL Editor."
+    ? "\n\nRun the latest supabase/migrations (through 032) in the Supabase SQL Editor."
     : "";
   return new CheckoutError(error.message + hint, statusFromDbError(error));
 }
@@ -86,6 +91,11 @@ export async function placeOrder(
     const shippingError = validateShipping(shipping);
     if (shippingError) throw new CheckoutError(shippingError);
     delivery = normalizedShipping(shipping);
+  } else if (source === "POS") {
+    if (!shipping) throw new CheckoutError("Enter the customer name and phone.");
+    const customerError = validatePosCustomer(shipping.customer_name, shipping.customer_phone);
+    if (customerError) throw new CheckoutError(customerError);
+    delivery = posCustomerShipping(shipping.customer_name, shipping.customer_phone);
   }
 
   const { data, error } = await supabase.rpc("place_order", {

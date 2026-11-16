@@ -62,9 +62,13 @@ export function useCashTender(due: number, denominations: number[]) {
         denomination,
         ((which === "received" ? received : change)[String(denomination)] ?? 0) + 1
       ),
-    /** Customer paid the exact amount. */
     exact: () => {
       setReceived(greedyCounts(due, denominations));
+      setChangeOverride(null);
+    },
+    setReceivedAmount: (amount: number) => {
+      const n = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
+      setReceived(n > 0 ? greedyCounts(n, denominations) : {});
       setChangeOverride(null);
     },
     autoChange: () => setChangeOverride(null),
@@ -76,7 +80,6 @@ export function useCashTender(due: number, denominations: number[]) {
       setReceived({});
       setChangeOverride(null);
     },
-    /** Counts ready to send to the database. */
     payload: () => ({ cash_received: cleanCounts(received), cash_change: cleanCounts(change) }),
   };
 }
@@ -95,14 +98,17 @@ function CountGrid({
   onSet: (denomination: number, value: number) => void;
 }) {
   return (
-    <div className="grid grid-cols-4 gap-1.5">
+    <div className="grid grid-cols-4 gap-1">
       {denominations.map((denomination) => (
-        <div key={denomination} className="overflow-hidden rounded-md border border-slate-600 bg-slate-900">
+        <div
+          key={denomination}
+          className="overflow-hidden rounded border border-slate-600/80 bg-slate-950/50"
+        >
           <button
             type="button"
             onClick={() => onAdd(denomination)}
             title={`Add one ₹${denomination}`}
-            className="w-full bg-slate-700/60 py-1 font-sans text-[11px] font-black text-emerald-300 hover:bg-slate-700"
+            className="w-full bg-slate-800/80 py-0.5 font-sans text-[10px] font-semibold text-emerald-300/90 hover:bg-slate-700"
           >
             ₹{denomination}
           </button>
@@ -113,7 +119,7 @@ function CountGrid({
             value={counts[String(denomination)] ? counts[String(denomination)] : ""}
             placeholder="0"
             onChange={(event) => onSet(denomination, parseInt(event.target.value, 10) || 0)}
-            className="h-7 w-full bg-transparent text-center text-sm text-white outline-none placeholder:text-slate-600"
+            className="h-6 w-full bg-transparent text-center text-xs text-white outline-none placeholder:text-slate-600"
           />
         </div>
       ))}
@@ -131,76 +137,65 @@ export function CashTender({
   tender: CashTenderState;
 }) {
   return (
-    <div className="space-y-3 rounded-lg border border-slate-600 bg-slate-900/40 p-3">
-      <div className="flex items-baseline justify-between font-sans">
-        <span className="text-xs tracking-wider text-slate-400">CASH DUE</span>
-        <span className="text-lg font-black text-emerald-300">₹{due}</span>
+    <div className="space-y-2 rounded-lg border border-slate-700/80 bg-slate-900/50 p-2.5">
+      <div className="flex items-center justify-between gap-2 font-sans">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+          Received{" "}
+          <span className="tabular-nums text-slate-200">₹{tender.receivedTotal}</span>
+        </span>
+        <span className="flex gap-1">
+          <button
+            type="button"
+            onClick={tender.exact}
+            className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300 hover:bg-slate-800"
+          >
+            Exact
+          </button>
+          <button
+            type="button"
+            onClick={tender.clear}
+            className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300 hover:bg-slate-800"
+          >
+            Clear
+          </button>
+        </span>
       </div>
 
-      <div>
-        <div className="mb-1.5 flex items-center justify-between font-sans">
-          <span className="text-[11px] font-bold tracking-wider text-slate-400">
-            RECEIVED <span className="text-slate-200">₹{tender.receivedTotal}</span>
-          </span>
-          <span className="flex gap-1">
-            <button
-              type="button"
-              onClick={tender.exact}
-              className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] font-bold text-slate-300 hover:bg-slate-700"
-            >
-              EXACT
-            </button>
-            <button
-              type="button"
-              onClick={tender.clear}
-              className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] font-bold text-slate-300 hover:bg-slate-700"
-            >
-              CLEAR
-            </button>
-          </span>
-        </div>
-        <CountGrid
-          denominations={denominations}
-          counts={tender.received}
-          onAdd={(d) => tender.addOne("received", d)}
-          onSet={(d, v) => tender.setCount("received", d, v)}
-        />
+      <CountGrid
+        denominations={denominations}
+        counts={tender.received}
+        onAdd={(d) => tender.addOne("received", d)}
+        onSet={(d, v) => tender.setCount("received", d, v)}
+      />
+
+      <div className="flex items-center justify-between font-sans">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+          Change{" "}
+          <span className="tabular-nums text-slate-200">₹{tender.changeTotal}</span>
+        </span>
+        {tender.changeIsManual ? (
+          <button
+            type="button"
+            onClick={tender.autoChange}
+            className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300 hover:bg-slate-800"
+          >
+            Auto
+          </button>
+        ) : (
+          <span className="text-[10px] text-slate-600">auto</span>
+        )}
       </div>
 
-      <div>
-        <div className="mb-1.5 flex items-center justify-between font-sans">
-          <span className="text-[11px] font-bold tracking-wider text-slate-400">
-            CHANGE GIVEN <span className="text-slate-200">₹{tender.changeTotal}</span>
-          </span>
-          {tender.changeIsManual ? (
-            <button
-              type="button"
-              onClick={tender.autoChange}
-              className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] font-bold text-slate-300 hover:bg-slate-700"
-            >
-              AUTO
-            </button>
-          ) : (
-            <span className="text-[10px] text-slate-500">auto</span>
-          )}
-        </div>
-        <CountGrid
-          denominations={denominations}
-          counts={tender.change}
-          onAdd={(d) => tender.addOne("change", d)}
-          onSet={(d, v) => tender.setCount("change", d, v)}
-        />
-      </div>
+      <CountGrid
+        denominations={denominations}
+        counts={tender.change}
+        onAdd={(d) => tender.addOne("change", d)}
+        onSet={(d, v) => tender.setCount("change", d, v)}
+      />
 
-      <p
-        className={`font-sans text-xs ${
-          tender.valid ? "text-emerald-300" : "text-amber-300"
-        }`}
-      >
-        {tender.valid
-          ? `✓ ₹${tender.receivedTotal} received − ₹${tender.changeTotal} change = ₹${due}`
-          : tender.problem}
-      </p>
+      {!tender.valid && tender.problem ? (
+        <p className="font-sans text-[11px] text-amber-300">{tender.problem}</p>
+      ) : null}
     </div>
   );
 }

@@ -40,6 +40,7 @@ Never change schema only in the dashboard without a matching file here.
 | `029_performance_standing.sql` | Performance colour from targets: green met, yellow missed 1 month, red missed 2 in a row (finished months only) | Run after 027 |
 | `030_checkin_location.sql` | Employee check-in only within a radius of the shop pin (admin sets location; distance checked in the database) | Run after 025 |
 | `031_pos_exchange.sql` | POS exchange: return pieces from a bill within 2 days, take new ones, pay only the difference (no cash refund) | Run after 018 |
+| `032_pos_customer.sql` | POS bills require customer name + phone (saved on the order; edit/exchange too) | Run after 031 |
 
 ## Security model (after 013)
 

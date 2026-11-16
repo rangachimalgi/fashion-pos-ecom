@@ -19,6 +19,26 @@ export function normalizePhone(value: string) {
   return value.replace(/\D/g, "").slice(-10);
 }
 
+/** POS counter: name + mobile only (no delivery address). */
+export function validatePosCustomer(name: string, phone: string): string | null {
+  if (name.trim().length < 2) return "Enter the customer name.";
+  if (!PHONE.test(normalizePhone(phone))) return "Enter a valid 10-digit mobile number.";
+  return null;
+}
+
+/** Shape accepted by place_order / update / exchange for POS customer fields. */
+export function posCustomerShipping(name: string, phone: string): ShippingDetails {
+  return {
+    customer_name: name.trim(),
+    customer_phone: normalizePhone(phone),
+    address_line1: "",
+    address_line2: "",
+    city: "",
+    state: "",
+    pincode: "",
+  };
+}
+
 export function validateShipping(details: ShippingDetails): string | null {
   const name = details.customer_name.trim();
   const phone = normalizePhone(details.customer_phone);
