@@ -94,6 +94,21 @@ export async function fetchDrawerTotal(supabase: SupabaseClient): Promise<number
   return rows.reduce((sum, row) => sum + row.denomination * row.quantity, 0);
 }
 
+/** Notes/coins in the till, largest first (any staff). */
+export async function fetchDrawerBreakdown(supabase: SupabaseClient): Promise<DrawerRow[]> {
+  const { data, error } = await supabase.rpc("cash_drawer_breakdown");
+  if (error) {
+    if (error.code === "PGRST202") {
+      throw new Error("Run supabase/migrations/035_staff_discount_drawer_notes.sql to show the notes in the till.");
+    }
+    throw toCheckoutError(error);
+  }
+  return ((data ?? []) as DrawerRow[]).map((row) => ({
+    denomination: Number(row.denomination),
+    quantity: Number(row.quantity),
+  }));
+}
+
 /** How many recent movements the cash panel shows. */
 export const RECENT_MOVEMENTS_LIMIT = 20;
 

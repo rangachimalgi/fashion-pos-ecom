@@ -26,7 +26,14 @@ import { getStaffProfile, signOutStaff, type StaffRole } from '@/lib/staffAuth';
 import { DISCOUNT_CAP_PERCENT, ROLE_LABEL } from '@/lib/staffRoles';
 import { countPendingDeleteRequests } from '@/lib/deleteRequests';
 import { listSalesPeople, type SalesPerson } from '@/lib/salesPeople';
-import { cashDueFor, DEFAULT_DENOMINATIONS, fetchDrawerTotal, listCashDenominations } from '@/lib/cashLedger';
+import {
+  cashDueFor,
+  DEFAULT_DENOMINATIONS,
+  fetchDrawerBreakdown,
+  fetchDrawerTotal,
+  listCashDenominations,
+  type DrawerRow,
+} from '@/lib/cashLedger';
 import { normalizePhone, posCustomerShipping, validatePosCustomer } from '@/lib/shipping';
 import { CashLedgerPanel } from '@/components/pos/CashLedgerPanel';
 import { CashTender, useCashTender } from '@/components/pos/CashTender';
@@ -83,6 +90,8 @@ export default function BillingTerminal() {
   const [denominations, setDenominations] = useState<number[]>(DEFAULT_DENOMINATIONS);
   const [drawerTotal, setDrawerTotal] = useState<number | null>(null);
   const [drawerError, setDrawerError] = useState<string | null>(null);
+  const [drawerNotes, setDrawerNotes] = useState<DrawerRow[] | null>(null);
+  const [drawerNotesError, setDrawerNotesError] = useState<string | null>(null);
   const [exchangingOrder, setExchangingOrder] = useState<AdminOrder | null>(null);
   const [exchangeAvailability, setExchangeAvailability] = useState<ExchangeAvailability[]>([]);
   const [exchangeReturns, setExchangeReturns] = useState<Record<string, number>>({});
@@ -109,6 +118,15 @@ export default function BillingTerminal() {
       .catch((err) => {
         setDrawerTotal(null);
         setDrawerError(err instanceof Error ? err.message : 'Could not load the counter total');
+      });
+    fetchDrawerBreakdown(supabase)
+      .then((rows) => {
+        setDrawerNotes(rows);
+        setDrawerNotesError(null);
+      })
+      .catch((err) => {
+        setDrawerNotes(null);
+        setDrawerNotesError(err instanceof Error ? err.message : 'Could not load the notes in the till');
       });
   };
 
@@ -288,7 +306,7 @@ export default function BillingTerminal() {
       setEanInput('');
       setStatus(
         `${hit.product.name} · ${hit.variant.size} · MRP ₹${hit.product.base_price}${
-          hit.product.cost_price != null ? ` · cost ₹${hit.product.cost_price}` : ""
+          isAdmin && hit.product.cost_price != null ? ` · cost ₹${hit.product.cost_price}` : ""
         } added`
       );
     } catch (err) {
@@ -863,7 +881,7 @@ export default function BillingTerminal() {
                 <th>SIZE</th>
                 <th>COLOR</th>
                 <th>MRP</th>
-                <th>COST</th>
+                {isAdmin ? <th>COST</th> : null}
                 <th>QTY</th>
                 <th>DISC %</th>
                 <th className="text-right">LINE TOTAL</th>
@@ -882,9 +900,11 @@ export default function BillingTerminal() {
                   <td><span className="bg-slate-700 px-2 py-1 rounded text-xs font-bold">{item.variant.size}</span></td>
                   <td className="text-slate-300">{item.variant.color}</td>
                   <td>₹{item.product.base_price}</td>
-                  <td className="text-slate-400">
-                    {item.product.cost_price != null ? `₹${item.product.cost_price}` : "—"}
-                  </td>
+                  {isAdmin ? (
+                    <td className="text-slate-400">
+                      {item.product.cost_price != null ? `₹${item.product.cost_price}` : "—"}
+                    </td>
+                  ) : null}
                   <td className="font-bold text-slate-200">
                     <div className="flex items-center gap-2">
                       <button
@@ -1109,6 +1129,31 @@ export default function BillingTerminal() {
                       : formatInr(drawerTotal)}
                 </span>
               </p>
+            ) : null}
+            {paymentMode === "CASH" ? (
+              drawerNotesError ? (
+                <p className="mt-1 text-center font-sans text-[10px] text-amber-300/90" title={drawerNotesError}>
+                  Notes in till unavailable
+                </p>
+              ) : drawerNotes ? (
+                <div className="mt-1.5 grid grid-cols-4 gap-1">
+                  {drawerNotes.map((row) => (
+                    <div
+                      key={row.denomination}
+                      className="rounded border border-slate-700/80 bg-slate-950/50 py-0.5 text-center font-sans leading-tight"
+                    >
+                      <p className="text-[9px] text-slate-500">₹{row.denomination}</p>
+                      <p
+                        className={`text-[11px] font-semibold tabular-nums ${
+                          row.quantity > 0 ? "text-slate-200" : row.quantity < 0 ? "text-rose-300" : "text-slate-600"
+                        }`}
+                      >
+                        {row.quantity}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null
             ) : null}
           </div>
 
