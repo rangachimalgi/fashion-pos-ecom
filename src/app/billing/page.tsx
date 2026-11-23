@@ -36,8 +36,7 @@ import {
 } from '@/lib/cashLedger';
 import { normalizePhone, posCustomerShipping, validatePosCustomer } from '@/lib/shipping';
 import { CashLedgerPanel } from '@/components/pos/CashLedgerPanel';
-import { CashTender, useCashTender } from '@/components/pos/CashTender';
-import { DeleteRequestsPanel } from '@/components/pos/DeleteRequestsPanel';
+import { CashTender, useCashTender } from '@/components/pos/CashTender';import { DeleteRequestsPanel } from '@/components/pos/DeleteRequestsPanel';
 import { PosSearchSuggestions } from '@/components/pos/PosSearchSuggestions';
 import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
 import { PosHistoryPanel } from '@/components/pos/PosHistoryPanel';
