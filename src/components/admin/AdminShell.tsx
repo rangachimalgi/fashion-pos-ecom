@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { Barcode, ClipboardList, FileSpreadsheet, Home, LayoutGrid, Menu, MonitorSmartphone, Receipt, ScrollText, Tags, Trash2, Users } from "lucide-react";
+import { Barcode, ClipboardList, FileSpreadsheet, Home, LayoutGrid, Menu, MonitorSmartphone, Receipt, ScrollText, Tags, TicketPercent, Trash2, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,6 +46,12 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/categories", label: "Categories", icon: Tags, active: (p) => p.startsWith("/admin/categories") },
   { href: "/admin/import", label: "Import", icon: FileSpreadsheet, active: (p) => p.startsWith("/admin/import") },
   { href: "/admin/tags", label: "Hang tags", icon: Barcode, active: (p) => p.startsWith("/admin/tags") },
+  {
+    href: "/admin/coupons",
+    label: "Coupons",
+    icon: TicketPercent,
+    active: (p) => p.startsWith("/admin/coupons"),
+  },
   {
     href: "/admin/receipt",
     label: "Receipt terms",

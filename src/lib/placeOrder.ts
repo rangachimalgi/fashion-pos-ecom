@@ -45,7 +45,7 @@ export function toCheckoutError(error: { code?: string; message: string }) {
     error.code === "PGRST202" ||
     (lower.includes("function") && lower.includes("could not find"));
   const hint = missingFn
-    ? "\n\nRun the latest supabase/migrations (through 032) in the Supabase SQL Editor."
+    ? "\n\nRun the latest supabase/migrations (through 036) in the Supabase SQL Editor."
     : "";
   return new CheckoutError(error.message + hint, statusFromDbError(error));
 }
@@ -64,6 +64,7 @@ export async function placeOrder(
   body: CheckoutRequest
 ): Promise<CheckoutResponse> {
   const { payment_method, source, items, shipping, sales_person_id, cash_received, cash_change } = body;
+  const couponCode = typeof body.coupon_code === "string" ? body.coupon_code.trim().toUpperCase() : "";
 
   if (!PAYMENT_METHODS.includes(payment_method)) {
     throw new CheckoutError("payment_method must be CASH or UPI");
@@ -107,13 +108,21 @@ export async function placeOrder(
     // Only a POS bill paid in cash moves the cash counter.
     p_cash_received: source === "POS" && payment_method === "CASH" ? (cash_received ?? null) : null,
     p_cash_change: source === "POS" && payment_method === "CASH" ? (cash_change ?? null) : null,
+    ...(couponCode ? { p_coupon_code: couponCode } : {}),
   });
 
   if (error) throw toCheckoutError(error);
 
-  const result = data as { order_id: string; total_amount: number | string };
+  const result = data as {
+    order_id: string;
+    total_amount: number | string;
+    coupon_code?: string | null;
+    coupon_discount?: number | string | null;
+  };
   return {
     order_id: result.order_id,
     total_amount: Number(result.total_amount),
+    coupon_code: result.coupon_code ?? null,
+    coupon_discount: Number(result.coupon_discount ?? 0),
   };
 }

@@ -138,7 +138,7 @@ export function TaxInvoiceReceipt({ receipt }: { receipt: PosReceipt }) {
           <span className="tabular-nums">{inr(receipt.total)}</span>
         </p>
         <p className="flex justify-between py-px">
-          <span>Discount</span>
+          <span>{receipt.couponCode ? `Discount (coupon ${receipt.couponCode})` : "Discount"}</span>
           <span className="tabular-nums">{receipt.discount > 0 ? `− ${inr(receipt.discount)}` : inr(0)}</span>
         </p>
         {receipt.exchangeCredit != null && receipt.exchangeCredit > 0 ? (

@@ -5,6 +5,7 @@ export async function submitOnlineOrder(input: {
   payment_method: "CASH" | "UPI";
   items: Array<{ variant_id: string; quantity: number }>;
   shipping: ShippingDetails;
+  coupon_code?: string | null;
 }): Promise<CheckoutResponse> {
   const response = await fetch("/api/checkout", {
     method: "POST",
@@ -20,5 +21,10 @@ export async function submitOnlineOrder(input: {
     throw new Error(payload?.error ?? "Checkout failed. Please try again.");
   }
 
-  return { order_id: payload.order_id, total_amount: Number(payload.total_amount) };
+  return {
+    order_id: payload.order_id,
+    total_amount: Number(payload.total_amount),
+    coupon_code: payload.coupon_code ?? null,
+    coupon_discount: Number(payload.coupon_discount ?? 0),
+  };
 }

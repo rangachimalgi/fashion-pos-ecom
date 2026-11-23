@@ -33,6 +33,7 @@ export async function POST(request: Request) {
         quantity: item?.quantity,
       })),
       shipping: body.shipping,
+      coupon_code: typeof body.coupon_code === 'string' ? body.coupon_code : null,
     });
     return NextResponse.json(result);
   } catch (err) {

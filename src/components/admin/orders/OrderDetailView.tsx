@@ -109,6 +109,14 @@ export function OrderDetailView({
               </table>
             </div>
           )}
+          {order.coupon_code ? (
+            <div className="flex items-center justify-between border-t border-border px-5 py-3 text-sm">
+              <span className="text-muted-foreground">
+                Coupon <span className="font-mono font-medium text-foreground">{order.coupon_code}</span>
+              </span>
+              <span className="tabular-nums text-emerald-700">− {formatMoney(order.coupon_discount)}</span>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between border-t border-border bg-muted/20 px-5 py-4">
             <span className="text-sm font-medium">Total</span>
             <span className="text-lg font-semibold tracking-tight tabular-nums">{formatMoney(order.total_amount)}</span>

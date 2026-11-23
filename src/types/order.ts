@@ -29,11 +29,15 @@ export interface CheckoutRequest {
   cash_received?: Record<string, number> | null;
   /** POS cash bills only: notes/coins given back as change. */
   cash_change?: Record<string, number> | null;
+  /** Optional coupon; checked and applied by the database. POS coupon bills are priced from MRP. */
+  coupon_code?: string | null;
 }
 
 export interface CheckoutResponse {
   order_id: string;
   total_amount: number;
+  coupon_code?: string | null;
+  coupon_discount?: number;
 }
 
 export interface OrderLineItem {
@@ -63,4 +67,7 @@ export interface AdminOrder {
   attended_by: string | null;
   /** When set, this POS bill was made as an exchange of that earlier bill. */
   exchange_of: string | null;
+  /** Coupon used on this order (line prices already include its discount). */
+  coupon_code: string | null;
+  coupon_discount: number;
 }

@@ -2,6 +2,7 @@ import type { CartItem } from "@/store/useCartStore";
 import type { AdminOrder } from "@/types/order";
 import { posLineTotal } from "@/lib/posPricing";
 import { STORE_RECEIPT } from "@/lib/storeReceipt";
+import { couponPricedLines, type AppliedCoupon } from "@/lib/coupons";
 
 export type ReceiptLine = {
   sl: number;
@@ -36,6 +37,8 @@ export type PosReceipt = {
   exchangeCredit?: number | null;
   /** What the customer pays after credit (same as net when not an exchange). */
   amountDue?: number | null;
+  /** Coupon used; its discount is already inside the line values and `discount`. */
+  couponCode?: string | null;
 };
 
 function money(n: number) {
@@ -59,12 +62,28 @@ export function buildPosReceipt(
     exchangeOfBillNo?: string | null;
     exchangeCredit?: number | null;
     amountDue?: number | null;
+    /** Coupon bills are priced from MRP; manual line discounts are ignored. */
+    coupon?: AppliedCoupon | null;
   }
 ): PosReceipt {
   const at = options.at ?? new Date();
+  const couponUnits = options.coupon
+    ? couponPricedLines(
+        ticket.map((item) => ({ mrp: Number(item.product.base_price), quantity: item.quantity })),
+        options.coupon
+      ).units
+    : null;
   const lines = ticket.map((item, index) => {
     const rate = Number(item.product.base_price);
-    const value = posLineTotal(rate, item.quantity, item.discountPercent ?? 0);
+    const unit = couponUnits?.[index];
+    const value =
+      unit != null ? money(unit * item.quantity) : posLineTotal(rate, item.quantity, item.discountPercent ?? 0);
+    const discountPercent =
+      unit != null
+        ? rate > 0 && unit < rate
+          ? money(((rate - unit) / rate) * 100)
+          : 0
+        : item.discountPercent ?? 0;
     return {
       sl: index + 1,
       code: item.variant.barcode || item.product.style_code || "—",
@@ -72,7 +91,7 @@ export function buildPosReceipt(
       qty: item.quantity,
       rate,
       value,
-      discountPercent: item.discountPercent ?? 0,
+      discountPercent,
     };
   });
 
@@ -109,6 +128,7 @@ export function buildPosReceipt(
     exchangeOfBillNo: options.exchangeOfBillNo ?? null,
     exchangeCredit: options.exchangeCredit ?? null,
     amountDue: options.amountDue ?? null,
+    couponCode: options.coupon?.code ?? null,
   };
 }
 
@@ -170,5 +190,6 @@ export function buildPosReceiptFromOrder(
     exchangeOfBillNo: order.exchange_of ? formatReceiptBillNo(order.exchange_of, at) : null,
     exchangeCredit: null,
     amountDue: null,
+    couponCode: order.coupon_code ?? null,
   };
 }

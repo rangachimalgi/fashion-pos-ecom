@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Heart, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { ChevronRight, Heart, Minus, Plus, ShoppingBag, TicketPercent, Trash2, X } from "lucide-react";
 import { AppHeader } from "@/components/store/AppHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,14 @@ import { getProductPrimaryImage } from "@/lib/productImages";
 import { submitOnlineOrder } from "@/lib/checkoutClient";
 import type { PaymentMethod, ShippingDetails } from "@/types/order";
 import { emptyShipping, validateShipping } from "@/lib/shipping";
+import { supabase } from "@/lib/supabaseClient";
+import {
+  checkCoupon,
+  couponPricedLines,
+  describeCoupon,
+  normalizeCouponCode,
+  type AppliedCoupon,
+} from "@/lib/coupons";
 
 export default function BagPage() {
   const {
@@ -32,7 +40,11 @@ export default function BagPage() {
   const [shipping, setShipping] = useState<ShippingDetails>(emptyShipping);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<{ orderId: string; total: number } | null>(null);
+  const [receipt, setReceipt] = useState<{ orderId: string; total: number; saved: number } | null>(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -47,6 +59,42 @@ export default function BagPage() {
   const total = mounted ? getGrandTotal() : 0;
   const itemCount = mounted ? getItemCount() : 0;
   const styles = mounted ? cart.length : 0;
+  const priced =
+    mounted && coupon
+      ? couponPricedLines(
+          cart.map((item) => ({ mrp: Number(item.product.base_price), quantity: item.quantity })),
+          coupon
+        )
+      : null;
+  const couponShort = coupon && total < coupon.min_order ? coupon.min_order - total : 0;
+  const payable = priced ? priced.total : total;
+
+  const applyCoupon = async () => {
+    const code = normalizeCouponCode(couponInput);
+    if (!code || checkingCoupon) return;
+    setCheckingCoupon(true);
+    setCouponError(null);
+    try {
+      const next = await checkCoupon(supabase, {
+        code,
+        source: "ONLINE",
+        subtotal: total,
+        phone: shipping.customer_phone,
+      });
+      setCoupon(next);
+      setCouponInput(next.code);
+    } catch (err) {
+      setCoupon(null);
+      setCouponError(err instanceof Error ? err.message : "Could not apply that coupon");
+    } finally {
+      setCheckingCoupon(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCoupon(null);
+    setCouponError(null);
+  };
 
   const updateShipping = <K extends keyof ShippingDetails>(key: K, value: ShippingDetails[K]) => {
     setShipping((current) => {
@@ -71,6 +119,10 @@ export default function BagPage() {
       setError(shippingError);
       return;
     }
+    if (coupon && couponShort > 0) {
+      setError(`Add ₹${couponShort} more to use ${coupon.code}, or remove the coupon.`);
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -83,10 +135,17 @@ export default function BagPage() {
           quantity: item.quantity,
         })),
         shipping,
+        coupon_code: coupon?.code ?? null,
       });
 
       clearCart();
-      setReceipt({ orderId: payload.order_id, total: payload.total_amount });
+      setCoupon(null);
+      setCouponInput("");
+      setReceipt({
+        orderId: payload.order_id,
+        total: payload.total_amount,
+        saved: payload.coupon_discount ?? 0,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
     } finally {
@@ -108,6 +167,9 @@ export default function BagPage() {
             <p className="text-xs text-slate-500">We’ll deliver to the address you entered.</p>
             <p className="font-mono text-xs break-all text-slate-500">#{receipt.orderId}</p>
             <p className="text-2xl font-black">₹{receipt.total}</p>
+            {receipt.saved > 0 ? (
+              <p className="text-xs font-bold text-emerald-600">You saved ₹{receipt.saved} with your coupon</p>
+            ) : null}
             <Link
               href="/"
               className="mt-2 inline-flex h-10 items-center rounded-lg bg-rose-500 px-4 text-sm font-bold text-white hover:bg-rose-600"
@@ -301,14 +363,75 @@ export default function BagPage() {
                   <p className="mb-4 text-[11px] font-black tracking-wider text-slate-400 uppercase">
                     Billing details
                   </p>
+                  <div className="mb-4">
+                    {coupon ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-dashed border-emerald-300 bg-emerald-50 px-3 py-2">
+                        <TicketPercent className="size-4 shrink-0 text-emerald-600" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-black tracking-wider text-emerald-700">{coupon.code}</p>
+                          <p className="truncate text-[11px] text-emerald-700/80">
+                            {coupon.description || describeCoupon(coupon)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={removeCoupon}
+                          className="rounded p-1 text-emerald-700 hover:bg-emerald-100"
+                          aria-label="Remove coupon"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <form
+                        className="flex gap-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void applyCoupon();
+                        }}
+                      >
+                        <Input
+                          placeholder="Coupon code"
+                          value={couponInput}
+                          onChange={(event) => {
+                            setCouponInput(normalizeCouponCode(event.target.value));
+                            setCouponError(null);
+                          }}
+                          className="h-9 uppercase"
+                        />
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          disabled={!couponInput || checkingCoupon}
+                          className="h-9 shrink-0 text-xs font-black tracking-wider uppercase"
+                        >
+                          {checkingCoupon ? "…" : "Apply"}
+                        </Button>
+                      </form>
+                    )}
+                    {couponError ? (
+                      <p className="mt-1.5 text-[11px] font-medium text-rose-500">{couponError}</p>
+                    ) : couponShort > 0 ? (
+                      <p className="mt-1.5 text-[11px] font-medium text-amber-600">
+                        Add ₹{couponShort} more to use this coupon.
+                      </p>
+                    ) : null}
+                  </div>
+
                   <div className="space-y-3 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Cart total</span>
                       <span className="font-semibold">₹{total}</span>
                     </div>
+                    {priced && priced.discount > 0 ? (
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Coupon ({coupon?.code})</span>
+                        <span className="font-semibold text-emerald-600">− ₹{priced.discount}</span>
+                      </div>
+                    ) : null}
                     <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-base font-black">
                       <span>Total amount</span>
-                      <span>₹{total}</span>
+                      <span>₹{payable}</span>
                     </div>
                   </div>
 

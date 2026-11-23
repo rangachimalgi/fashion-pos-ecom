@@ -36,7 +36,15 @@ import {
 } from '@/lib/cashLedger';
 import { normalizePhone, posCustomerShipping, validatePosCustomer } from '@/lib/shipping';
 import { CashLedgerPanel } from '@/components/pos/CashLedgerPanel';
-import { CashTender, useCashTender } from '@/components/pos/CashTender';import { DeleteRequestsPanel } from '@/components/pos/DeleteRequestsPanel';
+import { CashTender, useCashTender } from '@/components/pos/CashTender';
+import { DeleteRequestsPanel } from '@/components/pos/DeleteRequestsPanel';
+import {
+  checkCoupon,
+  couponPricedLines,
+  describeCoupon,
+  normalizeCouponCode,
+  type AppliedCoupon,
+} from '@/lib/coupons';
 import { PosSearchSuggestions } from '@/components/pos/PosSearchSuggestions';
 import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
 import { PosHistoryPanel } from '@/components/pos/PosHistoryPanel';
@@ -94,13 +102,32 @@ export default function BillingTerminal() {
   const [exchangingOrder, setExchangingOrder] = useState<AdminOrder | null>(null);
   const [exchangeAvailability, setExchangeAvailability] = useState<ExchangeAvailability[]>([]);
   const [exchangeReturns, setExchangeReturns] = useState<Record<string, number>>({});
+  const [couponInput, setCouponInput] = useState('');
+  const [posCoupon, setPosCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
   const eanRef = useRef<HTMLInputElement>(null);
+
+  // Coupons are for new sales only (not bill edits or exchanges). A coupon bill
+  // is priced from MRP; manual line discounts don't apply on top.
+  const couponAllowed = !editingOrder && !exchangingOrder;
+  const activeCoupon = couponAllowed ? posCoupon : null;
+  const couponPricing = activeCoupon
+    ? couponPricedLines(
+        ticket.map((item) => ({ mrp: Number(item.product.base_price), quantity: item.quantity })),
+        activeCoupon
+      )
+    : null;
+  const couponShort =
+    activeCoupon && couponPricing && couponPricing.subtotal < activeCoupon.min_order
+      ? Math.round((activeCoupon.min_order - couponPricing.subtotal) * 100) / 100
+      : 0;
 
   const returnLines = Object.entries(exchangeReturns)
     .map(([variant_id, quantity]) => ({ variant_id, quantity }))
     .filter((line) => line.quantity > 0);
   const credit = exchangingOrder ? exchangeCredit(returnLines, exchangeAvailability) : 0;
-  const newTotal = getGrandTotal();
+  const newTotal = couponPricing ? couponPricing.total : getGrandTotal();
   const amountDue = Math.max(0, Math.round((newTotal - credit) * 100) / 100);
 
   // Cash side of the bill: what the customer handed over and the change given.
@@ -316,6 +343,38 @@ export default function BillingTerminal() {
     }
   };
 
+  const applyCoupon = async () => {
+    const code = normalizeCouponCode(couponInput);
+    if (!code || checkingCoupon) return;
+    setCheckingCoupon(true);
+    setCouponError(null);
+    try {
+      const subtotal = ticket.reduce(
+        (sum, item) => sum + Number(item.product.base_price) * item.quantity,
+        0
+      );
+      const next = await checkCoupon(supabase, {
+        code,
+        source: 'POS',
+        subtotal,
+        phone: customerPhone,
+      });
+      setPosCoupon(next);
+      setCouponInput(next.code);
+    } catch (err) {
+      setPosCoupon(null);
+      setCouponError(err instanceof Error ? err.message : 'Could not apply that coupon');
+    } finally {
+      setCheckingCoupon(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setPosCoupon(null);
+    setCouponInput('');
+    setCouponError(null);
+  };
+
   // A bill that was already paid in cash for this same amount keeps the cash it
   // recorded; anything else paid in cash needs the notes/coins entered.
   const cashUnchanged =
@@ -346,6 +405,7 @@ export default function BillingTerminal() {
         exchangeOfBillNo: extras?.exchangeOfBillNo,
         exchangeCredit: extras?.exchangeCredit,
         amountDue: extras?.amountDue,
+        coupon: activeCoupon,
       })
     );
     setReceiptPosted(posted);
@@ -468,6 +528,11 @@ export default function BillingTerminal() {
       }
     }
 
+    if (activeCoupon && couponShort > 0) {
+      setStatus(`Coupon ${activeCoupon.code} needs ₹${couponShort} more on the bill. Add items or remove the coupon.`);
+      return;
+    }
+
     if (needsCashEntry && !tender.valid) {
       setStatus(tender.problem);
       return;
@@ -544,10 +609,15 @@ export default function BillingTerminal() {
           items,
           shipping,
           sales_person_id: salesPersonId || null,
+          coupon_code: activeCoupon?.code ?? null,
           ...cash,
         });
         orderId = payload.order_id;
-        setStatus(`Invoice ${orderId} posted via ${paymentMode}`);
+        setStatus(
+          payload.coupon_code
+            ? `Invoice ${orderId} posted via ${paymentMode} · coupon ${payload.coupon_code} −₹${payload.coupon_discount ?? 0}`
+            : `Invoice ${orderId} posted via ${paymentMode}`
+        );
       }
 
       setReceipt(
@@ -561,9 +631,13 @@ export default function BillingTerminal() {
           exchangeOfBillNo,
           exchangeCredit: postedCredit,
           amountDue: postedDue,
+          coupon: activeCoupon,
         })
       );
       setReceiptPosted(true);
+      setPosCoupon(null);
+      setCouponInput('');
+      setCouponError(null);
       setPickedSalesPersonId('');
       setCustomerName('');
       setCustomerPhone('');
@@ -735,18 +809,23 @@ export default function BillingTerminal() {
               min={0}
               max={maxDiscount}
               step={1}
-              value={defaultDiscountPercent}
-              title="Preset discount for this bill — applied to new scans and the lines already on the ticket"
+              value={activeCoupon ? 0 : defaultDiscountPercent}
+              disabled={Boolean(activeCoupon)}
+              title={
+                activeCoupon
+                  ? "A coupon is applied — manual discounts are off for this bill"
+                  : "Preset discount for this bill — applied to new scans and the lines already on the ticket"
+              }
               onChange={(event) =>
                 setDefaultDiscount(
                   Math.min(maxDiscount, Math.max(0, parseFloat(event.target.value) || 0)),
                   true
                 )
               }
-              className="h-8 w-12 rounded border border-slate-600 bg-slate-950 px-1 text-center font-sans text-sm tabular-nums text-white outline-none focus:border-emerald-400"
+              className="h-8 w-12 rounded border border-slate-600 bg-slate-950 px-1 text-center font-sans text-sm tabular-nums text-white outline-none focus:border-emerald-400 disabled:text-slate-600"
             />
             <span className="text-xs text-slate-500">%</span>
-            <div className="ml-0.5 hidden gap-0.5 sm:flex">
+            <div className={`ml-0.5 hidden gap-0.5 sm:flex ${activeCoupon ? "pointer-events-none opacity-40" : ""}`}>
               {[0, 5, 10, 15, 20]
                 .filter((pct) => pct <= maxDiscount)
                 .map((pct) => (
@@ -888,7 +967,7 @@ export default function BillingTerminal() {
               </tr>
             </thead>
             <tbody>
-              {ticket.map((item) => (
+              {ticket.map((item, index) => (
                 <tr key={item.variant.id} className="border-b border-slate-700/40 hover:bg-slate-700/20">
                   <td className="py-4 font-semibold text-slate-200">
                     <p>{item.product.name}</p>
@@ -939,7 +1018,8 @@ export default function BillingTerminal() {
                           item.product.cost_price
                         )}%`}
                         step={1}
-                        value={item.discountPercent ?? 0}
+                        value={activeCoupon ? 0 : (item.discountPercent ?? 0)}
+                        disabled={Boolean(activeCoupon)}
                         onChange={(event) =>
                           setLineDiscount(
                             item.variant.id,
@@ -953,11 +1033,12 @@ export default function BillingTerminal() {
                             )
                           )
                         }
-                        className="h-8 w-14 rounded border border-slate-600 bg-slate-900 px-1.5 text-center text-sm text-white outline-none focus:border-emerald-400"
+                        className="h-8 w-14 rounded border border-slate-600 bg-slate-900 px-1.5 text-center text-sm text-white outline-none focus:border-emerald-400 disabled:text-slate-600"
                       />
                       <span className="text-xs text-slate-500">%</span>
                     </div>
-                    {!isAdmin &&
+                    {!activeCoupon &&
+                    !isAdmin &&
                     lineDiscountLimit(
                       item.variant.id,
                       item.product.base_price,
@@ -975,11 +1056,13 @@ export default function BillingTerminal() {
                     ) : null}
                   </td>
                   <td className="text-right font-extrabold text-emerald-300">
-                    ₹{posLineTotal(
-                      item.product.base_price,
-                      item.quantity,
-                      item.discountPercent ?? 0
-                    )}
+                    ₹{couponPricing
+                      ? Math.round(couponPricing.units[index] * item.quantity * 100) / 100
+                      : posLineTotal(
+                          item.product.base_price,
+                          item.quantity,
+                          item.discountPercent ?? 0
+                        )}
                   </td>
                   <td className="text-center">
                     <button 
@@ -1045,6 +1128,64 @@ export default function BillingTerminal() {
               </div>
             </div>
           </div>
+
+          {couponAllowed ? (
+            <div>
+              <p className="font-sans text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500">
+                Coupon
+              </p>
+              {posCoupon ? (
+                <div className="mt-1.5 flex items-center gap-2 rounded-md border border-dashed border-emerald-500/40 bg-emerald-500/5 px-2.5 py-1.5">
+                  <div className="min-w-0 flex-1 font-sans">
+                    <p className="text-xs font-semibold tracking-wider text-emerald-300">{posCoupon.code}</p>
+                    <p className="truncate text-[10px] text-slate-400">
+                      {posCoupon.description || describeCoupon(posCoupon)} · line discounts off
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeCoupon}
+                    className="rounded px-1.5 py-0.5 font-sans text-[11px] text-slate-400 hover:bg-slate-700 hover:text-white"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <form
+                  className="mt-1.5 flex gap-1.5"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void applyCoupon();
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(event) => {
+                      setCouponInput(normalizeCouponCode(event.target.value));
+                      setCouponError(null);
+                    }}
+                    placeholder="Code"
+                    className="h-9 min-w-0 flex-1 rounded-md border border-slate-600 bg-slate-950 px-2.5 font-sans text-sm uppercase tracking-wider text-white outline-none placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-600 focus:border-emerald-500/50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!couponInput || checkingCoupon || ticket.length === 0}
+                    className="rounded-md border border-slate-600 px-3 font-sans text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:text-slate-600"
+                  >
+                    {checkingCoupon ? '…' : 'Apply'}
+                  </button>
+                </form>
+              )}
+              {couponError ? (
+                <p className="mt-1 font-sans text-[11px] text-rose-300">{couponError}</p>
+              ) : couponShort > 0 ? (
+                <p className="mt-1 font-sans text-[11px] text-amber-300">
+                  Needs ₹{couponShort} more on the bill.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div>
             <label
@@ -1188,12 +1329,25 @@ export default function BillingTerminal() {
             </div>
           ) : null}
 
+          {couponPricing && couponPricing.discount > 0 ? (
+            <div className="mb-2 space-y-0.5 font-sans text-[11px] text-slate-400">
+              <div className="flex justify-between">
+                <span>MRP total</span>
+                <span className="tabular-nums text-slate-200">{formatInr(couponPricing.subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Coupon {activeCoupon?.code}</span>
+                <span className="tabular-nums text-emerald-300">− {formatInr(couponPricing.discount)}</span>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex items-baseline justify-between gap-2">
             <span className="font-sans text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">
               {exchangingOrder ? "Due" : "Total"}
             </span>
             <span className="font-sans text-2xl font-semibold tabular-nums tracking-tight text-emerald-400">
-              ₹{exchangingOrder ? amountDue : getGrandTotal()}
+              ₹{exchangingOrder ? amountDue : newTotal}
             </span>
           </div>
 
