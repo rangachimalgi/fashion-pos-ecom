@@ -72,7 +72,7 @@ export default function ShopCategoryPage() {
         if (error) throw error;
 
         const formatted =
-          (data?.map((item: Record<string, unknown>) => ({
+          (data?.filter((item: Record<string, unknown>) => !item.pos_only).map((item: Record<string, unknown>) => ({
             ...item,
             variants: (item.product_variants as ProductVariant[]) || [],
           })) as CompleteProduct[]) || [];

@@ -47,6 +47,7 @@ Never change schema only in the dashboard without a matching file here.
 | `036_coupons.sql` | Admin coupons (% or ₹ off, min bill, dates, total / per-customer limits, online / store / both). `place_order` gains `p_coupon_code`; coupon bills are priced from MRP and the discount is spread into line prices | Run after 032 and 034 |
 | `037_customers_messaging.sql` | Customers (email, birthday, anniversary, offers consent), personal one-time coupons, editable bill / birthday / anniversary / offer templates, message log. Used by POS + bag + Admin → Messages (WhatsApp click-to-send + Gmail email) | Run after 036 |
 | `038_bill_occasion_coupons.sql` | Bill messages in the customer's birthday / anniversary month also carry that occasion's coupon (opted-in customers only; same yearly code as the wish) | Run after 037 |
+| `039_pos_quick_items.sql` | POS **+ ITEM**: sell a piece that isn't in the catalog (or shows no stock) by typing name + price; saved as a store-only product hidden from the online shop until admin publishes it | Run after 013 |
 ## Security model (after 013)
 
 - Catalog tables: public read, staff-only write (`is_staff()` = row in `profiles`).

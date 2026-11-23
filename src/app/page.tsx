@@ -40,7 +40,7 @@ function CustomerStorefrontInner() {
 
         if (error) throw error;
 
-        const formattedData = data?.map((item: Record<string, unknown>) => ({
+        const formattedData = data?.filter((item: Record<string, unknown>) => !item.pos_only).map((item: Record<string, unknown>) => ({
           ...item,
           variants: (item.product_variants as ProductVariant[]) || [],
         })) as CompleteProduct[] || [];

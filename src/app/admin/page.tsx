@@ -418,6 +418,11 @@ export default function AdminPanelPage() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {product.brand}
+                        {product.pos_only ? (
+                          <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                            Store only
+                          </span>
+                        ) : null}
                       </TableCell>
                       <TableCell className="text-sm font-medium">
                         <p>₹{product.base_price}</p>

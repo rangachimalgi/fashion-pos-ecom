@@ -47,6 +47,7 @@ import {
 } from '@/lib/coupons';
 import { getCustomer, saveCustomer, validateEmail } from '@/lib/messaging';
 import { PosSearchSuggestions } from '@/components/pos/PosSearchSuggestions';
+import { QuickItemPanel, type QuickItemPrefill } from '@/components/pos/QuickItemPanel';
 import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
 import { PosHistoryPanel } from '@/components/pos/PosHistoryPanel';
 import type { CartItem } from '@/store/useCartStore';
@@ -90,6 +91,8 @@ export default function BillingTerminal() {
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [quickOffer, setQuickOffer] = useState<QuickItemPrefill | null>(null);
+  const [quickItem, setQuickItem] = useState<QuickItemPrefill | null>(null);
   const [eanInput, setEanInput] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
@@ -287,16 +290,19 @@ export default function BillingTerminal() {
     const available =
       Number(variant.stock_quantity ?? 0) + reservedQtyOnOrder(editingOrder, variant.id);
 
+    const offer = { name: product.name, price: Number(product.base_price), size: variant.size };
     if (available <= 0) {
       setLookupError(
         `${product.name} · ${variant.size} is out of stock (MRP ₹${product.base_price})`
       );
+      setQuickOffer(offer);
       return false;
     }
 
     const already = ticket.find((item) => item.variant.id === variant.id);
     if (already && already.quantity >= available) {
       setLookupError(`Only ${available} in stock for ${product.name} · ${variant.size}`);
+      setQuickOffer(offer);
       return false;
     }
 
@@ -310,8 +316,23 @@ export default function BillingTerminal() {
     return true;
   };
 
+  const openQuickItem = (prefill: QuickItemPrefill) => {
+    setQuickItem(prefill);
+    setQuickOffer(null);
+    setLookupError(null);
+  };
+
+  const handleQuickAdded = (product: CompleteProduct, variant: ProductVariant) => {
+    addItemToTicket(product, variant);
+    setLineDiscount(variant.id, 0);
+    setQuickItem(null);
+    setStatus(`${product.name}${variant.size !== 'Free' ? ` · ${variant.size}` : ''} · ₹${product.base_price} added`);
+    eanRef.current?.focus();
+  };
+
   const handlePick = (product: CompleteProduct, variant: ProductVariant) => {
     setLookupError(null);
+    setQuickOffer(null);
     if (addVariantToTicket(product, variant)) {
       setEanInput('');
       setSuggestOpen(false);
@@ -327,12 +348,14 @@ export default function BillingTerminal() {
 
     setLookingUp(true);
     setLookupError(null);
+    setQuickOffer(null);
     setStatus(null);
 
     try {
       const hit = await lookupPosByEan(supabase, code);
       if (!hit) {
         setLookupError(`No product for “${code}”. Pick one from the suggestions, or check the code.`);
+        setQuickOffer(/^\d+$/.test(code) ? {} : { name: code });
         return;
       }
       if (!addVariantToTicket(hit.product, hit.variant)) return;
@@ -920,6 +943,18 @@ export default function BillingTerminal() {
           </button>
           <button
             type="button"
+            onClick={() => (quickItem ? setQuickItem(null) : openQuickItem({}))}
+            title="Add an item that isn't in the catalog"
+            className={`rounded-lg border px-3 text-xs font-black tracking-wider ${
+              quickItem
+                ? 'border-emerald-400 bg-emerald-500/15 text-emerald-200'
+                : 'border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10'
+            }`}
+          >
+            + ITEM
+          </button>
+          <button
+            type="button"
             disabled={ticket.length === 0}
             onClick={() => {
               replaceTicket([]);
@@ -934,7 +969,29 @@ export default function BillingTerminal() {
           </button>
         </form>
         {lookupError ? (
-          <p className="mb-3 text-xs font-sans text-rose-400">{lookupError}</p>
+          <p className="mb-3 flex flex-wrap items-center gap-2 text-xs font-sans text-rose-400">
+            {lookupError}
+            {quickOffer ? (
+              <button
+                type="button"
+                onClick={() => openQuickItem(quickOffer)}
+                className="rounded-md border border-emerald-500/50 px-2 py-0.5 font-semibold text-emerald-300 hover:bg-emerald-500/10"
+              >
+                Add as quick item
+              </button>
+            ) : null}
+          </p>
+        ) : null}
+        {quickItem ? (
+          <QuickItemPanel
+            key={`${quickItem.name ?? ''}|${quickItem.price ?? ''}|${quickItem.size ?? ''}`}
+            prefill={quickItem}
+            onAdded={handleQuickAdded}
+            onClose={() => {
+              setQuickItem(null);
+              eanRef.current?.focus();
+            }}
+          />
         ) : null}
         {editingOrder ? (
           <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">

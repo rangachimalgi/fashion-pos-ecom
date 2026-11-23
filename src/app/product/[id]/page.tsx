@@ -38,7 +38,7 @@ export default function ProductDetailsView() {
 
         if (error) throw error;
 
-        if (data) {
+        if (data && !data.pos_only) {
           const formatted: CompleteProduct = {
             ...data,
             variants: data.product_variants || []

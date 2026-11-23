@@ -15,6 +15,9 @@ export interface Product {
     category?: string | null;
     /** Department: Men, Women, Kids */
     department?: string | null;
+    /** Added on the fly at the POS; hidden from the online shop until an admin publishes it. */
+    pos_only?: boolean | null;
+    quick_added_at?: string | null;
     created_at: string;
   }
   

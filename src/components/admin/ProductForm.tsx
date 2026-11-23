@@ -62,6 +62,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [showOnline, setShowOnline] = useState(false);
 
   const [form, setForm] = useState({
     name: product?.name ?? "",
@@ -352,6 +353,16 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         }
       }
 
+      if (product?.pos_only && showOnline && productId) {
+        const { error: publishError } = await supabase
+          .from("products")
+          .update({ pos_only: false })
+          .eq("id", productId);
+        if (publishError) {
+          throw new Error(publishError.message + mutationHint(publishError.message, publishError.code));
+        }
+      }
+
       if (galleryColumnMissing && imageUrls.length > 1) {
         setWarning(
           `Saved with the cover image only. Run supabase/migrations/003_product_image_urls.sql to keep all ${imageUrls.length} gallery images.`
@@ -442,6 +453,23 @@ export function ProductForm({ mode, product }: ProductFormProps) {
               </div>
             ) : null}
           </div>
+
+          {product?.pos_only ? (
+            <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+              <p>
+                Quick item added at the billing counter — store-only, not shown in the online shop.
+                Fill in the brand, category and photos, then switch it on.
+              </p>
+              <label className="flex items-center gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  checked={showOnline}
+                  onChange={(event) => setShowOnline(event.target.checked)}
+                />
+                Show in online shop
+              </label>
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
