@@ -45,7 +45,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Email is not set up. Add GMAIL_USER and GMAIL_APP_PASSWORD to .env.local (a Gmail App Password, not the normal password) and restart the server.",
+          process.env.NODE_ENV === "production"
+            ? "Email is not set up on the live site. Add GMAIL_USER and GMAIL_APP_PASSWORD in Netlify → Site configuration → Environment variables, then redeploy."
+            : "Email is not set up. Add GMAIL_USER and GMAIL_APP_PASSWORD to .env.local (a Gmail App Password, not the normal password) and restart the server.",
       },
       { status: 503 }
     );
