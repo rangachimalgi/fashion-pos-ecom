@@ -21,6 +21,7 @@ import {
   normalizeCouponCode,
   type AppliedCoupon,
 } from "@/lib/coupons";
+import { validateEmail } from "@/lib/messaging";
 
 export default function BagPage() {
   const {
@@ -45,6 +46,8 @@ export default function BagPage() {
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [checkingCoupon, setCheckingCoupon] = useState(false);
+  const [contactEmail, setContactEmail] = useState("");
+  const [offersOptIn, setOffersOptIn] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -123,6 +126,11 @@ export default function BagPage() {
       setError(`Add ₹${couponShort} more to use ${coupon.code}, or remove the coupon.`);
       return;
     }
+    const emailError = validateEmail(contactEmail);
+    if (emailError) {
+      setError(emailError);
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -136,6 +144,7 @@ export default function BagPage() {
         })),
         shipping,
         coupon_code: coupon?.code ?? null,
+        customer_profile: { email: contactEmail.trim(), opt_in: offersOptIn },
       });
 
       clearCart();
@@ -353,6 +362,22 @@ export default function BagPage() {
                         updateShipping("pincode", event.target.value.replace(/\D/g, "").slice(0, 6))
                       }
                     />
+                    <Input
+                      type="email"
+                      placeholder="Email (optional)"
+                      autoComplete="email"
+                      value={contactEmail}
+                      onChange={(event) => setContactEmail(event.target.value)}
+                    />
+                    <label className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-500">
+                      <input
+                        type="checkbox"
+                        checked={offersOptIn}
+                        onChange={(event) => setOffersOptIn(event.target.checked)}
+                        className="mt-0.5"
+                      />
+                      Send me offers and birthday wishes on WhatsApp / email
+                    </label>
                     <p className="text-[11px] leading-relaxed text-slate-400">
                       We’ll use this number to confirm the order. No login or OTP.
                     </p>

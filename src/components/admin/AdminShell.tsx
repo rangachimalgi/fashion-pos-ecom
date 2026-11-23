@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { Barcode, ClipboardList, FileSpreadsheet, Home, LayoutGrid, Menu, MonitorSmartphone, Receipt, ScrollText, Tags, TicketPercent, Trash2, Users } from "lucide-react";
+import { Barcode, ClipboardList, FileSpreadsheet, Home, LayoutGrid, Menu, MessageCircle, MonitorSmartphone, Receipt, ScrollText, Tags, TicketPercent, Trash2, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +51,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Coupons",
     icon: TicketPercent,
     active: (p) => p.startsWith("/admin/coupons"),
+  },
+  {
+    href: "/admin/messages",
+    label: "Messages",
+    icon: MessageCircle,
+    active: (p) => p.startsWith("/admin/messages"),
   },
   {
     href: "/admin/receipt",

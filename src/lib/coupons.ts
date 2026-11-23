@@ -177,7 +177,11 @@ export async function listCoupons(supabase: SupabaseClient) {
     });
   }
 
-  return ((list.data ?? []) as Array<Record<string, unknown>>).map((row) => {
+  // Personal codes made for one customer's message are listed in Admin → Messages.
+  const shared = ((list.data ?? []) as Array<Record<string, unknown>>).filter(
+    (row) => row.restricted_phone == null
+  );
+  return shared.map((row) => {
     const coupon = toCoupon(row);
     return {
       coupon,

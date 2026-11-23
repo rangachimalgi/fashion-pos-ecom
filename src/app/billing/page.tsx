@@ -45,6 +45,7 @@ import {
   normalizeCouponCode,
   type AppliedCoupon,
 } from '@/lib/coupons';
+import { getCustomer, saveCustomer, validateEmail } from '@/lib/messaging';
 import { PosSearchSuggestions } from '@/components/pos/PosSearchSuggestions';
 import { PosReceiptPreview } from '@/components/pos/PosReceiptPreview';
 import { PosHistoryPanel } from '@/components/pos/PosHistoryPanel';
@@ -74,6 +75,12 @@ export default function BillingTerminal() {
   const [paymentMode, setPaymentMode] = useState<PaymentMethod>('CASH');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerBirthday, setCustomerBirthday] = useState('');
+  const [customerAnniversary, setCustomerAnniversary] = useState('');
+  const [customerOptIn, setCustomerOptIn] = useState(false);
+  const [customerMoreOpen, setCustomerMoreOpen] = useState(false);
+  const [knownCustomer, setKnownCustomer] = useState(false);
   const [stashedSale, setStashedSale] = useState<{
     ticket: CartItem[];
     payment: PaymentMethod;
@@ -375,6 +382,34 @@ export default function BillingTerminal() {
     setCouponError(null);
   };
 
+  const resetCustomerExtras = () => {
+    setCustomerEmail('');
+    setCustomerBirthday('');
+    setCustomerAnniversary('');
+    setCustomerOptIn(false);
+    setCustomerMoreOpen(false);
+    setKnownCustomer(false);
+  };
+
+  // Fill email / birthday / anniversary / consent for a returning customer.
+  const lookupCustomer = (phone: string, fillName: boolean) => {
+    if (!/^[6-9]\d{9}$/.test(phone)) return;
+    getCustomer(supabase, phone)
+      .then((profile) => {
+        if (!profile) {
+          setKnownCustomer(false);
+          return;
+        }
+        setKnownCustomer(true);
+        if (fillName && profile.name) setCustomerName((current) => current.trim() || profile.name);
+        setCustomerEmail(profile.email ?? '');
+        setCustomerBirthday(profile.birthday ?? '');
+        setCustomerAnniversary(profile.anniversary ?? '');
+        setCustomerOptIn(profile.marketing_opt_in);
+      })
+      .catch(() => setKnownCustomer(false));
+  };
+
   // A bill that was already paid in cash for this same amount keeps the cash it
   // recorded; anything else paid in cash needs the notes/coins entered.
   const cashUnchanged =
@@ -427,6 +462,8 @@ export default function BillingTerminal() {
       setPickedSalesPersonId('');
       setCustomerName(order.shipping?.customer_name ?? '');
       setCustomerPhone(order.shipping?.customer_phone ?? '');
+      resetCustomerExtras();
+      lookupCustomer(order.shipping?.customer_phone ?? '', false);
       tender.reset();
       setPaymentMode(order.payment_method === 'UPI' ? 'UPI' : 'CASH');
       setDeskView('sale');
@@ -463,6 +500,8 @@ export default function BillingTerminal() {
       setPickedSalesPersonId('');
       setCustomerName(order.shipping?.customer_name ?? '');
       setCustomerPhone(order.shipping?.customer_phone ?? '');
+      resetCustomerExtras();
+      lookupCustomer(order.shipping?.customer_phone ?? '', false);
       tender.reset();
       setPaymentMode('CASH');
       setDeskView('sale');
@@ -479,10 +518,13 @@ export default function BillingTerminal() {
       setCustomerName(stashedSale.customerName);
       setCustomerPhone(stashedSale.customerPhone);
       setStashedSale(null);
+      resetCustomerExtras();
+      lookupCustomer(stashedSale.customerPhone, false);
     } else {
       replaceTicket([]);
       setCustomerName('');
       setCustomerPhone('');
+      resetCustomerExtras();
     }
     setEditingOrder(null);
     setExchangingOrder(null);
@@ -530,6 +572,13 @@ export default function BillingTerminal() {
 
     if (activeCoupon && couponShort > 0) {
       setStatus(`Coupon ${activeCoupon.code} needs ₹${couponShort} more on the bill. Add items or remove the coupon.`);
+      return;
+    }
+
+    const emailError = validateEmail(customerEmail);
+    if (emailError) {
+      setCustomerMoreOpen(true);
+      setStatus(emailError);
       return;
     }
 
@@ -620,8 +669,24 @@ export default function BillingTerminal() {
         );
       }
 
-      setReceipt(
-        buildPosReceipt(snapshot, {
+      // The bill is posted; a problem saving the customer profile shouldn't block it.
+      let profileNote = '';
+      try {
+        await saveCustomer(supabase, {
+          phone: shipping.customer_phone,
+          name: shipping.customer_name,
+          email: customerEmail,
+          birthday: customerBirthday,
+          anniversary: customerAnniversary,
+          optIn: customerOptIn,
+        });
+      } catch (err) {
+        profileNote = ` · customer details not saved (${err instanceof Error ? err.message : 'error'})`;
+      }
+      if (profileNote) setStatus((current) => `${current ?? ''}${profileNote}`);
+
+      setReceipt({
+        ...buildPosReceipt(snapshot, {
           orderId,
           payment: paymentMode,
           attendedBy: attended,
@@ -632,8 +697,9 @@ export default function BillingTerminal() {
           exchangeCredit: postedCredit,
           amountDue: postedDue,
           coupon: activeCoupon,
-        })
-      );
+        }),
+        customerEmail: customerEmail.trim() || null,
+      });
       setReceiptPosted(true);
       setPosCoupon(null);
       setCouponInput('');
@@ -641,6 +707,7 @@ export default function BillingTerminal() {
       setPickedSalesPersonId('');
       setCustomerName('');
       setCustomerPhone('');
+      resetCustomerExtras();
       tender.reset();
       setStashedSale(null);
       const goHistory = Boolean(editingOrder || exchangingOrder);
@@ -1118,14 +1185,79 @@ export default function BillingTerminal() {
                   type="tel"
                   inputMode="numeric"
                   value={customerPhone}
-                  onChange={(event) =>
-                    setCustomerPhone(event.target.value.replace(/\D/g, "").slice(0, 10))
-                  }
+                  onChange={(event) => {
+                    const next = event.target.value.replace(/\D/g, "").slice(0, 10);
+                    setCustomerPhone(next);
+                    if (next.length === 10 && next !== customerPhone) {
+                      resetCustomerExtras();
+                      lookupCustomer(next, true);
+                    }
+                  }}
                   placeholder="Mobile"
                   autoComplete="tel"
                   className="h-9 w-full rounded-md border border-slate-600 bg-slate-950 pl-10 pr-2.5 font-sans text-sm tabular-nums text-white outline-none placeholder:text-slate-600 focus:border-emerald-500/50"
                 />
               </div>
+              <button
+                type="button"
+                onClick={() => setCustomerMoreOpen((open) => !open)}
+                className="flex w-full items-center justify-between font-sans text-[11px] text-slate-400 hover:text-slate-200"
+              >
+                <span>
+                  {knownCustomer ? "Returning customer · " : ""}
+                  {[
+                    customerEmail ? "email" : null,
+                    customerBirthday ? "birthday" : null,
+                    customerAnniversary ? "anniversary" : null,
+                    customerOptIn ? "offers ✓" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Add email, birthday…"}
+                </span>
+                <span className="text-slate-500">{customerMoreOpen ? "▲" : "▼"}</span>
+              </button>
+              {customerMoreOpen ? (
+                <div className="space-y-1.5 rounded-md border border-slate-700/80 bg-slate-900/40 p-2">
+                  <input
+                    type="email"
+                    value={customerEmail}
+                    onChange={(event) => setCustomerEmail(event.target.value)}
+                    placeholder="Email (optional)"
+                    autoComplete="email"
+                    className="h-8 w-full rounded-md border border-slate-600 bg-slate-950 px-2.5 font-sans text-xs text-white outline-none placeholder:text-slate-600 focus:border-emerald-500/50"
+                  />
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <label className="font-sans text-[10px] text-slate-500">
+                      Birthday
+                      <input
+                        type="date"
+                        value={customerBirthday}
+                        max={todayInShop()}
+                        onChange={(event) => setCustomerBirthday(event.target.value)}
+                        className="mt-0.5 h-8 w-full rounded-md border border-slate-600 bg-slate-950 px-1.5 text-[11px] text-white outline-none scheme-dark focus:border-emerald-500/50"
+                      />
+                    </label>
+                    <label className="font-sans text-[10px] text-slate-500">
+                      Anniversary
+                      <input
+                        type="date"
+                        value={customerAnniversary}
+                        onChange={(event) => setCustomerAnniversary(event.target.value)}
+                        className="mt-0.5 h-8 w-full rounded-md border border-slate-600 bg-slate-950 px-1.5 text-[11px] text-white outline-none scheme-dark focus:border-emerald-500/50"
+                      />
+                    </label>
+                  </div>
+                  <label className="flex items-start gap-2 font-sans text-[11px] leading-snug text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={customerOptIn}
+                      onChange={(event) => setCustomerOptIn(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    Customer agrees to get offers & wishes on WhatsApp / email
+                  </label>
+                </div>
+              ) : null}
             </div>
           </div>
 

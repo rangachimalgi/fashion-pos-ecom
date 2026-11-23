@@ -45,6 +45,8 @@ Never change schema only in the dashboard without a matching file here.
 | `034_admin_no_margin_floor.sql` | Admin POS discounts ignore the cost + 5% floor (still max 100% of MRP); manager/staff keep the floor | Run after 017 |
 | `035_staff_discount_drawer_notes.sql` | Staff POS discount cap 2% → 10%; staff can see how many of each note/coin is in the till (editing stays admin-only) | Run after 023 |
 | `036_coupons.sql` | Admin coupons (% or ₹ off, min bill, dates, total / per-customer limits, online / store / both). `place_order` gains `p_coupon_code`; coupon bills are priced from MRP and the discount is spread into line prices | Run after 032 and 034 |
+| `037_customers_messaging.sql` | Customers (email, birthday, anniversary, offers consent), personal one-time coupons, editable bill / birthday / anniversary / offer templates, message log. Used by POS + bag + Admin → Messages (WhatsApp click-to-send + Gmail email) | Run after 036 |
+| `038_bill_occasion_coupons.sql` | Bill messages in the customer's birthday / anniversary month also carry that occasion's coupon (opted-in customers only; same yearly code as the wish) | Run after 037 |
 ## Security model (after 013)
 
 - Catalog tables: public read, staff-only write (`is_staff()` = row in `profiles`).

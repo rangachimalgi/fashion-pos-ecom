@@ -6,6 +6,7 @@ export async function submitOnlineOrder(input: {
   items: Array<{ variant_id: string; quantity: number }>;
   shipping: ShippingDetails;
   coupon_code?: string | null;
+  customer_profile?: { email: string; opt_in: boolean };
 }): Promise<CheckoutResponse> {
   const response = await fetch("/api/checkout", {
     method: "POST",

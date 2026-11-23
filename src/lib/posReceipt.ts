@@ -15,12 +15,15 @@ export type ReceiptLine = {
 };
 
 export type PosReceipt = {
+  /** Set once the bill is posted (used to send it on WhatsApp / email). */
+  orderId?: string | null;
   billNo: string;
   dateLabel: string;
   timeLabel: string;
   attendedBy: string;
   customerName?: string | null;
   customerPhone?: string | null;
+  customerEmail?: string | null;
   payment: string;
   lines: ReceiptLine[];
   itemCount: number;
@@ -110,6 +113,7 @@ export function buildPosReceipt(
   const min = String(at.getMinutes()).padStart(2, "0");
 
   return {
+    orderId: options.orderId === "preview" ? null : options.orderId,
     billNo: formatReceiptBillNo(options.orderId, at),
     dateLabel: `${dd}/${mm}/${yy}`,
     timeLabel: `${hh}:${min}`,
@@ -172,6 +176,7 @@ export function buildPosReceiptFromOrder(
   const min = String(at.getMinutes()).padStart(2, "0");
 
   return {
+    orderId: order.id,
     billNo: formatReceiptBillNo(order.id, at),
     dateLabel: `${dd}/${mm}/${yy}`,
     timeLabel: `${hh}:${min}`,

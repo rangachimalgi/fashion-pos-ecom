@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { CheckoutError, placeOrder } from '@/lib/placeOrder';
 import type { CheckoutRequest } from '@/types/order';
+import { validateEmail } from '@/lib/messaging';
 
 /**
  * Public online checkout (web bag + mobile app).
@@ -35,6 +36,22 @@ export async function POST(request: Request) {
       shipping: body.shipping,
       coupon_code: typeof body.coupon_code === 'string' ? body.coupon_code : null,
     });
+
+    // Optional email + offers consent; the order is already placed, so never fail on this.
+    const profile = (body as { customer_profile?: { email?: unknown; opt_in?: unknown } }).customer_profile;
+    if (body.shipping?.customer_phone) {
+      const email = typeof profile?.email === 'string' ? profile.email.trim() : '';
+      const { error } = await getSupabaseAdmin().rpc('_save_customer', {
+        p_phone: body.shipping.customer_phone,
+        p_name: body.shipping.customer_name ?? '',
+        p_email: email && !validateEmail(email) ? email : null,
+        p_birthday: null,
+        p_anniversary: null,
+        p_opt_in: profile?.opt_in === true ? true : null,
+      });
+      if (error) console.warn('[checkout] customer profile not saved', error.message);
+    }
+
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof CheckoutError) {
