@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 import { toCheckoutError } from "@/lib/placeOrder";
+import { canonicalSize } from "@/lib/sizes";
 
 export const QUICK_ITEM_NAMES = ["T-shirt", "Shirt", "Jeans", "Trouser", "Kurti", "Saree", "Leggings", "Dupatta"];
 
@@ -31,7 +32,7 @@ export async function quickAddItem(
     p_name: input.name.trim(),
     p_price: input.price,
     p_quantity: input.quantity,
-    p_size: input.size?.trim() || null,
+    p_size: input.size?.trim() ? canonicalSize(input.size) : null,
   });
   if (error) {
     if (error.code === "PGRST202" || /could not find/i.test(error.message)) {

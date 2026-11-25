@@ -324,7 +324,6 @@ export default function BillingTerminal() {
 
   const handleQuickAdded = (product: CompleteProduct, variant: ProductVariant) => {
     addItemToTicket(product, variant);
-    setLineDiscount(variant.id, 0);
     setQuickItem(null);
     setStatus(`${product.name}${variant.size !== 'Free' ? ` · ${variant.size}` : ''} · ₹${product.base_price} added`);
     eanRef.current?.focus();

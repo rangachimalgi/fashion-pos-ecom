@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { QUICK_ITEM_NAMES, quickAddItem, validateQuickItem } from "@/lib/posQuickItem";
+import { SIZE_SUGGESTIONS, canonicalSize, metresFromSize } from "@/lib/sizes";
 import type { CompleteProduct, ProductVariant } from "@/types/product";
 
 export type QuickItemPrefill = { name?: string; price?: number; size?: string };
@@ -75,6 +76,25 @@ export function QuickItemPanel({
         ))}
       </div>
 
+      <div className="mb-2 flex flex-wrap gap-1">
+        {SIZE_SUGGESTIONS.filter((label) => label !== "OS").map((label) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => setSize(label)}
+            className={`rounded-full border px-2.5 py-0.5 text-[11px] ${
+              canonicalSize(size) === label
+                ? "border-emerald-400 bg-emerald-500/15 text-emerald-200"
+                : metresFromSize(label) !== null
+                  ? "border-sky-500/40 text-sky-300 hover:text-sky-100"
+                  : "border-slate-600 text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <input
           autoFocus
@@ -98,8 +118,8 @@ export function QuickItemPanel({
         <input
           value={size}
           onChange={(event) => setSize(event.target.value)}
-          placeholder="Size"
-          className={`${field} w-20`}
+          placeholder="M or 2 mts"
+          className={`${field} w-28`}
         />
         <input
           type="number"
@@ -121,7 +141,7 @@ export function QuickItemPanel({
 
       {error ? <p className="mt-2 text-xs text-rose-400">{error}</p> : null}
       <p className="mt-2 text-[10px] text-slate-500">
-        Price is what the customer pays. It&apos;s saved as a store-only item — admin can finish it later in Products.
+        Price is the MRP. The usual discount (10% unless you changed it) comes off, same as a scanned item. Size can be S–XXL or fabric length (2 mts, 5.5 mts).
       </p>
     </form>
   );

@@ -26,6 +26,15 @@ export const SIZE_SUGGESTIONS = [
 
 const CLOTHING_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "FREE SIZE", "OS", "ONE SIZE"] as const;
 
+/** "2.50 mts", "2.5m", "2 metre" → "2.5 mts". Clothing sizes are left as typed. */
+export function canonicalSize(size: string): string {
+  const trimmed = size.trim();
+  const metres = metresFromSize(trimmed);
+  if (metres === null || metres <= 0) return trimmed;
+  const rounded = Math.round(metres * 100) / 100;
+  return `${String(rounded)} mts`;
+}
+
 /** "2 mts", "2.5m", "2 metre", "2 meters" → metres as a number, or null. */
 export function metresFromSize(size: string): number | null {
   const match = size
