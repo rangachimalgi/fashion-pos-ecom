@@ -20,7 +20,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 px-5 py-2.5 text-sm">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-right font-medium break-words">{children}</dd>
+      <dd className="min-w-0 text-right font-medium wrap-break-word">{children}</dd>
     </div>
   );
 }
@@ -72,7 +72,7 @@ export function OrderDetailView({
             <p className="px-5 py-12 text-center text-sm text-muted-foreground">No line items stored for this order.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] text-sm">
+              <table className="w-full min-w-120 text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
                     <th className="px-5 py-2.5 font-medium">Item</th>
