@@ -156,7 +156,7 @@ export function CashTender({
             onClick={tender.clear}
             className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300 hover:bg-slate-800"
           >
-            Clear
+            Clearr
           </button>
         </span>
       </div>
