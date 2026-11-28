@@ -325,12 +325,6 @@ export default function AdminPanelPage() {
             </div>
 
             <Link
-              href="/admin/import"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 bg-white")}
-            >
-              Import invoice
-            </Link>
-            <Link
               href="/admin/products/new"
               className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
             >

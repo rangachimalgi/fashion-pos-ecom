@@ -21,6 +21,7 @@ Never change schema only in the dashboard without a matching file here.
 
 | File | What it does | Status you should check |
 |------|----------------|-------------------------|
+| `000_products.sql` | Creates `products` and `product_variants`. Required on a brand-new project before 001 | Run first on a new Supabase project |
 | `001_rls_product_inserts.sql` | Allow anon insert on products/variants | Likely already applied |
 | `002_product_department_category.sql` | Adds `department` + `category` columns | **Run this if category filter is empty** |
 | `013_secure_rls_and_order_functions.sql` | Replaces every anonymous policy with staff-only writes; moves checkout / POS edit / POS delete into transactional functions | **Run together with the matching app deploy** (see below) |

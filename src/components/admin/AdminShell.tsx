@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { Barcode, ClipboardList, FileSpreadsheet, Home, LayoutGrid, Menu, MessageCircle, MonitorSmartphone, Receipt, ScrollText, Tags, TicketPercent, Trash2, Users } from "lucide-react";
+import { Barcode, ClipboardList, Home, LayoutGrid, Menu, MessageCircle, MonitorSmartphone, Receipt, ScrollText, Tags, TicketPercent, Trash2, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,12 +20,19 @@ import { supabase } from "@/lib/supabaseClient";
 import { countPendingDeleteRequests } from "@/lib/deleteRequests";
 import { countPendingLeaves } from "@/lib/attendance";
 
+type NavChild = {
+  href: string;
+  label: string;
+  active: (pathname: string) => boolean;
+};
+
 type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
   active: (pathname: string) => boolean;
   badge?: "deletes" | "leaves";
+  children?: NavChild[];
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -42,9 +49,16 @@ const NAV_ITEMS: NavItem[] = [
     active: (p) => p === "/admin" || p.startsWith("/admin/products"),
   },
   { href: "/admin/orders", label: "Orders", icon: Receipt, active: (p) => p.startsWith("/admin/orders") },
-  { href: "/admin/purchases", label: "Purchases", icon: ClipboardList, active: (p) => p.startsWith("/admin/purchases") },
+  {
+    href: "/admin/purchases",
+    label: "Purchases",
+    icon: ClipboardList,
+    active: (p) => p.startsWith("/admin/purchases"),
+    children: [
+      { href: "/admin/import", label: "Import", active: (p) => p.startsWith("/admin/import") },
+    ],
+  },
   { href: "/admin/categories", label: "Categories", icon: Tags, active: (p) => p.startsWith("/admin/categories") },
-  { href: "/admin/import", label: "Import", icon: FileSpreadsheet, active: (p) => p.startsWith("/admin/import") },
   { href: "/admin/tags", label: "Hang tags", icon: Barcode, active: (p) => p.startsWith("/admin/tags") },
   {
     href: "/admin/coupons",
@@ -116,8 +130,8 @@ function NavLinks({
         const active = item.active(pathname);
         const count = item.badge ? counts[item.badge] : 0;
         return (
+          <div key={item.href} className="flex flex-col gap-1">
           <Link
-            key={item.href}
             href={item.href}
             onClick={onNavigate}
             className={cn(
@@ -146,6 +160,23 @@ function NavLinks({
               </span>
             ) : null}
           </Link>
+          {item.children?.map((child) => (
+            <Link
+              key={child.href}
+              href={child.href}
+              onClick={onNavigate}
+              className={cn(
+                "rounded-lg py-1.5 pr-2.5 pl-9 text-sm font-medium",
+                rail && "hidden group-hover/sidebar:block group-has-[:focus-visible]/sidebar:block",
+                child.active(pathname)
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {child.label}
+            </Link>
+          ))}
+          </div>
         );
       })}
     </nav>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { FileSpreadsheet, Plus, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { listPurchases, type PurchaseSummary } from "@/lib/purchases";
 import { periodLabel } from "@/lib/salesReport";
@@ -85,6 +85,13 @@ export default function PurchasesPage() {
             className="h-9 w-64 bg-white pl-8"
           />
         </div>
+        <Link
+          href="/admin/import"
+          className={cn(buttonVariants({ variant: "outline" }), "gap-1.5 bg-white")}
+        >
+          <FileSpreadsheet className="size-4" />
+          Import
+        </Link>
         <Link href="/admin/purchases/new" className={cn(buttonVariants(), "gap-1.5")}>
           <Plus className="size-4" />
           New purchase
